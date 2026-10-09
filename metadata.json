@@ -1,0 +1,6 @@
+{
+  "name": "FinteKia",
+  "description": "Software Contable, Facturación Electrónica DIAN y Planificación de Producción (MRP) para empresas colombianas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

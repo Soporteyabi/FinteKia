@@ -1,0 +1,500 @@
+import { AppState, Company, Tercero, Product, InventoryItem, InventoryMovement, Warehouse, Asset, PucAccount, CostCenter, Voucher, BankAccount, BankTransaction, BOM, ProductionOrder, QualityInspection, PackagingLog, PayrollLog, Budget, TechServiceOrder } from './types';
+
+// Initial default Colombian PUC Accounts
+export const DEFAULT_PUC: PucAccount[] = [
+  { code: '110505', name: 'Caja General', nature: 'debito', type: 'activo' },
+  { code: '111005', name: 'Bancos - Cuenta Corriente Nal.', nature: 'debito', type: 'activo' },
+  { code: '130505', name: 'Clientes Nacionales', nature: 'debito', type: 'activo' },
+  { code: '140501', name: 'Inventario de Materias Primas', nature: 'debito', type: 'activo' },
+  { code: '143501', name: 'Inventario de Productos Terminados', nature: 'debito', type: 'activo' },
+  { code: '220505', name: 'Proveedores Nacionales', nature: 'credito', type: 'pasivo' },
+  { code: '236540', name: 'Retención en la Fuente - Compras 2.5%', nature: 'credito', type: 'pasivo' },
+  { code: '240805', name: 'Impuesto sobre las Ventas por Pagar (IVA 19%)', nature: 'credito', type: 'pasivo' },
+  { code: '311505', name: 'Aportes Sociales', nature: 'credito', type: 'patrimonio' },
+  { code: '413501', name: 'Ventas de Productos de Panadería', nature: 'credito', type: 'ingreso' },
+  { code: '510506', name: 'Gastos de Personal - Sueldos', nature: 'debito', type: 'gasto' },
+  { code: '510527', name: 'Gastos - Auxilio de Transporte', nature: 'debito', type: 'gasto' },
+  { code: '513505', name: 'Gastos - Servicios Públicos', nature: 'debito', type: 'gasto' },
+  { code: '613501', name: 'Costo de Ventas', nature: 'debito', type: 'costo' },
+];
+
+export const INITIAL_COMPANIES: Company[] = [
+  {
+    id: 'co-1',
+    name: 'FinteKia Tech & Solutions S.A.S.',
+    nit: '901.455.120-3',
+    slogan: 'Tecnología, Hardware, Servicios TI & Facturación Electrónica',
+    address: 'Cl. 93 # 12-40 Of. 501, Bogotá D.C.',
+    regimen: 'responsable',
+    currency: 'COP',
+    period: 2026,
+    businessType: 'tecnologia_servicios',
+    enableProduction: false, // Production module starts DEACTIVATED by default for the tech enterprise!
+    enableTechServices: true,
+    billingConfig: {
+      providerType: 'tercero_proveedor',
+      providerName: 'Alanube',
+      providerNit: '901.464.305-6',
+      clientId: 'ala_cli_live_98a72b4c8102',
+      clientSecret: 'ala_sec_f9823be800e2194ad9b3c4f',
+      apiEndpoint: 'https://api.alanube.co/dian/v1/invoices',
+      apiToken: 'ala_live_sec_98f7e2a4d3_auth_key',
+      environment: 'produccion',
+      prefix: 'FE',
+      resolutionNumber: '187640000099',
+      resolutionDate: '2026-01-15',
+      authorizedRangeFrom: 101,
+      authorizedRangeTo: 10000,
+      technicalKey: 'ala8eac822301a1d2e1f4b',
+      softwareId: '6b2d189f-299f-4318-8f81-591741ac4e82',
+      pin: '75421',
+      testSetId: '',
+      autoSendEmail: true,
+      lastTestStatus: 'success',
+      lastTestTimestamp: '2026-03-28T14:32:00Z',
+      lastTestMessage: 'Conexión DIAN validada exitosamente vía Alanube Cloud API. Certificado y folios activos.',
+      availableCredits: 4850
+    },
+    payrollParameters: { smmlv: 1423500, auxTransporte: 172000 },
+  },
+  {
+    id: 'co-2',
+    name: 'Alimentos del Norte Limitada',
+    nit: '800.224.990-1',
+    slogan: 'Manufactura Industrial de Harinas y Panificación (MRP)',
+    address: 'Av. Cero # 85-30, Cúcuta',
+    regimen: 'simple',
+    currency: 'COP',
+    period: 2026,
+    businessType: 'produccion',
+    enableProduction: true, // Production module activated for manufacturing
+    enableTechServices: false,
+    billingConfig: {
+      providerType: 'tercero_proveedor',
+      providerName: 'Factus',
+      providerNit: '901.324.558-1',
+      environment: 'produccion',
+      prefix: 'FE',
+      resolutionNumber: '1876000021',
+      resolutionDate: '2026-01-01',
+      authorizedRangeFrom: 1,
+      authorizedRangeTo: 5000,
+      autoSendEmail: true
+    },
+    payrollParameters: { smmlv: 1423500, auxTransporte: 172000 },
+  }
+];
+
+export const INITIAL_TERCEROS: Tercero[] = [
+  {
+    id: 'ter-1',
+    name: 'Harineras del Valle S.A.',
+    nit: '890.300.412-5',
+    type: 'juridica',
+    roles: ['proveedor'],
+    city: 'Cali',
+    address: 'Vía Panorama Km 2',
+    phone: '3157001222',
+    email: 'contacto@harineras.com',
+    regimen: 'responsable'
+  },
+  {
+    id: 'ter-2',
+    name: 'Supermercados Éxito S.A.',
+    nit: '890.900.608-9',
+    type: 'juridica',
+    roles: ['cliente'],
+    city: 'Bogotá',
+    address: 'Cra 48 # 32-10',
+    phone: '6013445000',
+    email: 'facturacion@exito.com.co',
+    regimen: 'responsable'
+  },
+  {
+    id: 'ter-3',
+    name: 'Carlos Mario Ruiz',
+    nit: '1.020.455.789',
+    type: 'natural',
+    roles: ['empleado'],
+    city: 'Bogotá',
+    address: 'Cl. 80 # 24-12 Apt 201',
+    phone: '3104558830',
+    email: 'carlos.mario@outlook.com',
+    employeeCargo: 'Panadero Jefe de Turno',
+    employeeSalary: 1800000,
+    employeeEmergencyContact: 'Nohora Salazar (Esposa) 3125004030'
+  },
+  {
+    id: 'ter-4',
+    name: 'Distribuidora Granel Co',
+    nit: '900.122.333-8',
+    type: 'juridica',
+    roles: ['proveedor', 'cliente'],
+    city: 'Medellín',
+    address: 'Cl. 10 Sur # 50-20',
+    phone: '3203004050',
+    email: 'ventas@granelco.com',
+    regimen: 'responsable'
+  },
+  {
+    id: 'ter-5',
+    name: 'Diana Patricia Gomez',
+    nit: '52.448.990',
+    type: 'natural',
+    roles: ['empleado'],
+    city: 'Bogotá',
+    address: 'Tv. 50 # 12-45',
+    phone: '3146002010',
+    email: 'diana.gomez@fintekia.com',
+    employeeCargo: 'Auxiliar Operario de Empaque',
+    employeeSalary: 1423500, // 1 SMMLV
+    employeeEmergencyContact: 'Alberto Gomez (Padre) 3004005060'
+  }
+];
+
+export const INITIAL_PRODUCTS: Product[] = [
+  // Tecnología & Hardware
+  { id: 'p-t1', name: 'Laptop Corporativo Lenovo ThinkPad T14 Core i7 16GB SSD 512GB', sku: 'TECH-LAP-T14', barcode: '7709001000012', cost: 2450000, price: 3450000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Lenovo', model: 'ThinkPad T14 Gen 3', warrantyMonths: 12 },
+  { id: 'p-t2', name: 'Router Gigabit Wi-Fi 6 Mikrotik hEX S Dual-Band RouterBOARD', sku: 'TECH-ROU-MIK', barcode: '7709001000029', cost: 195000, price: 295000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'MikroTik', model: 'hEX S', warrantyMonths: 12 },
+  { id: 'p-t3', name: 'Disco Estado Sólido SSD NVMe 1TB Kingston KC3000 PCIe 4.0', sku: 'TECH-SSD-1TB', barcode: '7709001000036', cost: 230000, price: 360000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Kingston', model: 'KC3000', warrantyMonths: 24 },
+  { id: 'p-t4', name: 'Monitor Profesional Dell 27" UltraSharp IPS FHD HDMI/DP', sku: 'TECH-MON-27', barcode: '7709001000043', cost: 580000, price: 840000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Dell', model: 'P2722H', warrantyMonths: 36 },
+  { id: 'p-t5', name: 'Memoria RAM DDR4 16GB 3200MHz Corsair Vengeance para Laptop', sku: 'TECH-RAM-16', barcode: '7709001000050', cost: 110000, price: 175000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Corsair', model: 'Vengeance SO-DIMM', warrantyMonths: 12 },
+  // Servicios Profesionales & Soporte TI
+  { id: 'p-s1', name: 'Servicio de Mantenimiento Preventivo y Limpieza de Cómputo', sku: 'SRV-MANT-PC', barcode: '7709002000019', cost: 0, price: 120000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 3 },
+  { id: 'p-s2', name: 'Diagnóstico, Reparación y Actualización de Hardware (Por Equipo)', sku: 'SRV-REP-HW', barcode: '7709002000026', cost: 0, price: 160000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 3 },
+  { id: 'p-s3', name: 'Instalación y Configuración de Redes Wi-Fi / Cableado Estructurado (Punto)', sku: 'SRV-RED-PT', barcode: '7709002000033', cost: 0, price: 95000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 6 },
+  { id: 'p-s4', name: 'Póliza Mensual de Soporte Técnico Remoto y Presencial para Empresas', sku: 'SRV-POL-SOP', barcode: '7709002000040', cost: 0, price: 850000, tax: 19, type: 'servicio', lotTracking: false },
+  { id: 'p-s5', name: 'Licencia Anual y Parametrización Software Contable FinteKia Cloud', sku: 'SRV-LIC-FIN', barcode: '7709002000057', cost: 0, price: 680000, tax: 19, type: 'servicio', lotTracking: false },
+  // Materias Primas & Panadería (Disponibles cuando producción está activa)
+  { id: 'p-1', name: 'Harina de Trigo Industrial (Kg)', sku: 'MP-HAR-01', barcode: '7701001000018', cost: 3200, price: 0, tax: 0, type: 'materia_prima', lotTracking: true },
+  { id: 'p-2', name: 'Azúcar Blanca Refinada (Kg)', sku: 'MP-AZU-01', barcode: '7701001000025', cost: 2800, price: 0, tax: 0, type: 'materia_prima', lotTracking: true },
+  { id: 'p-3', name: 'Mantequilla Premium (Kg)', sku: 'MP-MAN-01', barcode: '7701001000032', cost: 12000, price: 0, tax: 19, type: 'materia_prima', lotTracking: true },
+  { id: 'p-4', name: 'Esencia de Vainilla (L/Botella)', sku: 'MP-VAI-01', barcode: '7701001000049', cost: 15000, price: 0, tax: 0, type: 'materia_prima', lotTracking: false },
+  { id: 'p-5', name: 'Cajas de Cartón Galletas (Unidades)', sku: 'MP-CAJ-01', barcode: '7701001000056', cost: 450, price: 0, tax: 19, type: 'materia_prima', lotTracking: false },
+  // Productos Terminados
+  { id: 'p-6', name: 'Caja Galletas de Vainilla x 12', sku: 'PT-GAL-VAI', barcode: '7702001000062', cost: 6500, price: 16500, tax: 19, type: 'terminado', lotTracking: true, shelfLifeDays: 90 },
+  { id: 'p-7', name: 'Pan de Avena Familiar 500g', sku: 'PT-PAN-AVE', barcode: '7702001000079', cost: 3200, price: 7800, tax: 5, type: 'terminado', lotTracking: true, shelfLifeDays: 12 }
+];
+
+export const INITIAL_TECH_ORDERS: TechServiceOrder[] = [
+  {
+    id: 'ot-1',
+    code: 'OT-101',
+    clientId: 'ter-2',
+    clientName: 'Supermercados Éxito S.A.',
+    device: 'Laptop Lenovo ThinkPad T14 Gen 3 (Core i7 / 16GB)',
+    serial: 'PF-28XYZ90',
+    reportedIssue: 'Recalentamiento severo y apagados intermitentes. Solicita mantenimiento preventivo y ampliación a SSD 1TB.',
+    diagnosis: 'Pasta térmica degradada y ventilador bloqueado con polvo. Requiere cambio de pasta térmica e instalación de SSD NVMe.',
+    status: 'en_proceso',
+    priority: 'alta',
+    estimatedCost: 280000,
+    createdAt: '2026-10-02',
+    deliveryDate: '2026-10-08',
+    technician: 'Washington Quiñones',
+    notes: 'Cliente requiere copia de seguridad previa de documentos.'
+  },
+  {
+    id: 'ot-2',
+    code: 'OT-102',
+    clientId: 'ter-4',
+    clientName: 'Distribuidora Granel Co',
+    device: 'Servidor Torre Dell PowerEdge T150 Xeon 32GB RAM',
+    serial: 'SVC-TAG-88J20',
+    reportedIssue: 'Configuración de arreglo RAID 1, servidor VPN corporativo y sistema de copias de seguridad en nube.',
+    diagnosis: 'Configuración de controlador PERC, aprovisionamiento de 2 discos SAS de 4TB en espejo y parametrización de OpenVPN.',
+    status: 'completado',
+    priority: 'urgente',
+    estimatedCost: 650000,
+    createdAt: '2026-09-28',
+    deliveryDate: '2026-10-05',
+    technician: 'Washington Quiñones',
+    notes: 'Servicio entregado a entera satisfacción y firmado.'
+  },
+  {
+    id: 'ot-3',
+    code: 'OT-103',
+    clientId: 'ter-1',
+    clientName: 'Harineras del Valle S.A.',
+    device: 'Infraestructura de Red Wi-Fi 6 (3 Access Points UniFi U6 Pro)',
+    serial: 'NET-U6-0922',
+    reportedIssue: 'Baja cobertura y caídas de señal en áreas de bodega y despachos. Requiere certificación y balanceo.',
+    diagnosis: 'Interferencia electromagnética en 2.4GHz y cableado defectuoso. Se cotiza recableado a Cat6A y segmentación de VLAN.',
+    status: 'en_diagnostico',
+    priority: 'media',
+    estimatedCost: 450000,
+    createdAt: '2026-10-04',
+    technician: 'Andrés Felipe Gómez',
+    notes: 'Esperando confirmación de presupuesto.'
+  }
+];
+
+export const INITIAL_BOMS: BOM[] = [
+  {
+    id: 'bom-1',
+    finishedProductId: 'p-6', // Galletas de Vainilla
+    version: 'V1.2',
+    items: [
+      { id: 'bi-1', productId: 'p-1', quantity: 0.4 },  // 0.4 Kg harina
+      { id: 'bi-2', productId: 'p-2', quantity: 0.15 }, // 0.15 Kg azúcar
+      { id: 'bi-3', productId: 'p-3', quantity: 0.1 },  // 0.1 Kg mantequilla
+      { id: 'bi-4', productId: 'p-4', quantity: 0.015 }, // 0.015 L vainilla
+      { id: 'bi-5', productId: 'p-5', quantity: 1 }      // 1 caja de empaque
+    ],
+    standards: { param: 'Humedad final del horneado', target: 4.5, tolerance: 0.5 }
+  },
+  {
+    id: 'bom-2',
+    finishedProductId: 'p-7', // Pan de Avena
+    version: 'V1.0',
+    items: [
+      { id: 'bi-6', productId: 'p-1', quantity: 0.35 },
+      { id: 'bi-7', productId: 'p-2', quantity: 0.05 },
+      { id: 'bi-8', productId: 'p-3', quantity: 0.04 }
+    ],
+    standards: { param: 'Temperatura interna de miga', target: 92, tolerance: 2 }
+  }
+];
+
+export const INITIAL_WAREHOUSES: Warehouse[] = [
+  { id: 'wh-1', name: 'Bodega de Materia Prima', address: 'Almacén 1, Planta Central Bogotá' },
+  { id: 'wh-2', name: 'Bodega de Despachos y Terminados', address: 'Dique de Despachos, Planta Bogotá' }
+];
+
+export const INITIAL_INVENTORY: InventoryItem[] = [
+  { id: 'inv-item-1', productId: 'p-1', lotNumber: 'L-HARI-005', expirationDate: '2026-11-30', warehouseId: 'wh-1', quantity: 550, avgCost: 3200 },
+  { id: 'inv-item-2', productId: 'p-2', lotNumber: 'L-AZUC-012', expirationDate: '2027-04-15', warehouseId: 'wh-1', quantity: 300, avgCost: 2800 },
+  { id: 'inv-item-3', productId: 'p-3', lotNumber: 'L-MANT-990', expirationDate: '2026-08-30', warehouseId: 'wh-1', quantity: 120, avgCost: 12000 },
+  { id: 'inv-item-4', productId: 'p-4', lotNumber: undefined, expirationDate: undefined, warehouseId: 'wh-1', quantity: 25, avgCost: 15000 },
+  { id: 'inv-item-5', productId: 'p-5', lotNumber: undefined, expirationDate: undefined, warehouseId: 'wh-1', quantity: 1000, avgCost: 450 },
+  { id: 'inv-item-6', productId: 'p-6', lotNumber: 'L-GVAL-001', expirationDate: '2026-09-09', warehouseId: 'wh-2', quantity: 150, avgCost: 6500 },
+  { id: 'inv-item-7', productId: 'p-7', lotNumber: 'L-PAVE-044', expirationDate: '2026-06-21', warehouseId: 'wh-2', quantity: 40, avgCost: 3200 }
+];
+
+export const INITIAL_ASSETS: Asset[] = [
+  { id: 'as-1', name: 'Horno Rotatorio Industrial Masamar', serial: 'HRM-240-BOG', type: 'Maquinaria', value: 45000000, location: 'Planta Horneado A', purchaseDate: '2025-01-15', depreciationPeriodMonths: 120 },
+  { id: 'as-2', name: 'Mezcladora Batidora Industrial de Doble Brazo', serial: 'MBI-60L-04', type: 'Maquinaria', value: 18000000, location: 'Planta Amasado', purchaseDate: '2025-03-10', depreciationPeriodMonths: 120 }
+];
+
+export const INITIAL_BANK_ACCOUNTS: BankAccount[] = [
+  { id: 'ba-1', name: 'Corriente Bancolombia Ppal', bankName: 'Bancolombia', accountNumber: '243-900540-12', balance: 34500000 },
+  { id: 'ba-2', name: 'Ahorros Davivienda Recaudos', bankName: 'Davivienda', accountNumber: '0040-5441-3200', balance: 9800000 }
+];
+
+export const INITIAL_COST_CENTERS: CostCenter[] = [
+  { id: 'cc-1', code: 'PROD-PAN', name: 'Amasado y Horneado', manager: 'Carlos Mario Ruiz', active: true },
+  { id: 'cc-2', code: 'PROD-EMP', name: 'Empaque y Alistamiento', manager: 'Diana Patricia Gomez', active: true },
+  { id: 'cc-3', code: 'COM-DIST', name: 'Comercialización y Ventas', manager: 'Alejandra Moreno', active: true },
+  { id: 'cc-4', code: 'ADM-GRL', name: 'Administración General', manager: 'Edgar Quiñones', active: true }
+];
+
+export const INITIAL_BUDGETS: Budget[] = [
+  { id: 'bu-1', targetType: 'account', targetId: '513505', period: '2026', amount: 4500000 },
+  { id: 'bu-2', targetType: 'costcenter', targetId: 'cc-1', period: '2026', amount: 15000000 }
+];
+
+export const INITIAL_VOUCHERS: Voucher[] = [
+  {
+    id: 'v-1',
+    number: 'CD-0001',
+    type: 'diario',
+    date: '2026-06-01',
+    concept: 'Aporte de Capital Inicial Suscrito',
+    thirdPartyId: 'ter-4',
+    status: 'procesado',
+    total: 30000000,
+    lines: [
+      { accountCode: '110505', description: 'Caja - Capital de Aporte', debit: 30000000, credit: 0 },
+      { accountCode: '311505', description: 'Capital Social Registrado', debit: 0, credit: 30000000 }
+    ]
+  },
+  {
+    id: 'v-2',
+    number: 'FE-101',
+    type: 'venta',
+    date: '2026-06-05',
+    concept: 'Factura Electrónica de Venta No. FE-101 a Éxito (Vía Factus)',
+    thirdPartyId: 'ter-2',
+    status: 'procesado',
+    total: 2475000,
+    lines: [
+      { accountCode: '130505', description: 'Clientes Nal - Éxito venta FE-101', debit: 2475000, credit: 0 },
+      { accountCode: '240805', description: 'IVA Generado del 19%', debit: 0, credit: 395126 },
+      { accountCode: '413501', description: 'Venta de 150 cajas galletas', debit: 0, credit: 2079874 }
+    ],
+    billingProviderData: {
+      providerName: 'Factus',
+      transactionId: 'fac_tx_8841295-FE101',
+      cufe: 'ff2d810caFE101e890c00122ffb76251410bc300450adffe7e900cca2348ff112e',
+      providerStatus: 'procesado_exitoso',
+      dianValidationStatus: 'aprobado_dian',
+      receivedAt: '2026-06-05T10:15:32-05:00',
+      qrCodeUrl: 'https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=ff2d810caFE101'
+    }
+  },
+  {
+    id: 'v-3',
+    number: 'CE-555',
+    type: 'compra',
+    date: '2026-06-06',
+    concept: 'Registro de Compra de Materias Primas Ref: F-993',
+    thirdPartyId: 'ter-1',
+    status: 'procesado',
+    total: 1600000,
+    lines: [
+      { accountCode: '140501', description: 'Compra 500Kg Trigo industrial', debit: 1600000, credit: 0 },
+      { accountCode: '220505', description: 'Proveedores - Harineras del Valle', debit: 0, credit: 1600000 }
+    ]
+  }
+];
+
+export const INITIAL_PRODUCTION_ORDERS: ProductionOrder[] = [
+  {
+    id: 'po-1',
+    orderNumber: 'OP-1001',
+    bomId: 'bom-1', // Galletas Vainilla
+    quantity: 100, // 100 cajas
+    startDate: '2026-06-08',
+    dueDate: '2026-06-11',
+    status: 'proceso',
+    costEstimates: { materials: 350000, labor: 150000, overhead: 100000 },
+    generatedLot: 'LOT-2606-B1'
+  },
+  {
+    id: 'po-2',
+    orderNumber: 'OP-1002',
+    bomId: 'bom-2', // Pan Avena
+    quantity: 50,
+    startDate: '2026-06-09',
+    dueDate: '2026-06-10',
+    status: 'pendiente',
+    costEstimates: { materials: 140000, labor: 450000, overhead: 20000 },
+    generatedLot: 'LOT-2606-B2'
+  }
+];
+
+export const INITIAL_BANK_TRANSACTIONS: BankTransaction[] = [
+  { id: 'bt-1', bankAccountId: 'ba-1', date: '2026-06-01', type: 'Ingreso', amount: 30000000, concept: 'Consignación Capital Inicial', reconciled: true },
+  { id: 'bt-2', bankAccountId: 'ba-1', date: '2026-06-05', type: 'Ingreso', amount: 2475000, concept: 'Transferencia Cobro Éxito FE-101', reconciled: false },
+  { id: 'bt-3', bankAccountId: 'ba-1', date: '2026-06-08', type: 'Egreso', amount: 450000, concept: 'Pago de Servicios Públicos Acueducto', reconciled: false }
+];
+
+export const INITIAL_INTEGRATION_LOGS = [
+  { date: '2026-06-09 21:00 CEST', user: 'Admin', action: 'BOOT', detail: 'Fintekia sistema iniciado.' }
+];
+
+export const getInitialState = (): AppState => {
+    // Check localStorage
+    const savedState = localStorage.getItem('fintekia_app_state_v1');
+    if (savedState) {
+      try {
+        const parsed = JSON.parse(savedState);
+        // Verify parsed.companies is fine
+        if (parsed.companies && parsed.companies.length > 0) {
+          if (!parsed.techServiceOrders) {
+            parsed.techServiceOrders = INITIAL_TECH_ORDERS;
+          }
+          // Ensure tech products exist in products array
+          const hasTech = parsed.products?.some((p: Product) => p.type === 'tecnologia' || p.type === 'servicio');
+          if (!hasTech) {
+            const techItems = INITIAL_PRODUCTS.filter(p => p.type === 'tecnologia' || p.type === 'servicio');
+            parsed.products = [...techItems, ...(parsed.products || [])];
+          }
+          // Ensure first company has tech/services and enableProduction configured
+          if (parsed.companies[0].enableProduction === undefined) {
+            parsed.companies[0].enableProduction = false;
+            parsed.companies[0].businessType = 'tecnologia_servicios';
+            parsed.companies[0].name = 'FinteKia Tech & Solutions S.A.S.';
+            parsed.companies[0].slogan = 'Tecnología, Hardware, Servicios TI & Facturación Electrónica';
+          }
+          // Ensure all companies have third-party electronic billing configured
+          parsed.companies.forEach((co: any) => {
+            if (!co.billingConfig) {
+              co.billingConfig = {
+                providerType: 'tercero_proveedor',
+                providerName: 'Alanube',
+                providerNit: '901.464.305-6',
+                clientId: 'ala_cli_live_98a72b4c8102',
+                clientSecret: 'ala_sec_f9823be800e2194ad9b3c4f',
+                apiEndpoint: 'https://api.alanube.co/dian/v1/invoices',
+                apiToken: 'ala_live_sec_98f7e2a4d3_auth_key',
+                environment: 'produccion',
+                prefix: 'FE',
+                resolutionNumber: '187640000099',
+                resolutionDate: '2026-01-15',
+                authorizedRangeFrom: 101,
+                authorizedRangeTo: 10000,
+                technicalKey: 'ala8eac822301a1d2e1f4b',
+                softwareId: '6b2d189f-299f-4318-8f81-591741ac4e82',
+                pin: '75421',
+                autoSendEmail: true,
+                lastTestStatus: 'success',
+                lastTestTimestamp: '2026-03-28T14:32:00Z',
+                availableCredits: 4850
+              };
+            } else {
+              if (co.billingConfig.providerName === 'Alanube') {
+                if (!co.billingConfig.clientId) co.billingConfig.clientId = 'ala_cli_live_98a72b4c8102';
+                if (!co.billingConfig.clientSecret) co.billingConfig.clientSecret = 'ala_sec_f9823be800e2194ad9b3c4f';
+                if (!co.billingConfig.softwareId) co.billingConfig.softwareId = '6b2d189f-299f-4318-8f81-591741ac4e82';
+                if (!co.billingConfig.pin) co.billingConfig.pin = '75421';
+                if (!co.billingConfig.lastTestStatus) co.billingConfig.lastTestStatus = 'success';
+              }
+            }
+          });
+          if (!parsed.users) {
+            parsed.users = [
+              { id: 'usr-1', name: 'Washington Quiñones', email: 'quinoneswash70@gmail.com', role: 'Admin', cargo: 'Gerente General', active: true, dateCreated: '2026-01-10' },
+              { id: 'usr-2', name: 'Martha Lucia Ospina', email: 'martha.ospina@fintekia.co', role: 'Contador', cargo: 'Contadora Principal', active: true, dateCreated: '2026-02-15' },
+              { id: 'usr-3', name: 'Andrés Felipe Gómez', email: 'af.gomez@fintekia.co', role: 'Vendedor', cargo: 'Coordinador Comercial', active: true, dateCreated: '2026-03-01' },
+              { id: 'usr-4', name: 'Carlos Mario Bedoya', email: 'c.bedoya@fintekia.co', role: 'Operario', cargo: 'Jefe de Operaciones', active: true, dateCreated: '2026-04-20' },
+            ];
+          }
+          return parsed as AppState;
+        }
+      } catch (e) {
+        console.warn("Failed to retrieve stored app state, reverting to initial templates", e);
+      }
+    }
+
+    return {
+      currentCompanyId: 'co-1',
+      companies: INITIAL_COMPANIES,
+      terceros: INITIAL_TERCEROS,
+      products: INITIAL_PRODUCTS,
+      inventory: INITIAL_INVENTORY,
+      inventoryMovements: [],
+      warehouses: INITIAL_WAREHOUSES,
+      assets: INITIAL_ASSETS,
+      puc: DEFAULT_PUC,
+      costCenters: INITIAL_COST_CENTERS,
+      vouchers: INITIAL_VOUCHERS,
+      bankAccounts: INITIAL_BANK_ACCOUNTS,
+      bankTransactions: INITIAL_BANK_TRANSACTIONS,
+      boms: INITIAL_BOMS,
+      productionOrders: INITIAL_PRODUCTION_ORDERS,
+      qualityInspections: [],
+      packagingLogs: [],
+      payrollLogs: [],
+      budgets: INITIAL_BUDGETS,
+      techServiceOrders: INITIAL_TECH_ORDERS,
+      activeView: 'dashboard',
+    currentUser: {
+      name: 'Washington Quiñones',
+      role: 'Admin',
+      email: 'quinoneswash70@gmail.com'
+    },
+    users: [
+      { id: 'usr-1', name: 'Washington Quiñones', email: 'quinoneswash70@gmail.com', role: 'Admin', cargo: 'Administrador General', active: true, dateCreated: '2026-01-10' },
+      { id: 'usr-2', name: 'Martha Lucia Ospina', email: 'martha.ospina@fintekia.co', role: 'Contador', cargo: 'Contadora Principal', active: true, dateCreated: '2026-02-15' },
+      { id: 'usr-3', name: 'Andrés Felipe Gómez', email: 'af.gomez@fintekia.co', role: 'Vendedor', cargo: 'Coordinador Comercial', active: true, dateCreated: '2026-03-01' },
+      { id: 'usr-4', name: 'Carlos Mario Bedoya', email: 'c.bedoya@fintekia.co', role: 'Operario', cargo: 'Jefe de Panificación', active: true, dateCreated: '2026-04-20' },
+    ],
+    kioskMode: false,
+    theme: 'navy_dark'
+  };
+};
+
+export const saveStateToLocalStorage = (state: AppState) => {
+  localStorage.setItem('fintekia_app_state_v1', JSON.stringify(state));
+};
