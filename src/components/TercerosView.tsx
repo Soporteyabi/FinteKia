@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Tercero } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import { ConfirmModal } from './ConfirmModal';
 import Pagination from './Pagination';
+import { calculateDIANDV, formatNITWithDV } from '../lib/dianUtils';
 
 interface TercerosViewProps {
   currentCompany: any;
@@ -45,7 +46,13 @@ export default function TercerosView({
   const [formPhone, setFormPhone] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formContact, setFormContact] = useState('');
-  const [formRegimen, setFormRegimen] = useState<'responsable' | 'no_responsable' | 'exento'>('no_responsable');
+  const [formRegimen, setFormRegimen] = useState<'responsable' | 'no_responsable' | 'exento' | 'simple'>('no_responsable');
+  const [formResponsabilidadFiscal, setFormResponsabilidadFiscal] = useState<string>('R-99-PN');
+  
+  // Computed DV for the form
+  const computedDV = useMemo(() => {
+    return calculateDIANDV(formNit);
+  }, [formNit]);
   
   // Custom Role specific fields
   const [formEmployeeCargo, setFormEmployeeCargo] = useState('');
@@ -77,6 +84,7 @@ export default function TercerosView({
     setFormEmail('');
     setFormContact('');
     setFormRegimen('no_responsable');
+    setFormResponsabilidadFiscal('R-99-PN');
     setFormEmployeeCargo('');
     setFormEmployeeSalary(0);
     setFormEmployeeEmergency('');
@@ -97,6 +105,7 @@ export default function TercerosView({
     setFormEmail(ter.email || '');
     setFormContact(ter.contact || '');
     setFormRegimen(ter.regimen || 'no_responsable');
+    setFormResponsabilidadFiscal(ter.responsabilidadFiscal || 'R-99-PN');
     setFormEmployeeCargo(ter.employeeCargo || '');
     setFormEmployeeSalary(ter.employeeSalary || 0);
     setFormEmployeeEmergency(ter.employeeEmergencyContact || '');
@@ -115,6 +124,7 @@ export default function TercerosView({
     const payload = {
       name: formName,
       nit: formNit,
+      dv: String(calculateDIANDV(formNit)),
       type: formType,
       roles: formRoles,
       city: formCity,
@@ -123,6 +133,7 @@ export default function TercerosView({
       email: formEmail || undefined,
       contact: formContact || undefined,
       regimen: formRegimen,
+      responsabilidadFiscal: formResponsabilidadFiscal,
       employeeCargo: formRoles.includes('empleado') ? formEmployeeCargo : undefined,
       employeeSalary: formRoles.includes('empleado') ? formEmployeeSalary : undefined,
       employeeEmergencyContact: formRoles.includes('empleado') ? formEmployeeEmergency : undefined,
@@ -515,6 +526,20 @@ export default function TercerosView({
                         <td className="py-3.5 px-4">
                           <p className={`font-semibold text-xs ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{ter.city}</p>
                           <p className={`text-[10px] capitalize truncate max-w-[140px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{ter.address}</p>
+                          {ter.phone && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="text-[10px] text-slate-400 font-mono">{ter.phone}</span>
+                              <a
+                                href={`https://wa.me/${ter.phone.replace(/\D/g, '').startsWith('57') ? ter.phone.replace(/\D/g, '') : `57${ter.phone.replace(/\D/g, '')}`}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-emerald-500 hover:text-emerald-400 font-semibold inline-flex items-center gap-0.5"
+                                title="Enviar mensaje por WhatsApp"
+                              >
+                                <i className="ri-whatsapp-line"></i> Chat
+                              </a>
+                            </div>
+                          )}
                         </td>
                         <td className="py-3.5 px-4 text-center">
                           <span className={`inline-block border font-bold text-[9px] uppercase px-2 py-0.5 rounded-full ${
@@ -619,17 +644,36 @@ export default function TercerosView({
                   />
                 </div>
 
-                {/* Identification NIT/Cedula */}
+                {/* Identification NIT/Cedula with live DV calculator */}
                 <div className="space-y-1.5 block">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">NIT / Cédula (Incluya dígito verif. DV)</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="ej. 901.482.394-1"
-                    value={formNit}
-                    onChange={(e) => setFormNit(e.target.value)}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-3 py-2.5 font-mono font-extrabold text-slate-900"
-                  />
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      NIT / Identificación
+                    </label>
+                    {formNit.trim() && (
+                      <span className="text-[10px] font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200 font-bold">
+                        DV DIAN: -{computedDV}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      placeholder="ej. 901482394"
+                      value={formNit}
+                      onChange={(e) => setFormNit(e.target.value)}
+                      className="flex-1 text-xs bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-3 py-2.5 font-mono font-extrabold text-slate-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormNit(formatNITWithDV(formNit))}
+                      className="px-2.5 py-1 text-[11px] font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl border border-blue-200 cursor-pointer transition-colors shrink-0"
+                      title="Aplicar formato estándar con Dígito de Verificación"
+                    >
+                      + Aplicar DV
+                    </button>
+                  </div>
                 </div>
 
                 {/* Type of partner */}
@@ -655,7 +699,24 @@ export default function TercerosView({
                   >
                     <option value="no_responsable">No Responsable de IVA (antiguo Régimen Simplificado)</option>
                     <option value="responsable">Responsable de IVA (antiguo Régimen Común)</option>
+                    <option value="simple">Régimen Simple de Tributación (RST)</option>
                     <option value="exento">Exento / Entidad Estatal Sin Ánimo de Lucro</option>
+                  </select>
+                </div>
+
+                {/* Fiscal Responsibilities DIAN */}
+                <div className="space-y-1.5 block">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Responsabilidad Fiscal DIAN</label>
+                  <select
+                    value={formResponsabilidadFiscal}
+                    onChange={(e) => setFormResponsabilidadFiscal(e.target.value)}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-3 py-2.5 font-semibold text-slate-800"
+                  >
+                    <option value="R-99-PN">R-99-PN - No responsable</option>
+                    <option value="O-13">O-13 - Gran Contribuyente</option>
+                    <option value="O-15">O-15 - Autorretenedor</option>
+                    <option value="O-23">O-23 - Agente de Retención IVA</option>
+                    <option value="O-47">O-47 - Régimen Simple de Tributación (RST)</option>
                   </select>
                 </div>
 

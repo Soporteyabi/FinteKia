@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { Voucher, PucAccount, CostCenter, Tercero } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Voucher, PucAccount, CostCenter, Tercero, Company } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import Pagination from './Pagination';
+import VoucherPrintModal from './VoucherPrintModal';
 
 interface VouchersViewProps {
+  currentCompany?: Company;
   vouchers: Voucher[];
   puc: PucAccount[];
   costCenters: CostCenter[];
@@ -65,6 +67,7 @@ const PREFILL_TEMPLATES = [
 ];
 
 export default function VouchersView({
+  currentCompany,
   vouchers,
   puc,
   costCenters,
@@ -73,10 +76,24 @@ export default function VouchersView({
   theme = 'slate_gray'
 }: VouchersViewProps) {
   const [showCreator, setShowCreator] = useState(false);
+  const [selectedVoucherForPrint, setSelectedVoucherForPrint] = useState<Voucher | null>(null);
+  const [accountingModuleTab, setAccountingModuleTab] = useState<'diario' | 'balance_comprobacion' | 'pyg' | 'cierre'>('diario');
   const [vType, setVType] = useState<Voucher['type']>('diario');
   const [vConcept, setVConcept] = useState('');
   const [vThirdId, setVThirdId] = useState('');
   const [vDate, setVDate] = useState(new Date().toISOString().substring(0, 10));
+
+  const activeCompany = currentCompany || {
+    id: 'comp-1',
+    name: 'FinteKia S.A.S.',
+    nit: '901.455.120-3',
+    slogan: 'Tecnología & Servicios',
+    address: 'Calle 100 # 15-22, Bogotá',
+    regimen: 'responsable',
+    currency: 'COP',
+    period: 2026,
+    payrollParameters: { smmlv: 1423500, auxTransporte: 172000 }
+  };
 
   // State to support expanded details breakdown for specific vouchers
   const [expandedVoucherId, setExpandedVoucherId] = useState<string | null>(null);
@@ -259,6 +276,142 @@ export default function VouchersView({
     alert(`Se ha descargado el comprobante fiscal ${v.number} en estructura balanceada JSON contable.`);
   };
 
+  // Balance de Comprobación (Trial Balance) Calculation
+  const trialBalanceData = useMemo(() => {
+    const accountMap: Record<string, { code: string; name: string; debits: number; credits: number }> = {};
+
+    vouchers.forEach(v => {
+      (v.lines || []).forEach(l => {
+        if (!l.accountCode) return;
+        if (!accountMap[l.accountCode]) {
+          const pucAcc = puc.find(p => p.code === l.accountCode);
+          accountMap[l.accountCode] = {
+            code: l.accountCode,
+            name: pucAcc ? pucAcc.name : 'Cuenta Auxiliar',
+            debits: 0,
+            credits: 0
+          };
+        }
+        accountMap[l.accountCode].debits += l.debit || 0;
+        accountMap[l.accountCode].credits += l.credit || 0;
+      });
+    });
+
+    const list = Object.values(accountMap).sort((a, b) => a.code.localeCompare(b.code));
+    const sumDebits = list.reduce((acc, a) => acc + a.debits, 0);
+    const sumCredits = list.reduce((acc, a) => acc + a.credits, 0);
+
+    return { list, sumDebits, sumCredits };
+  }, [vouchers, puc]);
+
+  // Estado de Resultados (P&G) Calculation
+  const pygData = useMemo(() => {
+    let ingresos = 0; // Clase 4
+    let gastos = 0;   // Clase 5
+    let costos = 0;   // Clase 6
+
+    vouchers.forEach(v => {
+      (v.lines || []).forEach(l => {
+        const code = l.accountCode || '';
+        if (code.startsWith('4')) {
+          ingresos += ((l.credit || 0) - (l.debit || 0));
+        } else if (code.startsWith('5')) {
+          gastos += ((l.debit || 0) - (l.credit || 0));
+        } else if (code.startsWith('6')) {
+          costos += ((l.debit || 0) - (l.credit || 0));
+        }
+      });
+    });
+
+    const utilidadBruta = ingresos - costos;
+    const utilidadOperacional = utilidadBruta - gastos;
+
+    return { ingresos, costos, gastos, utilidadBruta, utilidadOperacional };
+  }, [vouchers]);
+
+  // Asistente de Cierre Anual
+  const handleGenerateClosingVoucher = () => {
+    const closingLines: Array<{ accountCode: string; description: string; debit: number; credit: number }> = [];
+    const accountBalances: Record<string, { code: string; name: string; balance: number }> = {};
+
+    vouchers.forEach(v => {
+      (v.lines || []).forEach(l => {
+        const code = l.accountCode || '';
+        if (code.startsWith('4') || code.startsWith('5') || code.startsWith('6')) {
+          if (!accountBalances[code]) {
+            const pucAcc = puc.find(p => p.code === code);
+            accountBalances[code] = { code, name: pucAcc?.name || 'Cuenta', balance: 0 };
+          }
+          if (code.startsWith('4')) {
+            accountBalances[code].balance += ((l.credit || 0) - (l.debit || 0));
+          } else {
+            accountBalances[code].balance += ((l.debit || 0) - (l.credit || 0));
+          }
+        }
+      });
+    });
+
+    let totalIngresosToClose = 0;
+    let totalEgresosToClose = 0;
+
+    Object.values(accountBalances).forEach(acc => {
+      if (acc.balance <= 0) return;
+      if (acc.code.startsWith('4')) {
+        closingLines.push({
+          accountCode: acc.code,
+          description: `Cancelación cuentas de ingresos - ${acc.name}`,
+          debit: acc.balance,
+          credit: 0
+        });
+        totalIngresosToClose += acc.balance;
+      } else {
+        closingLines.push({
+          accountCode: acc.code,
+          description: `Cancelación cuentas de gastos/costos - ${acc.name}`,
+          debit: 0,
+          credit: acc.balance
+        });
+        totalEgresosToClose += acc.balance;
+      }
+    });
+
+    if (closingLines.length === 0) {
+      alert('No hay saldos en cuentas de resultado (clases 4, 5, 6) para cancelar.');
+      return;
+    }
+
+    const netResult = totalIngresosToClose - totalEgresosToClose;
+
+    if (netResult >= 0) {
+      closingLines.push({
+        accountCode: '360505',
+        description: 'Traslado Utilidad Neta del Ejercicio a Patrimonio',
+        debit: 0,
+        credit: netResult
+      });
+    } else {
+      closingLines.push({
+        accountCode: '361005',
+        description: 'Traslado Pérdida Neta del Ejercicio a Patrimonio',
+        debit: Math.abs(netResult),
+        credit: 0
+      });
+    }
+
+    const currentYear = new Date().getFullYear();
+    const voucherNum = `CIERRE-${currentYear}`;
+    addVoucher({
+      number: voucherNum,
+      type: 'ajuste',
+      concept: `Asiento Oficial de Cierre Contable y Cancelación de Cuentas de Resultado Periodo ${currentYear}`,
+      thirdPartyId: terceros[0]?.id || 'empresa',
+      total: Math.max(totalIngresosToClose, totalEgresosToClose),
+      lines: closingLines
+    });
+
+    alert(`¡Asiento de cierre contable generado exitosamente con el número ${voucherNum}! Cuentas 4, 5 y 6 saldadas contra el patrimonio.`);
+  };
+
   return (
     <div className="space-y-6">
       
@@ -269,22 +422,73 @@ export default function VouchersView({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
-            <span className="text-[10px] font-bold tracking-wider uppercase opacity-70">Libros Oficiales de Contabilidad</span>
+            <span className="text-[10px] font-bold tracking-wider uppercase opacity-70">Libros Oficiales de Contabilidad PUC</span>
           </div>
-          <h2 className="font-display font-extrabold text-xl tracking-tight text-slate-800">Libro Diario Multicompany</h2>
+          <h2 className="font-display font-extrabold text-xl tracking-tight text-slate-800">Contabilidad Integral & Libros Oficiales</h2>
           <p className="text-xs text-slate-400 max-w-2xl">
-            Consulte y registre la partida doble de la organización panificadora. Revise las transacciones de ventas, compras, nómina e inventario y audite las cuentas PUC en tiempo real.
+            Consulte y registre la partida doble de la organización. Audite balances de comprobación, estados de resultados (P&G), comprobantes de egreso/ingreso y genere el asiento oficial de cierre contable en tiempo real.
           </p>
         </div>
         
         <div className="flex gap-2 shrink-0">
           <button
-            onClick={() => setShowCreator(!showCreator)}
+            onClick={() => {
+              setAccountingModuleTab('diario');
+              setShowCreator(!showCreator);
+            }}
             className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <i className="ri-folder-add-line"></i> {showCreator ? 'Ver Libro Diario' : 'Asiento Manual'}
           </button>
         </div>
+      </div>
+
+      {/* NAVEGACIÓN SUBPESTAÑAS CONTABLES */}
+      <div className="flex flex-wrap gap-2 border-b border-white/5 pb-2 text-xs select-none">
+        <button
+          type="button"
+          onClick={() => { setAccountingModuleTab('diario'); setShowCreator(false); }}
+          className={`px-3.5 py-2.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            accountingModuleTab === 'diario'
+              ? 'bg-blue-600/20 border border-blue-500/40 text-blue-400 shadow-sm'
+              : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+          }`}
+        >
+          <i className="ri-booklet-line"></i> Libro Diario & Asientos
+        </button>
+        <button
+          type="button"
+          onClick={() => { setAccountingModuleTab('balance_comprobacion'); setShowCreator(false); }}
+          className={`px-3.5 py-2.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            accountingModuleTab === 'balance_comprobacion'
+              ? 'bg-purple-600/20 border border-purple-500/40 text-purple-400 shadow-sm'
+              : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+          }`}
+        >
+          <i className="ri-scales-3-line"></i> Balance de Comprobación ({trialBalanceData.list.length} Cuentas)
+        </button>
+        <button
+          type="button"
+          onClick={() => { setAccountingModuleTab('pyg'); setShowCreator(false); }}
+          className={`px-3.5 py-2.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            accountingModuleTab === 'pyg'
+              ? 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 shadow-sm'
+              : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+          }`}
+        >
+          <i className="ri-line-chart-line"></i> Estado de Resultados (P&G)
+        </button>
+        <button
+          type="button"
+          onClick={() => { setAccountingModuleTab('cierre'); setShowCreator(false); }}
+          className={`px-3.5 py-2.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            accountingModuleTab === 'cierre'
+              ? 'bg-amber-600/20 border border-amber-500/40 text-amber-400 shadow-sm'
+              : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+          }`}
+        >
+          <i className="ri-shield-keyhole-line"></i> Cierre Contable Oficial
+        </button>
       </div>
 
       {/* METRICAS DE CABECERA */}
@@ -332,7 +536,8 @@ export default function VouchersView({
         </div>
       </div>
 
-      {showCreator ? (
+      {accountingModuleTab === 'diario' && (
+        showCreator ? (
         /* CREATOR PANEL WITH ACCOUNTING ASSISTANT */
         <div className="space-y-6 animate-fade-in text-xs font-sans">
           
@@ -695,6 +900,17 @@ export default function VouchersView({
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    setSelectedVoucherForPrint(v);
+                                  }}
+                                  className="text-[10px] font-bold bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                                  title="Imprimir Comprobante Contable Oficial"
+                                >
+                                  <i className="ri-printer-line"></i> Imprimir
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     toggleExpand(v.id);
                                   }}
                                   className="text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-md transition-all cursor-pointer"
@@ -711,7 +927,7 @@ export default function VouchersView({
                                   className="text-[10px] font-bold bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 px-2.5 py-1 rounded-md transition-all cursor-pointer"
                                   title="Descargar Comprobante Contable en JSON"
                                 >
-                                  <i className="ri-download-cloud-line"></i> Exportar
+                                  <i className="ri-download-cloud-line"></i> JSON
                                 </button>
                               </div>
                             </td>
@@ -811,7 +1027,263 @@ export default function VouchersView({
           </div>
 
         </div>
+      ))}
+
+      {/* SUBPESTAÑA 2: BALANCE DE COMPROBACIÓN (TRIAL BALANCE) */}
+      {accountingModuleTab === 'balance_comprobacion' && (
+        <div className="space-y-6 animate-fade-in text-xs font-sans">
+          
+          <div className={`p-6 border rounded-2xl shadow-sm space-y-4 ${activeTheme.cardStyles}`}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/5 pb-4">
+              <div>
+                <h3 className="font-display font-black text-base text-white flex items-center gap-2">
+                  <i className="ri-scales-3-line text-purple-400 text-lg"></i> Balance de Comprobación y Sumas Iguales
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Auditoría completa de movimientos débitos y créditos acumulados por código PUC en el período contable activo.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                >
+                  <i className="ri-printer-line"></i> Imprimir Balance
+                </button>
+              </div>
+            </div>
+
+            {/* Sumas Iguales Summary Badge */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl bg-black/20 border border-white/5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Movimientos Débito</span>
+                <span className="text-xl font-black font-mono text-blue-400 mt-1 block">
+                  {formatCOP(trialBalanceData.sumDebits)}
+                </span>
+              </div>
+              <div className="p-4 rounded-xl bg-black/20 border border-white/5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Movimientos Crédito</span>
+                <span className="text-xl font-black font-mono text-rose-400 mt-1 block">
+                  {formatCOP(trialBalanceData.sumCredits)}
+                </span>
+              </div>
+              <div className="p-4 rounded-xl bg-black/20 border border-white/5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Diferencia de Balance</span>
+                <span className={`text-xl font-black font-mono mt-1 block ${
+                  Math.abs(trialBalanceData.sumDebits - trialBalanceData.sumCredits) === 0 ? 'text-emerald-400' : 'text-amber-400'
+                }`}>
+                  {formatCOP(Math.abs(trialBalanceData.sumDebits - trialBalanceData.sumCredits))}
+                </span>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto rounded-xl border border-white/5">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-black/30 border-b border-white/5 text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="py-3 px-4">Código PUC</th>
+                    <th className="py-3 px-4">Nombre de la Cuenta</th>
+                    <th className="py-3 px-4 text-right">Débitos Acumulados ($)</th>
+                    <th className="py-3 px-4 text-right">Créditos Acumulados ($)</th>
+                    <th className="py-3 px-4 text-right">Saldo Neto ($)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5 text-slate-300">
+                  {trialBalanceData.list.map((item) => {
+                    const saldo = item.debits - item.credits;
+                    return (
+                      <tr key={item.code} className="hover:bg-white/5 font-mono">
+                        <td className="py-3 px-4 font-bold text-purple-400">{item.code}</td>
+                        <td className="py-3 px-4 font-sans font-semibold text-white">{item.name}</td>
+                        <td className="py-3 px-4 text-right text-blue-400 font-bold">
+                          {item.debits > 0 ? formatCOP(item.debits) : '-'}
+                        </td>
+                        <td className="py-3 px-4 text-right text-rose-400 font-bold">
+                          {item.credits > 0 ? formatCOP(item.credits) : '-'}
+                        </td>
+                        <td className={`py-3 px-4 text-right font-black ${saldo >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          {formatCOP(saldo)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-black/50 border-t-2 border-white/10 font-bold">
+                    <td colSpan={2} className="py-3 px-4 uppercase text-[10px] tracking-wider text-slate-300 font-black">
+                      SUMAS IGUALES CONSOLIDADAS:
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-sm text-blue-400 font-black">
+                      {formatCOP(trialBalanceData.sumDebits)}
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-sm text-rose-400 font-black">
+                      {formatCOP(trialBalanceData.sumCredits)}
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-sm text-emerald-400 font-black">
+                      {formatCOP(Math.abs(trialBalanceData.sumDebits - trialBalanceData.sumCredits))}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+          </div>
+
+        </div>
       )}
+
+      {/* SUBPESTAÑA 3: ESTADO DE RESULTADOS (P&G) */}
+      {accountingModuleTab === 'pyg' && (
+        <div className="space-y-6 animate-fade-in text-xs font-sans">
+          
+          <div className={`p-6 border rounded-2xl shadow-sm space-y-6 ${activeTheme.cardStyles}`}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/5 pb-4">
+              <div>
+                <h3 className="font-display font-black text-base text-white flex items-center gap-2">
+                  <i className="ri-line-chart-line text-emerald-400 text-lg"></i> Estado de Resultados Integral (Pérdidas y Ganancias P&G)
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Estructura oficial de ingresos operacionales (4), costos de ventas (6) y gastos operacionales (5).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                >
+                  <i className="ri-printer-line"></i> Imprimir P&G
+                </button>
+              </div>
+            </div>
+
+            {/* Structured Financial Statement */}
+            <div className="space-y-4 max-w-3xl mx-auto p-6 bg-black/20 rounded-2xl border border-white/5">
+              
+              {/* Ingresos */}
+              <div className="flex justify-between items-center py-2.5 border-b border-white/5">
+                <div>
+                  <span className="font-bold text-sm text-white">1. Ingresos Operacionales (Clase 4)</span>
+                  <p className="text-[10px] text-slate-400">Ventas brutas de productos, servicios y comercio</p>
+                </div>
+                <span className="font-mono text-base font-black text-emerald-400">{formatCOP(pygData.ingresos)}</span>
+              </div>
+
+              {/* Costos */}
+              <div className="flex justify-between items-center py-2.5 border-b border-white/5">
+                <div>
+                  <span className="font-bold text-sm text-rose-400">2. Menos: Costos de Ventas & Operación (Clase 6)</span>
+                  <p className="text-[10px] text-slate-400">Materias primas, insumos y costo de mercancía vendida</p>
+                </div>
+                <span className="font-mono text-base font-bold text-rose-400">-{formatCOP(pygData.costos)}</span>
+              </div>
+
+              {/* Utilidad Bruta */}
+              <div className="flex justify-between items-center py-3 bg-white/5 px-4 rounded-xl border border-white/5">
+                <span className="font-black text-xs uppercase tracking-wider text-slate-200">(=) Utilidad Bruta del Ejercicio:</span>
+                <span className={`font-mono text-lg font-black ${pygData.utilidadBruta >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
+                  {formatCOP(pygData.utilidadBruta)}
+                </span>
+              </div>
+
+              {/* Gastos */}
+              <div className="flex justify-between items-center py-2.5 border-b border-white/5">
+                <div>
+                  <span className="font-bold text-sm text-amber-400">3. Menos: Gastos Operacionales (Clase 5)</span>
+                  <p className="text-[10px] text-slate-400">Gastos de personal (nómina 5105), servicios, arrendamientos, honorarios</p>
+                </div>
+                <span className="font-mono text-base font-bold text-amber-400">-{formatCOP(pygData.gastos)}</span>
+              </div>
+
+              {/* Utilidad Neta */}
+              <div className="flex justify-between items-center py-4 bg-emerald-950/40 border border-emerald-500/30 px-5 rounded-2xl shadow-lg">
+                <div>
+                  <span className="font-black text-sm uppercase tracking-wider text-emerald-300">
+                    (=) Utilidad Operacional Neta Antes de Impuestos:
+                  </span>
+                  <p className="text-[10px] text-emerald-400/80">
+                    Margen Operacional: {pygData.ingresos > 0 ? ((pygData.utilidadOperacional / pygData.ingresos) * 100).toFixed(1) : '0.0'}%
+                  </p>
+                </div>
+                <span className={`font-mono text-2xl font-black ${pygData.utilidadOperacional >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {formatCOP(pygData.utilidadOperacional)}
+                </span>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* SUBPESTAÑA 4: CIERRE CONTABLE OFICIAL */}
+      {accountingModuleTab === 'cierre' && (
+        <div className="space-y-6 animate-fade-in text-xs font-sans">
+          
+          <div className={`p-6 border rounded-2xl shadow-sm space-y-6 ${activeTheme.cardStyles}`}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/5 pb-4">
+              <div>
+                <h3 className="font-display font-black text-base text-white flex items-center gap-2">
+                  <i className="ri-shield-keyhole-line text-amber-400 text-lg"></i> Asistente Oficial de Cierre Contable
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Proceso anual obligatorio bajo normativa colombiana. Cancela las cuentas temporales de resultado (4, 5, 6) contra la cuenta 5905 (Ganancias y Pérdidas) y traslada el resultado a cuentas patrimoniales (3605 Utilidad o 3610 Pérdida).
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleGenerateClosingVoucher}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-600/20 transition-all cursor-pointer"
+              >
+                <i className="ri-lock-password-line text-sm"></i> Generar Asiento de Cierre Oficial
+              </button>
+            </div>
+
+            {/* Diagnostic Box */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cuentas de Ingreso a Cancelar (4)</span>
+                <span className="text-lg font-black font-mono text-emerald-400 block">{formatCOP(pygData.ingresos)}</span>
+                <span className="text-[10px] text-slate-500">Se debitarán para dejarlas en $0</span>
+              </div>
+
+              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cuentas de Gastos/Costos a Cancelar (5 & 6)</span>
+                <span className="text-lg font-black font-mono text-rose-400 block">{formatCOP(pygData.costos + pygData.gastos)}</span>
+                <span className="text-[10px] text-slate-500">Se acreditarán para dejarlas en $0</span>
+              </div>
+
+              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Resultado a Trasladar a Patrimonio</span>
+                <span className={`text-lg font-black font-mono block ${pygData.utilidadOperacional >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
+                  {formatCOP(pygData.utilidadOperacional)}
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  {pygData.utilidadOperacional >= 0 ? 'Acredita cuenta 360505 (Utilidad)' : 'Debita cuenta 361005 (Pérdida)'}
+                </span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* MODAL DE IMPRESIÓN OFICIAL */}
+      <VoucherPrintModal
+        isOpen={!!selectedVoucherForPrint}
+        onClose={() => setSelectedVoucherForPrint(null)}
+        voucher={selectedVoucherForPrint}
+        puc={puc}
+        terceros={terceros}
+        company={activeCompany}
+      />
 
     </div>
   );

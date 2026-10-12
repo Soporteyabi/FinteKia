@@ -1,9 +1,13 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
+import { requireAuth, AuthRequest } from "./src/middleware/auth.ts";
+import { getOrCreateUser, getUsers } from "./src/db/users.ts";
+import { getErpData, saveErpData, getDbInspectorData } from "./src/db/erp.ts";
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 async function startServer() {
   const app = express();
@@ -28,6 +32,83 @@ async function startServer() {
     }
     return aiClient;
   }
+
+  // --- Cloud SQL Relational Database Endpoints ---
+
+  // Synchronize authenticated Firebase user into Cloud SQL PostgreSQL
+  app.post("/api/auth/sync", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      if (!req.user || !req.user.uid || !req.user.email) {
+        return res.status(400).json({ error: "Missing required user identity" });
+      }
+      const { name, role, cargo } = req.body;
+      const dbUser = await getOrCreateUser(req.user.uid, req.user.email, name, role, cargo);
+      res.json({ success: true, user: dbUser });
+    } catch (error: any) {
+      console.error("Auth sync error:", error);
+      res.status(500).json({ error: error.message || "Failed to sync user" });
+    }
+  });
+
+  // Fetch registered users from PostgreSQL
+  app.get("/api/users", async (_req, res) => {
+    try {
+      const usersList = await getUsers();
+      res.json(usersList);
+    } catch (error: any) {
+      console.error("Failed to fetch users:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch users" });
+    }
+  });
+
+  // Get ERP Data from Cloud SQL
+  app.get("/api/erp/data", async (_req, res) => {
+    try {
+      const data = await getErpData();
+      res.json(data);
+    } catch (error: any) {
+      console.error("Failed to fetch ERP data:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch ERP data" });
+    }
+  });
+
+  // Sync / Save ERP Data to Cloud SQL
+  app.post("/api/erp/sync", async (req, res) => {
+    try {
+      const result = await saveErpData(req.body);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Failed to sync ERP data:", error);
+      res.status(500).json({ error: error.message || "Failed to save ERP data" });
+    }
+  });
+
+  // Get Database Inspector Data (Tables, Counts, Preview)
+  app.get("/api/db/inspector", async (_req, res) => {
+    try {
+      const inspectorData = await getDbInspectorData();
+      res.json(inspectorData);
+    } catch (error: any) {
+      console.error("Failed to fetch database inspector data:", error);
+      res.status(500).json({ error: error.message || "Failed to inspect database" });
+    }
+  });
+
+  // Get raw Supabase SQL script
+  app.get("/api/db/schema-sql", (_req, res) => {
+    try {
+      const sqlPath = path.resolve("./supabase_schema.sql");
+      if (fs.existsSync(sqlPath)) {
+        const sqlContent = fs.readFileSync(sqlPath, "utf-8");
+        res.setHeader("Content-Type", "text/plain");
+        res.send(sqlContent);
+      } else {
+        res.status(404).send("-- Schema file not found");
+      }
+    } catch (error: any) {
+      res.status(500).send(`-- Error loading schema: ${error.message}`);
+    }
+  });
 
   // API endpoint for Smart AI ERP Advisory
   app.post("/api/gemini/advisor", async (req, res) => {

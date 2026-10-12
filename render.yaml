@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: FinteKia-erp
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: VITE_SUPABASE_URL
+        value: https://irncymdscgeucoacwzfg.supabase.co
+      - key: VITE_SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlybmN5bWRzY2dldWNvYWN3emZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NTY4MjQsImV4cCI6MjEwNzEzMjgyNH0.7H0wXKnYtxx_DGQy3n-S6Kh95GBKhUSAiVRERUzVbE8

@@ -3,6 +3,7 @@ import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { Tercero, Product, InventoryItem, Voucher, PucAccount } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import Pagination from './Pagination';
+import { calculateDIANDV, formatNITWithDV, buildWhatsAppInvoiceShareText } from '../lib/dianUtils';
 
 interface InvoicingViewProps {
   currentCompany: any;
@@ -10,13 +11,27 @@ interface InvoicingViewProps {
   terceros: Tercero[];
   products: Product[];
   inventory: InventoryItem[];
-  addVoucher: (p: { number: string; type: 'venta'; concept: string; thirdPartyId: string; total: number; lines: any[]; items?: any[]; billingProviderData?: any }) => void;
+  addVoucher: (p: { 
+    number: string; 
+    type: 'venta'; 
+    concept: string; 
+    thirdPartyId: string; 
+    total: number; 
+    lines: any[]; 
+    items?: any[]; 
+    paymentTerm?: 'contado' | 'credito';
+    dueDate?: string;
+    discountTotal?: number;
+    retenciones?: { retefuente?: number; reteiva?: number; reteica?: number };
+    billingProviderData?: any 
+  }) => void;
   updateInventory: (prodId: string, lotNum: string | undefined, diffQty: number) => void;
   puc: PucAccount[];
   addInventoryMovement?: (mov: any) => void;
   theme?: 'slate_gray' | 'zinc_classic' | 'navy_dark' | 'steel_sage' | 'light_gray';
   updateCompany?: (co: any) => void;
   onOpenAlanubeConfig?: () => void;
+  addTercero?: (t: Omit<Tercero, 'id'>) => void;
 }
 
 export default function InvoicingView({
@@ -31,13 +46,34 @@ export default function InvoicingView({
   addInventoryMovement,
   theme = 'slate_gray',
   updateCompany,
-  onOpenAlanubeConfig
+  onOpenAlanubeConfig,
+  addTercero
 }: InvoicingViewProps) {
   const [selectedClient, setSelectedClient] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().substring(0, 10));
   const [paymentMethod, setPaymentMethod] = useState('efectivo');
+  const [paymentTerm, setPaymentTerm] = useState<'contado' | 'credito'>('contado');
+  const [creditDays, setCreditDays] = useState<number>(30);
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [retefuentePercent, setRetefuentePercent] = useState<number>(0);
   const [invoiceLines, setInvoiceLines] = useState<Array<{ productId: string; lotNumber?: string; qty: number; unitPrice: number }>>([]);
   const [showPrintPreview, setShowPrintPreview] = useState<Voucher | null>(null);
+  const [printFormat, setPrintFormat] = useState<'carta' | 'pos'>('carta');
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+
+  // Quick Client Creation Modal States
+  const [showQuickClientModal, setShowQuickClientModal] = useState(false);
+  const [quickClientName, setQuickClientName] = useState('');
+  const [quickClientNit, setQuickClientNit] = useState('');
+  const [quickClientPhone, setQuickClientPhone] = useState('');
+  const [quickClientEmail, setQuickClientEmail] = useState('');
+  const [quickClientAddress, setQuickClientAddress] = useState('');
+  const [quickClientCity, setQuickClientCity] = useState('Bogotá, D.C.');
+  const [quickClientRegimen, setQuickClientRegimen] = useState<'no_responsable' | 'responsable' | 'simple'>('no_responsable');
+
+  const quickComputedDV = useMemo(() => {
+    return calculateDIANDV(quickClientNit);
+  }, [quickClientNit]);
 
   // Third-Party Billing Provider States
   const [isTransmitting, setIsTransmitting] = useState(false);
@@ -412,19 +448,32 @@ export default function InvoicingView({
     setInvoiceLines(updated);
   };
 
-  // Calculates math totals
-  const subtotal = invoiceLines.reduce((acc, line) => {
+  // Calculates math totals with commercial discount and ReteFuente
+  const subtotalGross = invoiceLines.reduce((acc, line) => {
     return acc + line.qty * line.unitPrice;
   }, 0);
 
-  // Colombian average multi-tiered IVA estimation
+  const discountAmount = Math.round(subtotalGross * (discountPercent / 100));
+  const subtotal = Math.max(0, subtotalGross - discountAmount);
+
+  // Colombian average multi-tiered IVA estimation adjusted by discount
+  const discountFactor = subtotalGross > 0 ? (1 - discountPercent / 100) : 1;
   const totalTax = invoiceLines.reduce((acc, line) => {
-    const p = products.find((p) => p.id === line.productId);
+    const p = products.find((prod) => prod.id === line.productId);
     const taxFactor = p ? p.tax / 100 : 0.19;
-    return acc + line.qty * line.unitPrice * taxFactor;
+    return acc + (line.qty * line.unitPrice * discountFactor) * taxFactor;
   }, 0);
 
-  const finalTotal = subtotal + totalTax;
+  const retefuenteAmount = Math.round(subtotal * (retefuentePercent / 100));
+  const finalTotal = Math.max(0, Math.round(subtotal + totalTax - retefuenteAmount));
+
+  // Calculated due date based on terms
+  const calculatedDueDate = useMemo(() => {
+    if (paymentTerm !== 'credito') return invoiceDate;
+    const d = new Date(invoiceDate);
+    d.setDate(d.getDate() + creditDays);
+    return d.toISOString().substring(0, 10);
+  }, [invoiceDate, paymentTerm, creditDays]);
 
   // Mock highly safe Hex CUFE generator
   const getCUFESample = (vNum: string) => {
@@ -560,6 +609,68 @@ export default function InvoicingView({
     setShowConfigModal(false);
   };
 
+  // WhatsApp Share handler
+  const handleShareWhatsApp = (invoice: Voucher) => {
+    const clientObj = terceros.find((t) => t.id === invoice.thirdPartyId);
+    const text = buildWhatsAppInvoiceShareText({
+      companyName: currentCompany.name,
+      invoiceNumber: invoice.number,
+      clientName: clientObj?.name || 'Cliente',
+      totalCOP: formatCOP(invoice.total),
+      date: invoice.date,
+      cufe: invoice.billingProviderData?.cufe
+    });
+    const rawPhone = clientObj?.phone ? clientObj.phone.replace(/\D/g, '') : '';
+    const phone = rawPhone.length > 0 ? (rawPhone.startsWith('57') ? rawPhone : `57${rawPhone}`) : '';
+    const url = phone 
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}` 
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
+  // Copy Summary handler
+  const handleCopySummary = (invoice: Voucher) => {
+    const clientObj = terceros.find((t) => t.id === invoice.thirdPartyId);
+    const summary = `📄 FACTURA ELECTRÓNICA ${invoice.number}\n• Empresa: ${currentCompany.name} (NIT: ${currentCompany.nit})\n• Cliente: ${clientObj?.name || 'Cliente'} (NIT: ${clientObj?.nit || 'N/A'})\n• Fecha: ${invoice.date}\n• Condición: ${invoice.paymentTerm === 'credito' ? 'Crédito' : 'Contado'}${invoice.dueDate ? ` (Vence: ${invoice.dueDate})` : ''}\n• Total: ${formatCOP(invoice.total)}\n• CUFE: ${invoice.billingProviderData?.cufe || 'En verificación'}`;
+    navigator.clipboard.writeText(summary);
+    setCopyFeedback('¡Resumen copiado!');
+    setTimeout(() => setCopyFeedback(null), 3000);
+  };
+
+  // Quick Client Save
+  const handleSaveQuickClient = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickClientName.trim() || !quickClientNit.trim()) {
+      alert("Por favor ingrese razón social o nombre y NIT del cliente.");
+      return;
+    }
+    const newId = `ter-${Date.now()}`;
+    const formattedNit = formatNITWithDV(quickClientNit);
+    const newTerceroData = {
+      name: quickClientName.trim(),
+      nit: formattedNit,
+      dv: String(calculateDIANDV(quickClientNit)),
+      type: 'juridica' as const,
+      roles: ['cliente' as const],
+      city: quickClientCity || 'Bogotá, D.C.',
+      address: quickClientAddress || 'Dirección Comercial Principal',
+      phone: quickClientPhone || undefined,
+      email: quickClientEmail || undefined,
+      regimen: quickClientRegimen
+    };
+
+    if (addTercero) {
+      addTercero({ ...newTerceroData, id: newId } as any);
+    }
+    setSelectedClient(newId);
+    setShowQuickClientModal(false);
+    setQuickClientName('');
+    setQuickClientNit('');
+    setQuickClientPhone('');
+    setQuickClientEmail('');
+    setQuickClientAddress('');
+  };
+
   // Generate Electronic Invoice & Transmit to Third-Party Billing Provider
   const handleSaveInvoice = () => {
     if (!selectedClient) {
@@ -592,22 +703,34 @@ export default function InvoicingView({
     const ledgerLines = [
       {
         accountCode: '130505', // Clientes Nacionales (Debito)
-        description: `Cartera comercial FE No. ${nextNumber} (Vía ${activeBillingConfig.providerName})`,
+        description: `Cartera comercial FE No. ${nextNumber} (${paymentTerm === 'credito' ? `Crédito a ${creditDays}d - Vence: ${calculatedDueDate}` : 'Contado'} - Vía ${activeBillingConfig.providerName})`,
         debit: Math.round(finalTotal),
         credit: 0
       },
+      ...(retefuenteAmount > 0 ? [{
+        accountCode: '135515', // Anticipo de Retención en la Fuente (Debito)
+        description: `ReteFuente aplicada (${retefuentePercent}%) FE No. ${nextNumber}`,
+        debit: Math.round(retefuenteAmount),
+        credit: 0
+      }] : []),
       {
         accountCode: '240805', // IVA Generado (Credito)
-        description: `Impuesto IVA generado en venta comercial`,
+        description: `Impuesto IVA generado en venta comercial FE No. ${nextNumber}`,
         debit: 0,
         credit: Math.round(totalTax)
       },
       {
         accountCode: '413501', // Ventas (Credito)
-        description: `Ingreso operativo por venta de mercancías`,
+        description: `Ingreso operativo por venta de mercancías FE No. ${nextNumber}`,
         debit: 0,
-        credit: Math.round(subtotal)
-      }
+        credit: Math.round(subtotalGross)
+      },
+      ...(discountAmount > 0 ? [{
+        accountCode: '530535', // Descuentos comerciales condicionados (Debito)
+        description: `Descuento comercial otorgado (${discountPercent}%) FE No. ${nextNumber}`,
+        debit: Math.round(discountAmount),
+        credit: 0
+      }] : [])
     ];
 
     setIsTransmitting(true);
@@ -616,9 +739,15 @@ export default function InvoicingView({
       addVoucher({
         number: nextNumber,
         type: 'venta',
-        concept: `Factura Electrónica No. ${nextNumber} (Vía ${activeBillingConfig.providerName})`,
+        concept: `Factura Electrónica No. ${nextNumber} (${paymentTerm === 'credito' ? `Crédito ${creditDays}d` : 'Contado'} - Vía ${activeBillingConfig.providerName})`,
         thirdPartyId: selectedClient,
         total: Math.round(finalTotal),
+        paymentTerm,
+        dueDate: calculatedDueDate,
+        discountTotal: discountAmount,
+        retenciones: {
+          retefuente: retefuenteAmount
+        },
         lines: ledgerLines,
         items: invoiceLines.map((l) => ({
           productId: l.productId,
@@ -679,166 +808,388 @@ export default function InvoicingView({
   return (
     <div className="space-y-6">
       
-      {/* Real Printable Node Section hidden on screen, overrides layouts while printing */}
+      {/* Dual Printable Preview Node (Formato Carta Oficial DIAN & Formato Tirilla Térmica POS 80mm) */}
       {showPrintPreview && (
-        <div id="print-section" className="bg-white p-8 rounded-2xl border border-slate-100 shadow-lg text-slate-800 max-w-3xl mx-auto space-y-6">
-          <div className="flex justify-between items-start border-b pb-6">
-            <div className="flex items-start gap-4">
-              {currentCompany.logoUrl && (
-                <img 
-                  src={currentCompany.logoUrl} 
-                  alt="Logo" 
-                  className="w-16 h-16 object-contain rounded-lg border border-slate-200 shrink-0"
-                  referrerPolicy="no-referrer"
-                />
+        <div className="space-y-4">
+          {/* Action Toolbar on Screen (hidden when printed) */}
+          <div className="no-print bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs shadow-xl">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400 font-semibold mr-1">Formato de Impresión:</span>
+              <button
+                type="button"
+                onClick={() => setPrintFormat('carta')}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  printFormat === 'carta' 
+                    ? 'bg-blue-600 text-white shadow-md' 
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <i className="ri-file-text-line"></i> Formato Carta (DIAN)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrintFormat('pos')}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  printFormat === 'pos' 
+                    ? 'bg-indigo-600 text-white shadow-md' 
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <i className="ri-receipt-line"></i> Tirilla Térmica POS (80mm)
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {copyFeedback && (
+                <span className="text-emerald-400 font-semibold text-[11px] animate-fade-in mr-2">
+                  ✓ {copyFeedback}
+                </span>
               )}
-              <div>
-                <h1 className="font-display font-bold text-2xl text-slate-900 tracking-tight">{currentCompany.name}</h1>
-                <p className="text-xs text-slate-500 mt-1">NIT: {currentCompany.nit}</p>
-                <p className="text-xs text-slate-500">{currentCompany.address}</p>
-                <div className="mt-2 text-[10px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-200 space-y-0.5">
-                  <div className="flex items-center gap-1 font-bold text-blue-700 text-[10px]">
-                    <i className="ri-shield-check-line"></i> EMISIÓN VÍA PROVEEDOR TECNOLÓGICO AUTORIZADO
+              <button
+                type="button"
+                onClick={() => handleCopySummary(showPrintPreview)}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                title="Copiar texto resumen de la factura al portapapeles"
+              >
+                <i className="ri-file-copy-line"></i> Copiar Resumen
+              </button>
+              <button
+                type="button"
+                onClick={() => handleShareWhatsApp(showPrintPreview)}
+                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-all flex items-center gap-1 cursor-pointer shadow-md"
+                title="Compartir enlace y datos de factura por WhatsApp"
+              >
+                <i className="ri-whatsapp-line"></i> Enviar por WhatsApp
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+              >
+                <i className="ri-printer-line"></i> Imprimir / PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPrintPreview(null)}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-white transition-all cursor-pointer"
+                title="Cerrar vista previa"
+              >
+                <i className="ri-close-line text-base"></i>
+              </button>
+            </div>
+          </div>
+
+          {/* Render Formato Carta */}
+          {printFormat === 'carta' && (
+            <div id="print-section" className="bg-white p-8 rounded-2xl border border-slate-100 shadow-lg text-slate-800 max-w-3xl mx-auto space-y-6">
+              <div className="flex justify-between items-start border-b pb-6">
+                <div className="flex items-start gap-4">
+                  {currentCompany.logoUrl && (
+                    <img 
+                      src={currentCompany.logoUrl} 
+                      alt="Logo" 
+                      className="w-16 h-16 object-contain rounded-lg border border-slate-200 shrink-0"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                  <div>
+                    <h1 className="font-display font-bold text-2xl text-slate-900 tracking-tight">{currentCompany.name}</h1>
+                    <p className="text-xs text-slate-500 mt-1">NIT: {currentCompany.nit}</p>
+                    <p className="text-xs text-slate-500">{currentCompany.address}</p>
+                    <div className="mt-2 text-[10px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-200 space-y-0.5">
+                      <div className="flex items-center gap-1 font-bold text-blue-700 text-[10px]">
+                        <i className="ri-shield-check-line"></i> EMISIÓN VÍA PROVEEDOR TECNOLÓGICO AUTORIZADO
+                      </div>
+                      <p>Intermediario: <strong className="text-slate-800">{showPrintPreview.billingProviderData?.providerName || activeBillingConfig.providerName}</strong> (NIT {activeBillingConfig.providerNit || '901.324.558-1'})</p>
+                      <p>AUTORIZACIÓN RESOLUCIÓN DIAN No. {activeBillingConfig.resolutionNumber || '187640000099'} de {activeBillingConfig.resolutionDate || '2026-01-15'}</p>
+                      <p className="text-[8.5px] text-slate-400">Prefijo {activeBillingConfig.prefix || 'FE'} ({activeBillingConfig.authorizedRangeFrom || 101} al {activeBillingConfig.authorizedRangeTo || 10000}) · Vigencia: 12 meses</p>
+                    </div>
                   </div>
-                  <p>Intermediario: <strong className="text-slate-800">{showPrintPreview.billingProviderData?.providerName || activeBillingConfig.providerName}</strong> (NIT {activeBillingConfig.providerNit || '901.324.558-1'})</p>
-                  <p>AUTORIZACIÓN RESOLUCIÓN DIAN No. {activeBillingConfig.resolutionNumber || '187640000099'} de {activeBillingConfig.resolutionDate || '2026-01-15'}</p>
-                  <p className="text-[8.5px] text-slate-400">Prefijo {activeBillingConfig.prefix || 'FE'} ({activeBillingConfig.authorizedRangeFrom || 101} al {activeBillingConfig.authorizedRangeTo || 10000}) · Vigencia: 12 meses</p>
+                </div>
+                <div className="text-right">
+                  <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 font-bold text-xs rounded-full uppercase tracking-wider mb-2">FACTURA ELECTRÓNICA DE VENTA</span>
+                  <p className="text-lg font-bold font-mono text-slate-700">{showPrintPreview.number}</p>
+                  <p className="text-xs text-slate-500 mt-1">Fecha Emisión: {showPrintPreview.date}</p>
+                  {showPrintPreview.dueDate && showPrintPreview.paymentTerm === 'credito' && (
+                    <p className="text-xs text-amber-700 font-bold mt-0.5 font-mono">Vence: {showPrintPreview.dueDate}</p>
+                  )}
+                  <div className="mt-1 text-[9px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block">
+                    ✓ Validada ante la DIAN
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl text-xs">
+                <div>
+                  <p className="font-bold text-slate-400 uppercase tracking-wider text-[9px] mb-2">Adquiriente / Cliente</p>
+                  <p className="font-bold text-slate-900 text-sm">
+                    {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.name}
+                  </p>
+                  <p className="text-slate-600 mt-1">NIT/CC: {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.nit}</p>
+                  <p className="text-slate-600">Ciudad: {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.city}</p>
+                  <p className="text-slate-600">Dirección: {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.address}</p>
+                  {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.phone && (
+                    <p className="text-slate-600">Tel: {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.phone}</p>
+                  )}
+                </div>
+                <div>
+                  <p className="font-bold text-slate-400 uppercase tracking-wider text-[9px] mb-2">Condiciones de Pago</p>
+                  <p className="font-semibold text-slate-700 capitalize">Condición: {showPrintPreview.paymentTerm === 'credito' ? 'Venta a Crédito' : 'Venta de Contado'}</p>
+                  <p className="text-slate-500 mt-1">Canal: Transferencia / Efectivo</p>
+                  <p className="text-slate-500">Moneda: COP - Pesos Colombianos</p>
+                  <p className="text-slate-500">Régimen: {currentCompany.regimen || 'Responsable de IVA'}</p>
+                </div>
+              </div>
+
+              <table className="w-full text-left text-xs text-slate-600 border-collapse">
+                <thead>
+                  <tr className="border-b font-semibold text-slate-400 uppercase tracking-wider text-[10px]">
+                    <th className="py-2.5">Concepto del Producto / Servicio</th>
+                    <th className="py-2.5 text-right">Cant</th>
+                    <th className="py-2.5 text-right">Precio Unit</th>
+                    <th className="py-2.5 text-right">Total Neto</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-slate-700">
+                  {showPrintPreview.items && showPrintPreview.items.length > 0 ? (
+                    showPrintPreview.items.map((item, index) => {
+                      const prod = products.find((p) => p.id === item.productId);
+                      const lotLabel = item.lotNumber && item.lotNumber !== 'S/L' && item.lotNumber !== 'No aplica lote' ? ` [Lote: ${item.lotNumber}]` : '';
+                      const itemName = prod ? `${prod.name}${lotLabel}` : 'Artículo comercial';
+                      return (
+                        <tr key={index}>
+                          <td className="py-3 font-medium text-slate-900">{itemName}</td>
+                          <td className="py-3 text-right">{item.qty}</td>
+                          <td className="py-3 text-right">{formatCOP(item.unitPrice)}</td>
+                          <td className="py-3 text-right font-semibold">{formatCOP(item.qty * item.unitPrice)}</td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    showPrintPreview.lines
+                      .filter((l) => l.accountCode === '413501')
+                      .map((l, index) => {
+                        return (
+                          <tr key={index}>
+                            <td className="py-3 font-medium text-slate-900">{l.description}</td>
+                            <td className="py-3 text-right">1</td>
+                            <td className="py-3 text-right">{formatCOP(l.credit)}</td>
+                            <td className="py-3 text-right font-semibold">{formatCOP(l.credit)}</td>
+                          </tr>
+                        );
+                      })
+                  )}
+                </tbody>
+              </table>
+
+              <div className="flex justify-between items-start pt-6 border-t font-sans">
+                <div className="max-w-md">
+                  <div className="p-3 bg-slate-50 rounded-xl space-y-1.5 text-[9px] font-mono break-all leading-normal text-slate-600 border border-slate-200">
+                    <div className="flex items-center justify-between pb-1 border-b border-slate-200/60 font-sans">
+                      <span className="font-bold uppercase text-slate-700 block">CUFE Validado por {showPrintPreview.billingProviderData?.providerName || activeBillingConfig.providerName}:</span>
+                      <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-bold text-[8.5px]">Validación DIAN Confirmada</span>
+                    </div>
+                    <div className="font-mono text-slate-700">
+                      {showPrintPreview.billingProviderData?.cufe || getCUFESample(showPrintPreview.number)}
+                    </div>
+                    <div className="pt-1 text-[8.5px] text-slate-400 font-sans flex items-center justify-between">
+                      <span>UUID Transacción Proveedor: <strong className="font-mono text-slate-600">{showPrintPreview.billingProviderData?.transactionId || `fac_tx_${showPrintPreview.number}`}</strong></span>
+                      <span>Canal: API REST Tercero</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <i className="ri-qr-code-line text-4xl text-slate-400"></i>
+                    <p className="text-[9.5px] text-slate-400 leading-snug">
+                      Documento electrónico generado y transmitido a través de Proveedor Tecnológico debidamente autorizado ante la DIAN ({activeBillingConfig.providerName}).
+                    </p>
+                  </div>
+                </div>
+                <div className="w-68 space-y-2 text-xs">
+                  <div className="flex justify-between border-b pb-1.5">
+                    <span className="text-slate-500">Subtotal Neto:</span>
+                    <span className="font-semibold text-slate-800">
+                      {showPrintPreview.items && showPrintPreview.items.length > 0
+                        ? formatCOP(showPrintPreview.items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0))
+                        : formatCOP(showPrintPreview.lines.find((l) => l.accountCode === '413501')?.credit || 0)}
+                    </span>
+                  </div>
+                  {showPrintPreview.discountTotal && showPrintPreview.discountTotal > 0 ? (
+                    <div className="flex justify-between border-b pb-1.5 text-emerald-700">
+                      <span>Descuento Comercial:</span>
+                      <span className="font-semibold">-{formatCOP(showPrintPreview.discountTotal)}</span>
+                    </div>
+                  ) : null}
+                  <div className="flex justify-between border-b pb-1.5">
+                    <span className="text-slate-500 font-medium">IVA Estimado:</span>
+                    <span className="font-semibold text-slate-800">
+                      {showPrintPreview.items && showPrintPreview.items.length > 0
+                        ? formatCOP(showPrintPreview.items.reduce((acc, item) => {
+                            const prod = products.find((p) => p.id === item.productId);
+                            const taxFactor = prod ? prod.tax / 100 : 0.19;
+                            return acc + item.qty * item.unitPrice * taxFactor;
+                          }, 0))
+                        : formatCOP(showPrintPreview.lines.find((l) => l.accountCode === '240805')?.credit || 0)}
+                    </span>
+                  </div>
+                  {showPrintPreview.retenciones?.retefuente && showPrintPreview.retenciones.retefuente > 0 ? (
+                    <div className="flex justify-between border-b pb-1.5 text-rose-700">
+                      <span>ReteFuente:</span>
+                      <span className="font-semibold">-{formatCOP(showPrintPreview.retenciones.retefuente)}</span>
+                    </div>
+                  ) : null}
+                  <div className="flex justify-between pt-1.5 font-bold text-sm text-blue-600">
+                    <span>TOTAL A PAGAR:</span>
+                    <span>{formatCOP(showPrintPreview.total)}</span>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="text-right">
-              <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 font-bold text-xs rounded-full uppercase tracking-wider mb-2">FACTURA ELECTRÓNICA DE VENTA</span>
-              <p className="text-lg font-bold font-mono text-slate-700">{showPrintPreview.number}</p>
-              <p className="text-xs text-slate-500 mt-1">Fecha Emisión: {showPrintPreview.date}</p>
-              <div className="mt-1 text-[9px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block">
-                ✓ Validada por Tercero
-              </div>
-            </div>
-          </div>
+          )}
 
-          <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl text-xs">
-            <div>
-              <p className="font-bold text-slate-400 uppercase tracking-wider text-[9px] mb-2">Adquiriente / Cliente</p>
-              <p className="font-bold text-slate-900 text-sm">
-                {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.name}
-              </p>
-              <p className="text-slate-600 mt-1">NIT/CC: {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.nit}</p>
-              <p className="text-slate-600">Ciudad: {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.city}</p>
-              <p className="text-slate-600">Dirección: {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.address}</p>
-            </div>
-            <div>
-              <p className="font-bold text-slate-400 uppercase tracking-wider text-[9px] mb-2">Forma de Pago / DIAN</p>
-              <p className="font-semibold text-slate-700">Canal: Efectivo / Transferencia Electrónica</p>
-              <p className="text-slate-500 mt-1">Moneda: COP - Pesos Colombianos</p>
-              <p className="text-slate-500">Régimen: Responsable del Impuesto sobre las ventas (IVA)</p>
-            </div>
-          </div>
-
-          <table className="w-full text-left text-xs text-slate-600 border-collapse">
-            <thead>
-              <tr className="border-b font-semibold text-slate-400 uppercase tracking-wider text-[10px]">
-                <th className="py-2.5">Concepto del Producto / Servicio</th>
-                <th className="py-2.5 text-right">Cant</th>
-                <th className="py-2.5 text-right">Precio Unit</th>
-                <th className="py-2.5 text-right">Total Neto</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y text-slate-700">
-              {showPrintPreview.items && showPrintPreview.items.length > 0 ? (
-                showPrintPreview.items.map((item, index) => {
-                  const prod = products.find((p) => p.id === item.productId);
-                  const lotLabel = item.lotNumber && item.lotNumber !== 'S/L' && item.lotNumber !== 'No aplica lote' ? ` [Lote: ${item.lotNumber}]` : '';
-                  const itemName = prod ? `${prod.name}${lotLabel}` : 'Artículo comercial';
-                  return (
-                    <tr key={index}>
-                      <td className="py-3 font-medium text-slate-900">{itemName}</td>
-                      <td className="py-3 text-right">{item.qty}</td>
-                      <td className="py-3 text-right">{formatCOP(item.unitPrice)}</td>
-                      <td className="py-3 text-right font-semibold">{formatCOP(item.qty * item.unitPrice)}</td>
-                    </tr>
-                  );
-                })
-              ) : (
-                showPrintPreview.lines
-                  .filter((l) => l.accountCode === '413501') // filter credit revenue line representing goods
-                  .map((l, index) => {
-                    return (
-                      <tr key={index}>
-                        <td className="py-3 font-medium text-slate-900">{l.description}</td>
-                        <td className="py-3 text-right">1</td>
-                        <td className="py-3 text-right">{formatCOP(l.credit)}</td>
-                        <td className="py-3 text-right font-semibold">{formatCOP(l.credit)}</td>
-                      </tr>
-                    );
-                  })
-              )}
-            </tbody>
-          </table>
-
-          <div className="flex justify-between items-start pt-6 border-t font-sans">
-            <div className="max-w-md">
-              <div className="p-3 bg-slate-50 rounded-xl space-y-1.5 text-[9px] font-mono break-all leading-normal text-slate-600 border border-slate-200">
-                <div className="flex items-center justify-between pb-1 border-b border-slate-200/60 font-sans">
-                  <span className="font-bold uppercase text-slate-700 block">CUFE Validado por {showPrintPreview.billingProviderData?.providerName || activeBillingConfig.providerName}:</span>
-                  <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-bold text-[8.5px]">Validación DIAN Confirmada</span>
+          {/* Render Formato Tirilla POS (80mm) */}
+          {printFormat === 'pos' && (
+            <div id="print-section-pos" className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xl text-slate-900 max-w-[340px] mx-auto font-mono text-[11px] leading-tight space-y-3">
+              {/* POS Centered Header */}
+              <div className="text-center space-y-1 pb-2 border-b border-dashed border-slate-400">
+                {currentCompany.logoUrl && (
+                  <img 
+                    src={currentCompany.logoUrl} 
+                    alt="Logo" 
+                    className="w-12 h-12 mx-auto object-contain mb-1" 
+                    referrerPolicy="no-referrer"
+                  />
+                )}
+                <h2 className="font-bold text-sm uppercase">{currentCompany.name}</h2>
+                <p>NIT: {currentCompany.nit}</p>
+                <p>{currentCompany.address}</p>
+                <p>Régimen: {currentCompany.regimen || 'Responsable de IVA'}</p>
+                <div className="pt-1 text-[9.5px] text-slate-600">
+                  <p>RESOLUCIÓN DIAN No. {activeBillingConfig.resolutionNumber}</p>
+                  <p>Prefijo {activeBillingConfig.prefix} ({activeBillingConfig.authorizedRangeFrom || 101} al {activeBillingConfig.authorizedRangeTo || 10000})</p>
                 </div>
-                <div className="font-mono text-slate-700">
+              </div>
+
+              {/* Invoice & Client Data */}
+              <div className="space-y-1 pb-2 border-b border-dashed border-slate-400 text-[10.5px]">
+                <div className="flex justify-between font-bold">
+                  <span>FACTURA ELECTRÓNICA:</span>
+                  <span>{showPrintPreview.number}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>FECHA:</span>
+                  <span>{showPrintPreview.date}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>ADQUIRIENTE:</span>
+                  <span className="truncate max-w-[160px] text-right font-semibold">
+                    {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.name || 'Cliente'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>NIT/CC:</span>
+                  <span>{terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.nit || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>CONDICIÓN:</span>
+                  <span className="uppercase font-bold">{showPrintPreview.paymentTerm === 'credito' ? 'Crédito' : 'Contado'}</span>
+                </div>
+                {showPrintPreview.dueDate && showPrintPreview.paymentTerm === 'credito' && (
+                  <div className="flex justify-between text-amber-800 font-bold">
+                    <span>VENCE:</span>
+                    <span>{showPrintPreview.dueDate}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Items Table */}
+              <div className="pb-2 border-b border-dashed border-slate-400">
+                <div className="flex justify-between font-bold pb-1 text-[10px] text-slate-700">
+                  <span>CANT / ARTÍCULO</span>
+                  <span>TOTAL</span>
+                </div>
+                <div className="space-y-1.5 pt-1">
+                  {showPrintPreview.items && showPrintPreview.items.length > 0 ? (
+                    showPrintPreview.items.map((item, index) => {
+                      const prod = products.find((p) => p.id === item.productId);
+                      const itemName = prod ? prod.name : 'Artículo';
+                      return (
+                        <div key={index} className="space-y-0.5">
+                          <div className="flex justify-between font-semibold">
+                            <span className="truncate max-w-[200px]">{item.qty}x {itemName}</span>
+                            <span>{formatCOP(item.qty * item.unitPrice)}</span>
+                          </div>
+                          <div className="text-[9px] text-slate-500 pl-4">
+                            Unit: {formatCOP(item.unitPrice)} {item.lotNumber && item.lotNumber !== 'S/L' ? `· Lt: ${item.lotNumber}` : ''}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="flex justify-between">
+                      <span>1x Venta de mercancías</span>
+                      <span>{formatCOP(showPrintPreview.total)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="space-y-1 pb-2 border-b border-dashed border-slate-400 text-right">
+                <div className="flex justify-between">
+                  <span>SUBTOTAL:</span>
+                  <span>
+                    {showPrintPreview.items && showPrintPreview.items.length > 0
+                      ? formatCOP(showPrintPreview.items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0))
+                      : formatCOP(showPrintPreview.total / 1.19)}
+                  </span>
+                </div>
+                {showPrintPreview.discountTotal && showPrintPreview.discountTotal > 0 ? (
+                  <div className="flex justify-between text-emerald-800 font-semibold">
+                    <span>DESCUENTO:</span>
+                    <span>-{formatCOP(showPrintPreview.discountTotal)}</span>
+                  </div>
+                ) : null}
+                <div className="flex justify-between">
+                  <span>IVA ESTIMADO:</span>
+                  <span>
+                    {showPrintPreview.items && showPrintPreview.items.length > 0
+                      ? formatCOP(showPrintPreview.items.reduce((acc, item) => {
+                          const prod = products.find((p) => p.id === item.productId);
+                          const taxFactor = prod ? prod.tax / 100 : 0.19;
+                          return acc + item.qty * item.unitPrice * taxFactor;
+                        }, 0))
+                      : formatCOP(showPrintPreview.total - (showPrintPreview.total / 1.19))}
+                  </span>
+                </div>
+                {showPrintPreview.retenciones?.retefuente && showPrintPreview.retenciones.retefuente > 0 ? (
+                  <div className="flex justify-between text-rose-800 font-semibold">
+                    <span>RETEFUENTE:</span>
+                    <span>-{formatCOP(showPrintPreview.retenciones.retefuente)}</span>
+                  </div>
+                ) : null}
+                <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-300">
+                  <span>TOTAL A PAGAR:</span>
+                  <span>{formatCOP(showPrintPreview.total)}</span>
+                </div>
+              </div>
+
+              {/* CUFE & QR Verification */}
+              <div className="text-center space-y-1.5 pt-1 text-[9px] text-slate-600">
+                <div className="p-1 bg-slate-50 border border-slate-200 rounded break-all font-mono text-[8px] leading-tight">
+                  <span className="font-bold block text-slate-800">CUFE:</span>
                   {showPrintPreview.billingProviderData?.cufe || getCUFESample(showPrintPreview.number)}
                 </div>
-                <div className="pt-1 text-[8.5px] text-slate-400 font-sans flex items-center justify-between">
-                  <span>UUID Transacción Proveedor: <strong className="font-mono text-slate-600">{showPrintPreview.billingProviderData?.transactionId || `fac_tx_${showPrintPreview.number}`}</strong></span>
-                  <span>Canal: API REST Tercero</span>
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <i className="ri-qr-code-line text-3xl text-slate-800"></i>
+                  <span className="text-[8.5px] text-left text-slate-500 max-w-[190px]">
+                    Documento validado por la DIAN a través del Proveedor Tecnológico {showPrintPreview.billingProviderData?.providerName || activeBillingConfig.providerName}
+                  </span>
                 </div>
-              </div>
-              <div className="mt-3 flex items-center gap-3">
-                <i className="ri-qr-code-line text-4xl text-slate-400"></i>
-                <p className="text-[9.5px] text-slate-400 leading-snug">
-                  Documento electrónico generado y transmitido a través de Proveedor Tecnológico debidamente autorizado ante la DIAN (Estructura simplificada por tercero).
-                </p>
+                <p className="font-bold pt-2 text-[10.5px] text-slate-900">¡GRACIAS POR SU COMPRA!</p>
+                <p className="text-[8px] text-slate-400">Software FinteKia Cloud ERP</p>
               </div>
             </div>
-            <div className="w-68 space-y-2 text-xs">
-              <div className="flex justify-between border-b pb-1.5">
-                <span className="text-slate-500">Subtotal Neto:</span>
-                <span className="font-semibold text-slate-800">
-                  {showPrintPreview.items && showPrintPreview.items.length > 0
-                    ? formatCOP(showPrintPreview.items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0))
-                    : formatCOP(showPrintPreview.lines.find((l) => l.accountCode === '413501')?.credit || 0)}
-                </span>
-              </div>
-              <div className="flex justify-between border-b pb-1.5">
-                <span className="text-slate-500 font-medium">IVA Estimado:</span>
-                <span className="font-semibold text-slate-800">
-                  {showPrintPreview.items && showPrintPreview.items.length > 0
-                    ? formatCOP(showPrintPreview.items.reduce((acc, item) => {
-                        const prod = products.find((p) => p.id === item.productId);
-                        const taxFactor = prod ? prod.tax / 100 : 0.19;
-                        return acc + item.qty * item.unitPrice * taxFactor;
-                      }, 0))
-                    : formatCOP(showPrintPreview.lines.find((l) => l.accountCode === '240805')?.credit || 0)}
-                </span>
-              </div>
-              <div className="flex justify-between pt-1.5 font-bold text-sm text-blue-600">
-                <span>TOTAL A PAGAR:</span>
-                <span>{formatCOP(showPrintPreview.total)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-between gap-6 pt-12 text-slate-400 text-[10px] text-center no-print">
-            <button
-              onClick={() => window.print()}
-              className="bg-blue-600 text-white px-5 py-2 rounded-xl text-xs font-semibold hover:bg-blue-500 shadow-md transition-all flex items-center gap-2"
-            >
-              <i className="ri-printer-line"></i> Imprimir Documento
-            </button>
-            <button
-              onClick={() => setShowPrintPreview(null)}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-500 px-5 py-2 rounded-xl text-xs font-semibold transition-all"
-            >
-              Cerrar Vista Previa
-            </button>
-          </div>
+          )}
         </div>
       )}
 
@@ -936,9 +1287,19 @@ export default function InvoicingView({
               </div>
 
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-               {/* Client Select */}
-               <div className="space-y-1.5">
-                 <label className={`text-xs font-semibold uppercase tracking-wider ${labelText}`}>Adquiriente (Cliente)</label>
+               {/* Client Select with Quick Create Action */}
+               <div className="space-y-1.5 md:col-span-1">
+                 <div className="flex items-center justify-between">
+                   <label className={`text-xs font-semibold uppercase tracking-wider ${labelText}`}>Adquiriente (Cliente)</label>
+                   <button
+                     type="button"
+                     onClick={() => setShowQuickClientModal(true)}
+                     className="text-[11px] font-bold text-blue-500 hover:text-blue-400 flex items-center gap-1 cursor-pointer transition-colors"
+                     title="Crear un cliente nuevo rápidamente sin salir de la factura"
+                   >
+                     <i className="ri-user-add-line"></i> + Nuevo Express
+                   </button>
+                 </div>
                  <select
                    value={selectedClient}
                    onChange={(e) => setSelectedClient(e.target.value)}
@@ -964,19 +1325,123 @@ export default function InvoicingView({
 
                {/* payment method select */}
                <div className="space-y-1.5">
-                 <label className={`text-xs font-semibold uppercase tracking-wider ${labelText}`}>Forma de Pago</label>
+                 <label className={`text-xs font-semibold uppercase tracking-wider ${labelText}`}>Medio de Pago</label>
                  <select
                    value={paymentMethod}
                    onChange={(e) => setPaymentMethod(e.target.value)}
                    className={`w-full text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-3 py-2.5 ${inputBg}`}
                  >
                    <option value="efectivo">Efectivo</option>
-                  <option value="transferencia">Transferencia Bancaria</option>
-                  <option value="debito">Tarjeta Débito</option>
-                  <option value="credito">Tarjeta Crédito</option>
-                </select>
-              </div>
-            </div>
+                   <option value="transferencia">Transferencia Bancaria</option>
+                   <option value="debito">Tarjeta Débito</option>
+                   <option value="credito">Tarjeta Crédito</option>
+                 </select>
+               </div>
+             </div>
+
+             {/* Commercial Conditions & Taxes Grid */}
+             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 text-xs">
+               {/* Term: Contado / Credito */}
+               <div className="space-y-1">
+                 <label className={`font-semibold uppercase tracking-wider text-[10.5px] ${labelText}`}>Condición Comercial</label>
+                 <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+                   <button
+                     type="button"
+                     onClick={() => setPaymentTerm('contado')}
+                     className={`flex-1 py-1.5 font-bold transition-all text-xs cursor-pointer ${
+                       paymentTerm === 'contado' 
+                         ? 'bg-blue-600 text-white shadow-xs' 
+                         : 'bg-white dark:bg-slate-900 text-slate-500 hover:text-slate-800'
+                     }`}
+                   >
+                     Contado
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => setPaymentTerm('credito')}
+                     className={`flex-1 py-1.5 font-bold transition-all text-xs cursor-pointer ${
+                       paymentTerm === 'credito' 
+                         ? 'bg-indigo-600 text-white shadow-xs' 
+                         : 'bg-white dark:bg-slate-900 text-slate-500 hover:text-slate-800'
+                     }`}
+                   >
+                     Crédito (CxC)
+                   </button>
+                 </div>
+               </div>
+
+               {/* Credit terms if applicable */}
+               <div className="space-y-1">
+                 <div className="flex items-center justify-between">
+                   <label className={`font-semibold uppercase tracking-wider text-[10.5px] ${labelText}`}>Plazo de Cartera</label>
+                   {paymentTerm === 'credito' && (
+                     <span className="text-[10px] text-indigo-400 font-mono font-bold">
+                       Vence: {calculatedDueDate.substring(5)}
+                     </span>
+                   )}
+                 </div>
+                 <select
+                   disabled={paymentTerm !== 'credito'}
+                   value={creditDays}
+                   onChange={(e) => setCreditDays(parseInt(e.target.value) || 30)}
+                   className={`w-full text-xs rounded-lg py-1.5 px-2 border focus:outline-none ${inputBg} ${
+                     paymentTerm !== 'credito' ? 'opacity-50 cursor-not-allowed' : ''
+                   }`}
+                 >
+                   <option value={15}>15 días</option>
+                   <option value={30}>30 días (Estándar)</option>
+                   <option value={45}>45 días</option>
+                   <option value={60}>60 días</option>
+                   <option value={90}>90 días</option>
+                 </select>
+               </div>
+
+               {/* Commercial Discount */}
+               <div className="space-y-1">
+                 <div className="flex items-center justify-between">
+                   <label className={`font-semibold uppercase tracking-wider text-[10.5px] ${labelText}`}>Descuento Comercial</label>
+                   {discountAmount > 0 && (
+                     <span className="text-[10px] text-emerald-500 font-bold font-mono">
+                       -{formatCOP(discountAmount)}
+                     </span>
+                   )}
+                 </div>
+                 <select
+                   value={discountPercent}
+                   onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
+                   className={`w-full text-xs rounded-lg py-1.5 px-2 border focus:outline-none ${inputBg}`}
+                 >
+                   <option value={0}>Sin descuento (0%)</option>
+                   <option value={3}>3% Descuento</option>
+                   <option value={5}>5% Descuento</option>
+                   <option value={10}>10% Descuento</option>
+                   <option value={15}>15% Descuento</option>
+                   <option value={20}>20% Descuento</option>
+                 </select>
+               </div>
+
+               {/* ReteFuente */}
+               <div className="space-y-1">
+                 <div className="flex items-center justify-between">
+                   <label className={`font-semibold uppercase tracking-wider text-[10.5px] ${labelText}`}>ReteFuente DIAN</label>
+                   {retefuenteAmount > 0 && (
+                     <span className="text-[10px] text-rose-500 font-bold font-mono">
+                       -{formatCOP(retefuenteAmount)}
+                     </span>
+                   )}
+                 </div>
+                 <select
+                   value={retefuentePercent}
+                   onChange={(e) => setRetefuentePercent(parseFloat(e.target.value) || 0)}
+                   className={`w-full text-xs rounded-lg py-1.5 px-2 border focus:outline-none ${inputBg}`}
+                 >
+                   <option value={0}>No aplica (0%)</option>
+                   <option value={2.5}>ReteFuente 2.5% (Compras generales)</option>
+                   <option value={3.5}>ReteFuente 3.5% (No declarantes)</option>
+                   <option value={4}>ReteFuente 4% (Servicios generales)</option>
+                 </select>
+               </div>
+             </div>
 
             {/* Integrated Elegant Product Selector & Invoice Items */}
             <div className="space-y-4">
@@ -1572,6 +2037,16 @@ export default function InvoicingView({
 
                 <div className="border-t border-slate-800 pt-4 space-y-2 text-xs">
                   <div className="flex justify-between text-slate-400">
+                    <span>Subtotal Bruto:</span>
+                    <span>{formatCOP(subtotalGross)}</span>
+                  </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-emerald-400 font-semibold">
+                      <span>Descuento ({discountPercent}%):</span>
+                      <span>-{formatCOP(discountAmount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-slate-400">
                     <span>Base Gravable:</span>
                     <span>{formatCOP(subtotal)}</span>
                   </div>
@@ -1579,9 +2054,21 @@ export default function InvoicingView({
                     <span>IVA Estimado:</span>
                     <span>{formatCOP(totalTax)}</span>
                   </div>
+                  {retefuenteAmount > 0 && (
+                    <div className="flex justify-between text-rose-400 font-semibold">
+                      <span>ReteFuente ({retefuentePercent}%):</span>
+                      <span>-{formatCOP(retefuenteAmount)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between font-bold text-sm text-white pt-2 border-t border-slate-800/60">
                     <span>TOTAL A PAGAR:</span>
                     <span className="text-blue-400">{formatCOP(finalTotal)}</span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-[10.5px] flex items-center justify-between text-slate-400">
+                    <span>Condición: <strong className={paymentTerm === 'credito' ? 'text-indigo-400' : 'text-blue-400'}>{paymentTerm === 'credito' ? `Crédito ${creditDays}d` : 'Contado'}</strong></span>
+                    {paymentTerm === 'credito' && (
+                      <span>Vence: <strong className="text-indigo-300 font-mono">{calculatedDueDate}</strong></span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1939,6 +2426,159 @@ export default function InvoicingView({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Quick Client Creation */}
+      {showQuickClientModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl text-slate-100 flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+                  <i className="ri-user-add-line"></i>
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base text-white">
+                    Registrar Cliente Express
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Se creará en la base de datos y se seleccionará inmediatamente en esta factura
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowQuickClientModal(false)}
+                className="text-slate-400 hover:text-white text-lg p-1"
+              >
+                <i className="ri-close-line"></i>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveQuickClient} className="space-y-3.5 overflow-y-auto pr-1 flex-1 text-xs">
+              {/* Name */}
+              <div className="space-y-1">
+                <label className="font-bold text-slate-300 block">Razón Social / Nombre:</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ej. Inversiones Andinas S.A.S o Carlos Gómez"
+                  value={quickClientName}
+                  onChange={(e) => setQuickClientName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-blue-500 font-semibold"
+                />
+              </div>
+
+              {/* NIT with DV */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-300 block">NIT / Cédula:</label>
+                  {quickClientNit.trim() && (
+                    <span className="text-[10px] font-mono bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30 font-bold">
+                      DV DIAN: -{quickComputedDV}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="ej. 901482394"
+                    value={quickClientNit}
+                    onChange={(e) => setQuickClientNit(e.target.value)}
+                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white font-mono font-bold focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setQuickClientNit(formatNITWithDV(quickClientNit))}
+                    className="px-2.5 py-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-blue-400 rounded-xl border border-slate-700 cursor-pointer shrink-0"
+                    title="Aplicar formato de NIT con Dígito de Verificación"
+                  >
+                    + DV
+                  </button>
+                </div>
+              </div>
+
+              {/* Phone and Email */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 block">Teléfono / WhatsApp:</label>
+                  <input
+                    type="text"
+                    placeholder="ej. 3101234567"
+                    value={quickClientPhone}
+                    onChange={(e) => setQuickClientPhone(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 block">Email Facturación:</label>
+                  <input
+                    type="email"
+                    placeholder="cliente@ejemplo.com"
+                    value={quickClientEmail}
+                    onChange={(e) => setQuickClientEmail(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Address and City */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 block">Ciudad:</label>
+                  <input
+                    type="text"
+                    placeholder="Bogotá, D.C."
+                    value={quickClientCity}
+                    onChange={(e) => setQuickClientCity(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-300 block">Régimen DIAN:</label>
+                  <select
+                    value={quickClientRegimen}
+                    onChange={(e) => setQuickClientRegimen(e.target.value as any)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="no_responsable">No Responsable de IVA</option>
+                    <option value="responsable">Responsable de IVA</option>
+                    <option value="simple">Régimen Simple (RST)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Address full */}
+              <div className="space-y-1">
+                <label className="font-bold text-slate-300 block">Dirección:</label>
+                <input
+                  type="text"
+                  placeholder="ej. Carrera 7 # 71 - 21 Of. 501"
+                  value={quickClientAddress}
+                  onChange={(e) => setQuickClientAddress(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickClientModal(false)}
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  <i className="ri-check-line"></i> Guardar y Seleccionar
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

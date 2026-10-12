@@ -23,6 +23,7 @@ interface ManufacturingViewProps {
   addProductionOrder: (po: Omit<ProductionOrder, 'id' | 'orderNumber'>) => void;
   updateOrderStatus: (id: string, newStatus: ProductionOrder['status']) => void;
   addQualityInspection: (qi: Omit<QualityInspection, 'id'>) => void;
+  onOpenKiosk?: () => void;
 }
 
 export default function ManufacturingView({
@@ -33,7 +34,8 @@ export default function ManufacturingView({
   warehouses,
   addProductionOrder,
   updateOrderStatus,
-  addQualityInspection
+  addQualityInspection,
+  onOpenKiosk
 }: ManufacturingViewProps) {
   const [selectedBOMId, setSelectedBOMId] = useState('');
   const [prodQty, setProdQty] = useState(10);
@@ -230,9 +232,22 @@ export default function ManufacturingView({
         
         {/* Production Launcher */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-black/5 dark:border-white/5 p-6 shadow-sm space-y-5">
-          <div className="border-b border-black/5 dark:border-white/5 pb-4">
-            <h3 className="font-display font-semibold text-slate-800 dark:text-white text-lg">Lanzador de Órdenes de Producción (OP)</h3>
-            <p className="text-xs text-slate-400 font-medium">Asigne recetas, bodegas y configure costos de Mano de Obra y Planta</p>
+          <div className="border-b border-black/5 dark:border-white/5 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="font-display font-semibold text-slate-800 dark:text-white text-lg">Lanzador de Órdenes de Producción (OP)</h3>
+              <p className="text-xs text-slate-400 font-medium">Asigne recetas, bodegas y configure costos de Mano de Obra y Planta</p>
+            </div>
+            {onOpenKiosk && (
+              <button
+                type="button"
+                onClick={onOpenKiosk}
+                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer self-start sm:self-auto"
+                title="Abrir terminal táctil para operarios de planta"
+              >
+                <i className="ri-computer-line text-sm"></i>
+                <span>Terminal Kiosco Planta</span>
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

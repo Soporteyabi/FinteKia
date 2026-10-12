@@ -30,8 +30,13 @@ import {
   ShieldAlert,
   MapPin,
   Building,
-  CreditCard
+  CreditCard,
+  ShieldCheck,
+  Sparkles
 } from 'lucide-react';
+import PayrollPayslipModal from './PayrollPayslipModal';
+import ContractSettlementModal from './ContractSettlementModal';
+import { generateCUNE } from '../lib/payrollUtils';
 
 interface PayrollViewProps {
   companies: Company[];
@@ -137,6 +142,9 @@ export default function PayrollView({
 
   // Payslip preview printable modal
   const [viewingPayslip, setViewingPayslip] = useState<PayrollLog | null>(null);
+
+  // Contract termination settlement modal
+  const [showContractSettlementModal, setShowContractSettlementModal] = useState(false);
 
   // Bank payout intermediate state
   const [payingLog, setPayingLog] = useState<PayrollLog | null>(null);
@@ -669,6 +677,103 @@ export default function PayrollView({
     triggerNotification(`¡PAGADAS MASIVAMENTE: ${processedCount} nóminas! Se autorizaron desembolsos por ${formatCOP(totalNetPayout)} desde la cuenta seleccionada.`);
   };
 
+  // DIAN Electronic Payroll Transmission Handlers
+  const handleEmitDianPayroll = (log: PayrollLog) => {
+    const employee = terceros.find(t => t.id === log.employeeId);
+    if (!employee) return;
+
+    const consecutiveNum = Math.floor(100 + Math.random() * 900);
+    const consecutive = `NIE-${consecutiveNum}`;
+    const cune = generateCUNE(activeCompany.nit, employee.nit, log.period, log.netPay, consecutive);
+
+    const updatedLog: PayrollLog = {
+      ...log,
+      cune,
+      electronicConsecutive: consecutive,
+      dianStatus: 'aprobado_dian',
+      dianIssuedAt: new Date().toISOString()
+    };
+
+    onAddPayrollLog(updatedLog);
+    triggerNotification(`¡Nómina Electrónica transmitida a la DIAN con éxito! Consecutivo: ${consecutive} • CUNE: ${cune.substring(0, 16)}...`);
+  };
+
+  const handleMassEmitDianPayroll = () => {
+    const pendingLogs = activePeriodLogs.filter(l => l.dianStatus !== 'aprobado_dian');
+    if (pendingLogs.length === 0) {
+      alert('Todas las nóminas de este período ya cuentan con validación y CUNE de la DIAN.');
+      return;
+    }
+
+    let count = 0;
+    pendingLogs.forEach((log, index) => {
+      const employee = terceros.find(t => t.id === log.employeeId);
+      if (!employee) return;
+
+      const consecutive = `NIE-${100 + index + 1}`;
+      const cune = generateCUNE(activeCompany.nit, employee.nit, log.period, log.netPay, consecutive);
+
+      const updatedLog: PayrollLog = {
+        ...log,
+        cune,
+        electronicConsecutive: consecutive,
+        dianStatus: 'aprobado_dian',
+        dianIssuedAt: new Date().toISOString()
+      };
+
+      onAddPayrollLog(updatedLog);
+      count++;
+    });
+
+    triggerNotification(`¡Éxito! Se transmitieron ${count} nóminas electrónicas a la DIAN. Documentos soporte NIE generados.`);
+  };
+
+  // Post provisions voucher to PUC
+  const handlePostProvisionsVoucher = () => {
+    if (activePeriodLogs.length === 0) {
+      alert('No hay nóminas registradas para este período para calcular provisiones.');
+      return;
+    }
+
+    const voucherNum = `PROV-${Date.now().toString().substring(8)}`;
+    
+    const totalCesantias = Math.round(activePeriodLogs.reduce((acc, curr) => {
+      const baseWithAux = curr.baseSalary + curr.overtimePay + curr.auxTransporte;
+      return acc + (baseWithAux * 0.08333);
+    }, 0));
+
+    const totalIntereses = Math.round(totalCesantias * 0.12 * (1 / 12));
+    const totalPrima = totalCesantias;
+    const totalVacaciones = Math.round(activePeriodLogs.reduce((acc, curr) => {
+      const baseNoAux = curr.baseSalary + curr.overtimePay;
+      return acc + (baseNoAux * 0.04167);
+    }, 0));
+
+    const totalProvision = totalCesantias + totalIntereses + totalPrima + totalVacaciones;
+
+    const lines = [
+      { accountCode: '510530', description: `Gasto Provisión Cesantías pto ${selectedPeriod}`, debit: totalCesantias, credit: 0 },
+      { accountCode: '510533', description: `Gasto Provisión Intereses Cesantías pto ${selectedPeriod}`, debit: totalIntereses, credit: 0 },
+      { accountCode: '510536', description: `Gasto Provisión Prima de Servicios pto ${selectedPeriod}`, debit: totalPrima, credit: 0 },
+      { accountCode: '510539', description: `Gasto Provisión Vacaciones pto ${selectedPeriod}`, debit: totalVacaciones, credit: 0 },
+      { accountCode: '261005', description: `Pasivo Provisión Cesantías pto ${selectedPeriod}`, debit: 0, credit: totalCesantias },
+      { accountCode: '261010', description: `Pasivo Provisión Intereses Cesantías pto ${selectedPeriod}`, debit: 0, credit: totalIntereses },
+      { accountCode: '261020', description: `Pasivo Provisión Prima de Servicios pto ${selectedPeriod}`, debit: 0, credit: totalPrima },
+      { accountCode: '261015', description: `Pasivo Provisión Vacaciones pto ${selectedPeriod}`, debit: 0, credit: totalVacaciones }
+    ];
+
+    addVoucher({
+      number: voucherNum,
+      type: 'diario',
+      concept: `Causación de Provisiones de Prestaciones Sociales Periodo ${selectedPeriod}`,
+      thirdPartyId: terceros.find(t => t.roles.includes('empleado'))?.id || activeCompany.id,
+      total: totalProvision,
+      lines
+    });
+
+    triggerNotification(`¡Provisiones laborales contabilizadas en el comprobante ${voucherNum}! Total causado: ${formatCOP(totalProvision)}.`);
+  };
+
   return (
     <div className="space-y-6">
 
@@ -869,6 +974,13 @@ export default function PayrollView({
           >
             <Briefcase className="w-4 h-4 text-amber-500" /> Prestaciones Sociales (Pasivos)
           </button>
+
+          <button
+            onClick={() => setShowContractSettlementModal(true)}
+            className="px-3.5 py-2.5 rounded-xl font-bold flex items-center gap-1.5 transition-all text-xs border border-rose-500/30 bg-rose-950/30 text-rose-300 hover:bg-rose-900/40 cursor-pointer shadow-sm"
+          >
+            <ShieldAlert className="w-4 h-4 text-rose-400" /> Liquidación Definitiva (Retiro)
+          </button>
         </div>
 
         {/* Action triggers of current tabs */}
@@ -895,6 +1007,16 @@ export default function PayrollView({
                   className="bg-indigo-600 hover:bg-indigo-550 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 cursor-pointer transition-all uppercase tracking-wider"
                 >
                   <Calculator className="w-4 h-4 text-indigo-200" /> Liquidar Todo Masivamente
+                </button>
+              )}
+
+              {activePeriodLogs.some(l => l.dianStatus !== 'aprobado_dian') && (
+                <button
+                  type="button"
+                  onClick={handleMassEmitDianPayroll}
+                  className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 cursor-pointer transition-all uppercase tracking-wider shadow"
+                >
+                  <Sparkles className="w-4 h-4 text-cyan-200" /> Transmitir DIAN Masivo ({activePeriodLogs.filter(l => l.dianStatus !== 'aprobado_dian').length})
                 </button>
               )}
 
@@ -974,7 +1096,8 @@ export default function PayrollView({
                       <th className="py-3 px-4 text-right">Reten. Pens. (4%)</th>
                       <th className="py-3 px-4 text-right">Pago Neto</th>
                       <th className="py-3 px-4 text-center">Estado</th>
-                      <th className="py-3 px-4 text-center">Acción</th>
+                      <th className="py-3 px-4 text-center">Nómina DIAN</th>
+                      <th className="py-3 px-4 text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 text-slate-300 font-medium">
@@ -984,7 +1107,7 @@ export default function PayrollView({
                         <tr key={log.id} className="hover:bg-white/5 transition-colors">
                           <td className="py-3 px-4">
                             <span className="font-bold text-slate-201 block">{employee ? employee.name : 'Colaborador'}</span>
-                            <span className="text-[10px] text-slate-450 font-mono italic">{employee?.employeeCargo || 'Operario'}</span>
+                            <span className="text-[10px] text-slate-450 font-mono italic">{employee?.employeeCargo || 'Operario'} • CC {employee?.nit}</span>
                           </td>
                           <td className="py-3 px-4 text-center font-mono font-bold text-slate-400">{log.daysWorked}d</td>
                           <td className="py-3 px-4 text-right font-mono text-slate-350">{formatCOP(log.baseSalary)}</td>
@@ -1013,16 +1136,37 @@ export default function PayrollView({
                               </span>
                             )}
                           </td>
+                          <td className="py-3 px-4 text-center select-none">
+                            {log.dianStatus === 'aprobado_dian' ? (
+                              <div className="flex flex-col items-center">
+                                <span className="bg-emerald-950/80 text-emerald-400 border border-emerald-700/60 text-[9px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-sm">
+                                  <ShieldCheck className="w-3 h-3 text-emerald-400" /> {log.electronicConsecutive || 'NIE'}
+                                </span>
+                                <span className="text-[8px] text-slate-500 font-mono mt-0.5 truncate max-w-[75px]" title={log.cune}>
+                                  {log.cune?.substring(0, 8)}...
+                                </span>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleEmitDianPayroll(log)}
+                                className="bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-400 border border-cyan-800/60 p-1 px-2 rounded-lg cursor-pointer text-[9px] font-bold flex items-center gap-1 transition-all"
+                                title="Transmitir Nómina Electrónica a la DIAN"
+                              >
+                                <Sparkles className="w-3 h-3 text-cyan-300" /> Transmitir
+                              </button>
+                            )}
+                          </td>
                           <td className="py-3 px-4">
-                            <div className="flex items-center justify-center gap-1.5">
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
                               {/* Open printable desprendible */}
                               <button
                                 type="button"
                                 onClick={() => setViewingPayslip(log)}
-                                className="bg-zinc-900 hover:bg-zinc-800 text-slate-200 border border-zinc-750 p-1.5 rounded-lg cursor-pointer flex items-center gap-1 text-[10px] font-bold"
-                                title="Ver Desprendible"
+                                className="bg-zinc-900 hover:bg-zinc-800 text-slate-200 border border-zinc-750 p-1.5 px-2 rounded-lg cursor-pointer flex items-center gap-1 text-[10px] font-bold"
+                                title="Ver Desprendible y Colilla Oficial"
                               >
-                                <Eye className="w-3.5 h-3.5 text-blue-400" /> Ver
+                                <Eye className="w-3.5 h-3.5 text-blue-400" /> Colilla
                               </button>
 
                               {/* Trigger direct bank payout mapping */}
@@ -1033,9 +1177,9 @@ export default function PayrollView({
                                     setPayingLog(log);
                                     setSelectedPayingBankAccountId(bankAccounts[0]?.id || '');
                                   }}
-                                  className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold p-1.5 rounded-lg cursor-pointer text-[10px] uppercase tracking-wider"
+                                  className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold p-1.5 px-2 rounded-lg cursor-pointer text-[10px] uppercase tracking-wider"
                                 >
-                                  Pagar y Registrar
+                                  Pagar
                                 </button>
                               ) : (
                                 <span className="text-[10px] text-zinc-500 italic block font-semibold">Consignado</span>
@@ -1859,178 +2003,34 @@ export default function PayrollView({
 
       </div>
 
-      {/* PRINTABLE PAYSLIP MODAL DETAIL OVERLAY */}
+      {/* MODAL OFICIAL: COLILLA / VOLANTE DE PAGO DE NÓMINA ELECTRÓNICA DIAN */}
       {viewingPayslip && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white text-slate-800 w-full max-w-xl rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between max-h-[90vh]">
-            
-            {/* Payslip body print area */}
-            <div id="payroll-payslip-print" className="p-8 overflow-y-auto space-y-6 text-xs text-slate-700">
-              
-              {/* Employer Brand Header */}
-              <div className="flex justify-between items-start border-b pb-4">
-                <div className="flex items-center gap-3">
-                  {activeCompany.logoUrl && (
-                    <img 
-                      src={activeCompany.logoUrl} 
-                      alt="Logo" 
-                      className="w-10 h-10 object-contain rounded border border-slate-200 shrink-0"
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-1">
-                      <Building className="w-4 h-4 text-slate-805" />
-                      <h3 className="font-display font-black text-sm tracking-tight text-slate-900 uppercase">{activeCompany.name}</h3>
-                    </div>
-                    <p className="text-[9px] text-slate-400 font-semibold uppercase">NIT: {activeCompany.nit} | {activeCompany.address}</p>
-                  </div>
-                </div>
+        <PayrollPayslipModal
+          isOpen={!!viewingPayslip}
+          onClose={() => setViewingPayslip(null)}
+          company={activeCompany}
+          employee={terceros.find(t => t.id === viewingPayslip.employeeId) || {
+            id: viewingPayslip.employeeId,
+            name: 'Colaborador',
+            nit: '00000000',
+            type: 'natural',
+            roles: ['empleado'],
+            city: 'Bogotá',
+            address: ''
+          }}
+          payroll={viewingPayslip}
+        />
+      )}
 
-                <div className="text-right space-y-0.5">
-                  <span className="font-mono text-[9px] bg-slate-100 text-slate-600 border px-2 py-0.5 rounded-full inline-block uppercase font-bold">Resumen de Pago</span>
-                  <p className="text-[11px] font-bold text-slate-900 mt-1">Periodo: {viewingPayslip.period}</p>
-                </div>
-              </div>
-
-              {/* Employee Bio */}
-              {(() => {
-                const emp = terceros.find(t => t.id === viewingPayslip.employeeId);
-                return (
-                  <div className="grid grid-cols-2 gap-4 bg-slate-50 border p-3.5 rounded-xl text-[10px]">
-                    <div>
-                      <span className="text-slate-400 font-bold block uppercase text-[8px]">Colaborador:</span>
-                      <strong className="text-slate-900 text-[11px] block">{emp ? emp.name : 'Operario de Planta'}</strong>
-                      <span className="text-slate-500 font-mono">Cedula / NIT: {emp?.nit}</span>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="text-slate-400 font-bold block uppercase text-[8px]">Cargo y Contrato:</span>
-                      <strong className="text-slate-900 text-[11px] block">{emp?.employeeCargo || 'Operario general'}</strong>
-                      <span className="text-slate-500 italic">Fintekia Corporación</span>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Detailed Accrued vs Deductions tables */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  
-                  {/* Earnings column */}
-                  <div className="border rounded-xl overflow-hidden">
-                    <div className="bg-slate-50/50 p-2 font-bold border-b text-[9px] text-emerald-700 uppercase tracking-wider">I. Devengados (Earning)</div>
-                    <div className="p-3 space-y-2 text-[10px]">
-                      <div className="flex justify-between">
-                        <span>Sueldo proporcional ({viewingPayslip.daysWorked}d):</span>
-                        <span className="font-mono">{formatCOP(Math.round(viewingPayslip.baseSalary * viewingPayslip.daysWorked / 30))}</span>
-                      </div>
-                      
-                      {viewingPayslip.overtimePay > 0 && (
-                        <div className="flex justify-between">
-                          <span>Horas Extras & Recargos:</span>
-                          <span className="font-mono text-indigo-600 font-bold">+{formatCOP(viewingPayslip.overtimePay)}</span>
-                        </div>
-                      )}
-
-                      {viewingPayslip.auxTransporte > 0 && (
-                        <div className="flex justify-between">
-                          <span>Auxilio de Transporte:</span>
-                          <span className="font-mono">+{formatCOP(viewingPayslip.auxTransporte)}</span>
-                        </div>
-                      )}
-
-                      {viewingPayslip.bonusPay > 0 && (
-                        <div className="flex justify-between">
-                          <span>Bonos / Premios:</span>
-                          <span className="font-mono text-emerald-600 font-bold">+{formatCOP(viewingPayslip.bonusPay)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Deductions column */}
-                  <div className="border rounded-xl overflow-hidden">
-                    <div className="bg-slate-50/50 p-2 font-bold border-b text-[9px] text-rose-700 uppercase tracking-wider">II. Deducciones (withheld)</div>
-                    <div className="p-3 space-y-2 text-[10px]">
-                      <div className="flex justify-between">
-                        <span>Aporte EPS Salud (4%):</span>
-                        <span className="font-mono text-rose-600">-{formatCOP(viewingPayslip.deduccionesSalud)}</span>
-                      </div>
-
-                      <div className="flex justify-between">
-                        <span>Aporte AFP Pensión (4%):</span>
-                        <span className="font-mono text-rose-600 border-b pb-1 select-none">-{formatCOP(viewingPayslip.deduccionesPension)}</span>
-                      </div>
-
-                      {/* Math check if there is an extra offset subtraction and list it */}
-                      {(() => {
-                        const totalCalculatedDeduction = viewingPayslip.deduccionesSalud + viewingPayslip.deduccionesPension;
-                        const subCalculatedPayNoBonusOrDeductions = Math.round(viewingPayslip.baseSalary * viewingPayslip.daysWorked / 30) + viewingPayslip.overtimePay + viewingPayslip.auxTransporte + viewingPayslip.bonusPay;
-                        const remainderOffset = subCalculatedPayNoBonusOrDeductions - totalCalculatedDeduction - viewingPayslip.netPay;
-                        
-                        if (remainderOffset > 50) {
-                          return (
-                            <div className="flex justify-between">
-                              <span>Otras Deducciones / Libranzas:</span>
-                              <span className="font-mono text-rose-600">-{formatCOP(remainderOffset)}</span>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-
-              {/* Net Payout Summary highlight */}
-              <div className="p-4 bg-emerald-50 border rounded-2xl flex justify-between items-center">
-                <span className="font-display font-black text-sm text-slate-800">Neto Pagado Recibido:</span>
-                <span className="text-base font-black font-mono text-emerald-700">{formatCOP(viewingPayslip.netPay)}</span>
-              </div>
-
-              {/* Status and signature fields */}
-              <div className="grid grid-cols-2 gap-6 pt-12 text-[9.5px]">
-                <div className="border-t pt-2 space-y-1 block text-slate-400">
-                  <span className="block uppercase text-[8.5px] font-bold text-slate-500">Autorizado por:</span>
-                  <div className="h-6 block"></div>
-                  <strong className="block text-slate-700">Auxiliar Tesorería Fintekia</strong>
-                  <span className="block text-[8px]">Certificación de nómina digital</span>
-                </div>
-
-                <div className="border-t pt-2 space-y-1 block text-slate-400">
-                  <span className="block uppercase text-[8.5px] font-bold text-slate-500">Firma del Colaborador:</span>
-                  <div className="h-6 block"></div>
-                  <strong className="block text-slate-700">Aceptación de Liquidación</strong>
-                  <span className="block text-[8px]">Recibí conforme el importe líquido</span>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Bottom Actions footer */}
-            <div className="p-4 bg-slate-50 border-t flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={handlePrintPayslip}
-                className="bg-indigo-600 hover:bg-indigo-550 text-white font-bold px-4 py-2 rounded-xl text-xs cursor-pointer flex items-center gap-1.5"
-              >
-                <Printer className="w-4 h-4 text-indigo-200" /> Imprimir desprendible
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setViewingPayslip(null)}
-                className="bg-white border border-slate-300 text-slate-650 hover:bg-slate-100 font-bold px-4 py-2 rounded-xl text-xs cursor-pointer"
-              >
-                Cerrar
-              </button>
-            </div>
-
-          </div>
-        </div>
+      {/* MODAL: LIQUIDACIÓN DEFINITIVA DE CONTRATO LABORAL CST */}
+      {showContractSettlementModal && (
+        <ContractSettlementModal
+          isOpen={showContractSettlementModal}
+          onClose={() => setShowContractSettlementModal(false)}
+          company={activeCompany}
+          terceros={terceros}
+          addVoucher={addVoucher}
+        />
       )}
 
       {/* MODAL: DIRECT BANK CONSIGNATION & ACCOUNTING ROUTE */}

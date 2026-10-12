@@ -38,12 +38,30 @@ body {
 
   /* Force only the print containers and their children to be visible */
   #print-section, #print-section *,
+  #print-section-pos, #print-section-pos *,
   #payroll-payslip-print, #payroll-payslip-print *,
   #taxes-report-iva, #taxes-report-iva *,
   #taxes-report-rtf, #taxes-report-rtf *,
   #taxes-certificate, #taxes-certificate *,
   .printable-area, .printable-area * {
     visibility: visible !important;
+  }
+
+  /* Format thermal ticket POS 80mm */
+  #print-section-pos {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    min-height: auto !important;
+    background-color: white !important;
+    color: black !important;
+    padding: 3mm !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    box-sizing: border-box !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 
   /* Format printable containers to fit clean standard A4 pages */

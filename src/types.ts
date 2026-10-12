@@ -30,6 +30,9 @@ export interface Company {
   nit: string;
   slogan: string;
   address: string;
+  city?: string;
+  phone?: string;
+  email?: string;
   regimen: 'responsable' | 'no_responsable' | 'gran_contribuyente' | 'simple';
   currency: 'COP' | 'USD' | 'EUR';
   period: number;
@@ -49,6 +52,7 @@ export interface Tercero {
   id: string;
   name: string;
   nit: string;
+  dv?: string;
   type: 'juridica' | 'natural';
   roles: ('cliente' | 'proveedor' | 'empleado')[];
   city: string;
@@ -57,11 +61,20 @@ export interface Tercero {
   email?: string;
   contact?: string;
   parentId?: string; // linkage to corporate mother company
-  regimen?: 'responsable' | 'no_responsable' | 'exento';
+  regimen?: 'responsable' | 'no_responsable' | 'exento' | 'simple';
+  responsabilidadFiscal?: string;
   // Employee roles
   employeeCargo?: string;
   employeeSalary?: number;
   employeeEmergencyContact?: string;
+  employeeContractType?: 'termino_indefinido' | 'termino_fijo' | 'obra_labor' | 'aprendizaje';
+  employeeStartDate?: string;
+  employeeBank?: string;
+  employeeAccountType?: 'ahorros' | 'corriente';
+  employeeAccountNumber?: string;
+  employeeEps?: string;
+  employeeAfp?: string;
+  employeeArlRisk?: 1 | 2 | 3 | 4 | 5;
   // Provider roles
   providerBank?: string;
   providerBankAccountType?: 'ahorros' | 'corriente';
@@ -83,6 +96,24 @@ export interface Product {
   warrantyMonths?: number;
   brand?: string;
   model?: string;
+  minStock?: number;
+  category?: string;
+  unitOfMeasure?: string;
+}
+
+export interface TechServicePartItem {
+  id: string;
+  productId?: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface TechServiceTimelineEvent {
+  date: string;
+  status: string;
+  note: string;
+  user?: string;
 }
 
 export interface TechServiceOrder {
@@ -90,17 +121,32 @@ export interface TechServiceOrder {
   code: string; // OT-101
   clientId: string;
   clientName: string;
+  clientPhone?: string;
+  clientEmail?: string;
   device: string; // e.g., "Laptop Lenovo ThinkPad T14"
+  brand?: string;
+  model?: string;
   serial?: string;
+  accessoriesReceived?: string; // Cargador, cable, estuche, memoria
+  physicalCondition?: string; // Rayones, pantalla intacta, tornillos faltantes
+  devicePassword?: string; // Para pruebas técnicas
   reportedIssue: string;
   diagnosis?: string;
-  status: 'recibido' | 'en_diagnostico' | 'en_proceso' | 'completado' | 'entregado';
+  solutionApplied?: string;
+  status: 'recibido' | 'en_diagnostico' | 'esperando_repuesto' | 'en_proceso' | 'completado' | 'entregado' | 'cancelado';
   priority: 'baja' | 'media' | 'alta' | 'urgente';
   estimatedCost: number;
+  laborCost?: number;
+  partsUsed?: TechServicePartItem[];
+  finalCost?: number;
+  warrantyDays?: number; // Ej: 30, 60, 90 días
   createdAt: string;
   deliveryDate?: string;
   technician?: string;
+  receivedBy?: string;
   notes?: string;
+  deliveryNotes?: string;
+  timeline?: TechServiceTimelineEvent[];
 }
 
 export interface InventoryItem {
@@ -187,6 +233,17 @@ export interface Voucher {
   status: 'borrador' | 'aprobado' | 'procesado';
   total: number;
   items?: VoucherItem[];
+  paymentTerm?: 'contado' | 'credito';
+  dueDate?: string;
+  discountTotal?: number;
+  retenciones?: {
+    retefuente?: number;
+    reteiva?: number;
+    reteica?: number;
+  };
+  notes?: string;
+  isCreditNote?: boolean;
+  relatedVoucherNumber?: string;
   billingProviderData?: {
     providerName: string; // e.g. 'Factus', 'Siigo', 'Alegra', 'Dataico'
     transactionId: string; // External transaction UUID from the provider
@@ -285,6 +342,20 @@ export interface PackagingLog {
   operatorId: string;
 }
 
+export interface PayrollProvisions {
+  cesantias: number;
+  interesesCesantias: number;
+  primaServicios: number;
+  vacaciones: number;
+  saludPatronal: number;
+  pensionPatronal: number;
+  arl: number;
+  sena: number;
+  icbf: number;
+  cajaCompensacion: number;
+  totalProvisiones: number;
+}
+
 export interface PayrollLog {
   id: string;
   employeeId: string;
@@ -296,6 +367,7 @@ export interface PayrollLog {
   auxTransporte: number;
   deduccionesSalud: number;
   deduccionesPension: number;
+  fspDeduction?: number; // Fondo Solidaridad Pensional (> 4 SMMLV)
   netPay: number;
   consignedBankAccountId?: string;
   consignedDate?: string;
@@ -308,6 +380,14 @@ export interface PayrollLog {
   rdfHours?: number;
   bonusNonWagePay?: number;
   otherDeductionsPay?: number;
+  // DIAN Electronic Payroll
+  cune?: string;
+  dianStatus?: 'pendiente' | 'emitido' | 'aprobado_dian';
+  electronicConsecutive?: string;
+  dianIssuedAt?: string;
+  qrCodeUrl?: string;
+  voucherId?: string;
+  provisions?: PayrollProvisions;
 }
 
 export interface Budget {

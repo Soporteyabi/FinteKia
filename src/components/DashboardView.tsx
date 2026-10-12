@@ -606,6 +606,17 @@ export default function DashboardView({
             { label: 'Estado de Resultados (PyG)', icon: 'ri-line-chart-line', action: () => setActiveView('presupuestos') },
             { label: 'Presupuestos de Operación', icon: 'ri-pie-chart-line', action: () => setActiveView('presupuestos') },
           ]
+        },
+        {
+          id: 'flujo_caja',
+          title: 'Flujo de Caja & Tendencias',
+          subtitle: 'Gráficos comparativos y proyección financiera',
+          icon: 'ri-line-chart-fill',
+          mainAction: () => setViewMode('cashflow'),
+          links: [
+            { label: 'Ver Gráfica Diaria / Semanal', icon: 'ri-line-chart-line', action: () => setViewMode('cashflow') },
+            { label: 'Bancos y Conciliación', icon: 'ri-bank-card-line', action: () => setActiveView('bancos') },
+          ]
         }
       ]
     },
@@ -705,45 +716,23 @@ export default function DashboardView({
       {/* Top Controller Bar: View Switcher & Stock Alert Badge */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1 border-b border-black/5 dark:border-white/5">
         <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            onClick={() => setViewMode('menu')}
-            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              viewMode === 'menu'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span>Menú Principal</span>
-          </button>
-
-          <button
-            onClick={() => setViewMode('cashflow')}
-            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              viewMode === 'cashflow'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <TrendingUp className="w-3.5 h-3.5 text-cyan-300" />
-            <span>Flujo de Caja (recharts)</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
-          </button>
-
-          <button
-            onClick={() => setViewMode('analytics')}
-            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              viewMode === 'analytics'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Alertas MRP</span>
-            {criticalMaterials.length > 0 && (
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse ml-0.5" />
-            )}
-          </button>
+          {viewMode === 'menu' ? (
+            <div className="flex items-center gap-2 px-1">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></span>
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">
+                Módulos de Gestión Empresarial
+              </span>
+            </div>
+          ) : (
+            <button
+              onClick={() => setViewMode('menu')}
+              className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+            >
+              <i className="ri-arrow-left-line text-xs"></i>
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Volver al Menú Principal</span>
+            </button>
+          )}
         </div>
 
         {/* Global Privacy Toggle shortcut */}
@@ -1067,211 +1056,6 @@ export default function DashboardView({
               )}
             </div>
           </div>
-
-          {/* ======================================================== */}
-          {/* TECH & SERVICES SUMMARY WIDGET (WHEN PRODUCTION IS OFF)  */}
-          {/* Displays Open Service Orders, Avg Response Time & KPIs     */}
-          {/* ======================================================== */}
-          {!isProductionActive ? (
-            <div className="rounded-3xl p-5 bg-gradient-to-br from-slate-900/95 via-sky-950/40 to-slate-900/95 border border-sky-500/30 shadow-xl space-y-4">
-              
-              {/* Header Bar with Live Tech Status */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-sky-500/20">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-sky-500/20 text-sky-400 border border-sky-400/40 flex items-center justify-center text-lg shrink-0 shadow-[0_0_15px_rgba(14,165,233,0.3)]">
-                    <Laptop className="w-5 h-5 text-sky-400" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-extrabold text-sm text-white tracking-tight flex items-center gap-2">
-                        Resumen Operativo: Tecnología & Servicios TI
-                      </h3>
-                      <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30">
-                        MODO TECH ACTIVO
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-300 mt-0.5">
-                      Módulo de producción industrial en pausa. Supervisión central de órdenes de servicio (OT), tiempos de entrega y hardware.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                  <button
-                    onClick={() => setActiveView('servicios_tech')}
-                    className="px-3.5 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-sky-500/20"
-                  >
-                    <Wrench className="w-3.5 h-3.5" />
-                    <span>Taller & Órdenes de Servicio</span>
-                  </button>
-
-                  {onUpdateCompany && currentCompany && (
-                    <button
-                      onClick={() => onUpdateCompany({ ...currentCompany, enableProduction: true })}
-                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                      title="Activar Módulo de Producción Industrial (MRP)"
-                    >
-                      <Cpu className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Activar MRP</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* 4 Metric Cards Grid for Technology & Services Mode */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                
-                {/* 1: Órdenes de Servicio Abiertas */}
-                <div 
-                  onClick={() => setActiveView('servicios_tech')}
-                  className="p-4 rounded-2xl bg-slate-950/60 border border-sky-500/25 hover:border-sky-500/60 transition-all cursor-pointer group flex flex-col justify-between space-y-2 shadow-sm"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Órdenes de Servicio Abiertas</span>
-                    <div className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-400/20 flex items-center justify-center text-xs group-hover:scale-110 transition-transform">
-                      <Wrench className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-white font-sans tracking-tight">{techMetrics.openCount}</span>
-                      <span className="text-[10px] font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-md border border-sky-500/20">
-                        {techMetrics.inProcessCount} en proceso
-                      </span>
-                    </div>
-                    <p className="text-[10.5px] text-slate-400 mt-1">
-                      {techMetrics.inDiagnosisCount} en diagnóstico · {techMetrics.receivedCount} recibido(s)
-                    </p>
-                  </div>
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-sky-300 font-semibold">
-                    <span>Gestionar taller OT</span>
-                    <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                  </div>
-                </div>
-
-                {/* 2: Promedio de Tiempo de Respuesta */}
-                <div className="p-4 rounded-2xl bg-slate-950/60 border border-cyan-500/25 transition-all flex flex-col justify-between space-y-2 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Promedio Tiempo de Respuesta</span>
-                    <div className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-400/20 flex items-center justify-center text-xs">
-                      <Clock className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-white font-sans tracking-tight">{techMetrics.avgDaysStr}</span>
-                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                        SLA Óptimo ✔️
-                      </span>
-                    </div>
-                    <p className="text-[10.5px] text-slate-400 mt-1">
-                      {techMetrics.avgHoursStr} desde recepción a entrega
-                    </p>
-                  </div>
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-400">
-                    <span>Cumplimiento SLA</span>
-                    <span className="text-emerald-400 font-bold">{techMetrics.fulfillmentRate}</span>
-                  </div>
-                </div>
-
-                {/* 3: Valor Estimado en Taller (Servicios en curso) */}
-                <div className="p-4 rounded-2xl bg-slate-950/60 border border-indigo-500/25 transition-all flex flex-col justify-between space-y-2 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Servicios en Taller</span>
-                    <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-400/20 flex items-center justify-center text-xs">
-                      <Calculator className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-xl font-black text-white font-sans tracking-tight truncate">
-                        {formatCOP(techMetrics.pendingVal)}
-                      </span>
-                    </div>
-                    <p className="text-[10.5px] text-slate-400 mt-1">
-                      Valor presupuestado en órdenes activas
-                    </p>
-                  </div>
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-400">
-                    <span>Servicios completados</span>
-                    <span className="text-indigo-400 font-bold">{techMetrics.completedCount} entregados</span>
-                  </div>
-                </div>
-
-                {/* 4: Catálogo de Hardware & Soporte */}
-                <div 
-                  onClick={() => setActiveView('servicios_tech')}
-                  className="p-4 rounded-2xl bg-slate-950/60 border border-emerald-500/25 hover:border-emerald-500/60 transition-all cursor-pointer group flex flex-col justify-between space-y-2 shadow-sm"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Catálogo Hardware & Tech</span>
-                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-400/20 flex items-center justify-center text-xs group-hover:scale-110 transition-transform">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-white font-sans tracking-tight">{techMetrics.techProductsCount}</span>
-                      <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                        Hardware & Partes
-                      </span>
-                    </div>
-                    <p className="text-[10.5px] text-slate-400 mt-1">
-                      {techMetrics.techServicesCount} servicios tarifados disponibles
-                    </p>
-                  </div>
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-emerald-300 font-semibold">
-                    <span>Ver catálogo de equipos</span>
-                    <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          ) : (
-            /* Tech Enterprise & Production Module Active Banner */
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 border border-amber-500/30 shadow-md">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-400/30 flex items-center justify-center text-sm shrink-0">
-                  <Cpu className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-xs text-white">
-                      Módulo de Producción Industrial (MRP) Activo
-                    </h4>
-                    <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30">
-                      MRP ON
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-300">
-                    Recetas BOM, órdenes de fabricación y cálculo de materias primas habilitados.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                <button
-                  onClick={() => setActiveView('ordenes_prod')}
-                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-                >
-                  <i className="ri-settings-4-line"></i>
-                  <span>Órdenes de Producción</span>
-                </button>
-
-                {onUpdateCompany && currentCompany && (
-                  <button
-                    onClick={() => onUpdateCompany({ ...currentCompany, enableProduction: false })}
-                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                    title="Desactivar Producción para enfocarse en Tecnología y Servicios"
-                  >
-                    <Laptop className="w-3.5 h-3.5 text-sky-400" />
-                    <span>Modo Tecnología</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* ======================================================== */}
           {/* CATEGORY SELECTOR & DENSITY BAR (UNIFORM & ALIGNED)       */}

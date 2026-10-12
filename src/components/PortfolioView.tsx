@@ -101,6 +101,10 @@ export default function PortfolioView({
   const [paymentConcept, setPaymentConcept] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().substring(0, 10));
 
+  // Client Statement Modal State
+  const [showStatementModal, setShowStatementModal] = useState(false);
+  const [statementClient, setStatementClient] = useState<Tercero | null>(null);
+
   // Notification Feedbacks
   const [notification, setNotification] = useState<string>('');
 
@@ -118,21 +122,25 @@ export default function PortfolioView({
     }).format(val);
   };
 
-  // Calculated variables
-  const REFERENCE_DATE = new Date('2026-06-11'); // Local timeline reference
-
   // Helper to resolve dates and Mora
-  const getDaysOverdue = (issueDateStr: string) => {
-    const issueDate = new Date(issueDateStr);
-    const dueDate = new Date(issueDate);
-    dueDate.setDate(dueDate.getDate() + 30); // 30-day payment authorization terms
+  const getDaysOverdue = (issueDateStr: string, customDueDateStr?: string) => {
+    let dueDate: Date;
+    if (customDueDateStr) {
+      dueDate = new Date(customDueDateStr);
+    } else {
+      const issueDate = new Date(issueDateStr);
+      dueDate = new Date(issueDate);
+      dueDate.setDate(dueDate.getDate() + 30); // 30-day default payment terms
+    }
 
-    const diffMs = REFERENCE_DATE.getTime() - dueDate.getTime();
+    const today = new Date();
+    const diffMs = today.getTime() - dueDate.getTime();
     const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
     return diffDays > 0 ? diffDays : 0;
   };
 
-  const getDueDate = (issueDateStr: string) => {
+  const getDueDate = (issueDateStr: string, customDueDateStr?: string) => {
+    if (customDueDateStr) return customDueDateStr;
     const issueDate = new Date(issueDateStr);
     const dueDate = new Date(issueDate);
     dueDate.setDate(dueDate.getDate() + 30);
@@ -171,13 +179,12 @@ export default function PortfolioView({
 
       // Special initial transaction case matching
       if (inv.number === 'FE-101' && collections === 0) {
-        // If there's an INITIAL_BANK_TRANSACTION referring to this invoice, we match it!
-        // The mock initial state can have some collections
         collections = 0; // Default remains outstanding so the user can test the process!
       }
 
       const balanceRemaining = Math.max(0, inv.total - collections);
-      const daysOverdue = getDaysOverdue(inv.date);
+      const invoiceDueDate = getDueDate(inv.date, inv.dueDate);
+      const daysOverdue = getDaysOverdue(inv.date, inv.dueDate);
       let status: 'saldado' | 'pendiente' | 'vencido' = 'pendiente';
 
       if (balanceRemaining === 0) {
@@ -190,7 +197,8 @@ export default function PortfolioView({
         id: inv.id,
         invoiceNo: inv.number,
         date: inv.date,
-        dueDate: getDueDate(inv.date),
+        dueDate: invoiceDueDate,
+        paymentTerm: inv.paymentTerm || 'contado',
         concept: inv.concept,
         thirdPartyId: inv.thirdPartyId,
         thirdPartyName: thirdParty ? thirdParty.name : 'Cliente General',
@@ -506,6 +514,19 @@ export default function PortfolioView({
 
         {/* TOP LEVEL ACTION BUTTONS */}
         <div className="flex flex-wrap gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              const defaultClient = terceros.find(t => t.roles.includes('cliente')) || terceros[0] || null;
+              setStatementClient(defaultClient);
+              setShowStatementModal(true);
+            }}
+            className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 text-xs shadow-sm cursor-pointer transition-all pointer-events-auto"
+            title="Generar e imprimir estado de cuenta consolidado para un cliente"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-indigo-400" /> Estado de Cuenta Cliente
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -1059,17 +1080,54 @@ export default function PortfolioView({
                             )}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            {item.balance > 0 ? (
+                            <div className="flex items-center justify-center gap-1.5">
+                              {item.balance > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => triggerCollectAction(item)}
+                                  className="bg-indigo-600/80 hover:bg-indigo-600 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-lg cursor-pointer leading-tight shadow-sm"
+                                  title="Registrar abono / recibo de caja para esta factura"
+                                >
+                                  Cobrar
+                                </button>
+                              ) : (
+                                <span className="text-emerald-400 text-[10px] font-bold">✓ Cobrado</span>
+                              )}
                               <button
                                 type="button"
-                                onClick={() => triggerCollectAction(item)}
-                                className="bg-indigo-600/80 hover:bg-indigo-600 text-white text-[10px] font-extrabold px-3 py-1 rounded-lg cursor-pointer leading-tight shadow-sm"
+                                onClick={() => {
+                                  const cObj = terceros.find(t => t.id === item.thirdPartyId);
+                                  if (cObj) {
+                                    setStatementClient(cObj);
+                                    setShowStatementModal(true);
+                                  }
+                                }}
+                                className="p-1 rounded text-slate-400 hover:text-indigo-400 hover:bg-slate-800 transition-colors cursor-pointer"
+                                title="Ver Estado de Cuenta del Cliente"
                               >
-                                Cobrar Abono
+                                <FileSpreadsheet className="w-3.5 h-3.5" />
                               </button>
-                            ) : (
-                              <span className="text-emerald-400 flex justify-center text-[10px] font-bold">✓ Cobrado</span>
-                            )}
+                              {(() => {
+                                const cObj = terceros.find(t => t.id === item.thirdPartyId);
+                                if (cObj?.phone && item.balance > 0) {
+                                  const text = `Hola ${cObj.name}, le recordamos el saldo pendiente de ${formatCOP(item.balance)} de la Factura ${item.invoiceNo} (Vencimiento: ${item.dueDate}). Agradecemos su gestión de pago.`;
+                                  const cleanPhone = cObj.phone.replace(/\D/g, '');
+                                  const phone = cleanPhone.startsWith('57') ? cleanPhone : `57${cleanPhone}`;
+                                  return (
+                                    <a
+                                      href={`https://wa.me/${phone}?text=${encodeURIComponent(text)}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1 rounded text-emerald-500 hover:text-emerald-400 hover:bg-slate-800 transition-colors inline-flex items-center"
+                                      title="Enviar recordatorio por WhatsApp"
+                                    >
+                                      <Receipt className="w-3.5 h-3.5" />
+                                    </a>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1389,6 +1447,205 @@ export default function PortfolioView({
         )}
         
       </div>
+
+      {/* MODAL: ESTADO DE CUENTA DE CLIENTE */}
+      {showStatementModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-3xl w-full space-y-4 shadow-2xl text-slate-100 flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base text-white">
+                    Estado de Cuenta de Cartera
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Historial consolidado de ventas, abonos y cartera pendiente por cobrar
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowStatementModal(false)}
+                className="text-slate-400 hover:text-white text-lg p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Client Picker */}
+            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs">
+              <div className="flex-1 space-y-1">
+                <label className="font-bold text-slate-400 uppercase text-[10px] block">Seleccionar Cliente:</label>
+                <select
+                  value={statementClient?.id || ''}
+                  onChange={(e) => setStatementClient(terceros.find(t => t.id === e.target.value) || null)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-semibold focus:outline-none focus:border-indigo-500"
+                >
+                  {terceros.filter(t => t.roles.includes('cliente')).map((c) => (
+                    <option key={c.id} value={c.id}>{c.name} — NIT {c.nit}</option>
+                  ))}
+                </select>
+              </div>
+
+              {statementClient && (
+                <div className="text-right shrink-0 font-mono text-[11px] text-slate-400 space-y-0.5">
+                  <p className="text-slate-200 font-bold">{statementClient.name}</p>
+                  <p>NIT: {statementClient.nit}</p>
+                  <p>{statementClient.phone ? `Tel: ${statementClient.phone}` : 'Sin teléfono'}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Calculations for this specific client */}
+            {(() => {
+              if (!statementClient) {
+                return (
+                  <div className="p-8 text-center text-slate-400 text-xs">
+                    Seleccione un cliente para ver su estado de cuenta.
+                  </div>
+                );
+              }
+
+              const clientInvoices = cxcList.filter(i => i.thirdPartyId === statementClient.id);
+              const totalBilled = clientInvoices.reduce((s, i) => s + i.total, 0);
+              const totalCollected = clientInvoices.reduce((s, i) => s + i.collected, 0);
+              const totalBalance = clientInvoices.reduce((s, i) => s + i.balance, 0);
+              const pendingCount = clientInvoices.filter(i => i.balance > 0).length;
+
+              return (
+                <div className="space-y-4 overflow-y-auto flex-1 pr-1">
+                  {/* KPI Summary Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 text-xs space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Total Facturado</span>
+                      <p className="text-base font-bold text-white font-mono">{formatCOP(totalBilled)}</p>
+                      <span className="text-[10px] text-slate-500">{clientInvoices.length} facturas emitidas</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-emerald-950/20 border border-emerald-900/40 text-xs space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-emerald-400">Total Cobrado (Abonos)</span>
+                      <p className="text-base font-bold text-emerald-300 font-mono">{formatCOP(totalCollected)}</p>
+                      <span className="text-[10px] text-emerald-500">Recaudado exitosamente</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-indigo-950/30 border border-indigo-900/50 text-xs space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-indigo-400">Saldo Pendiente (Cartera)</span>
+                      <p className={`text-base font-bold font-mono ${totalBalance > 0 ? 'text-amber-300' : 'text-emerald-400'}`}>
+                        {formatCOP(totalBalance)}
+                      </p>
+                      <span className="text-[10px] text-indigo-300">{pendingCount} facturas con saldo</span>
+                    </div>
+                  </div>
+
+                  {/* Detail Invoices Table */}
+                  <div className="rounded-2xl border border-slate-800 overflow-hidden bg-slate-950/40 text-xs">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-800 bg-slate-950 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          <th className="py-2.5 px-3">No. Factura</th>
+                          <th className="py-2.5 px-3">Fecha</th>
+                          <th className="py-2.5 px-3">Vencimiento</th>
+                          <th className="py-2.5 px-3 text-right">Total</th>
+                          <th className="py-2.5 px-3 text-right">Abonos</th>
+                          <th className="py-2.5 px-3 text-right">Saldo</th>
+                          <th className="py-2.5 px-3 text-center">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60 font-mono">
+                        {clientInvoices.length > 0 ? (
+                          clientInvoices.map((inv) => (
+                            <tr key={inv.id} className="hover:bg-slate-900/50 transition-colors">
+                              <td className="py-2.5 px-3 font-bold text-indigo-400">{inv.invoiceNo}</td>
+                              <td className="py-2.5 px-3 text-slate-400">{inv.date}</td>
+                              <td className="py-2.5 px-3 text-slate-400">{inv.dueDate}</td>
+                              <td className="py-2.5 px-3 text-right text-slate-300">{formatCOP(inv.total)}</td>
+                              <td className="py-2.5 px-3 text-right text-emerald-400">{inv.collected > 0 ? formatCOP(inv.collected) : '-'}</td>
+                              <td className="py-2.5 px-3 text-right font-bold text-white">{formatCOP(inv.balance)}</td>
+                              <td className="py-2.5 px-3 text-center font-sans">
+                                {inv.balance === 0 ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[9px] bg-emerald-500/15 text-emerald-300 font-bold">
+                                    Saldada
+                                  </span>
+                                ) : inv.daysOverdue > 0 ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[9px] bg-rose-500/15 text-rose-300 font-bold">
+                                    Mora ({inv.daysOverdue}d)
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[9px] bg-blue-500/15 text-blue-300 font-bold">
+                                    Al día
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={7} className="py-6 text-center text-slate-500 text-xs">
+                              No hay facturas registradas para este cliente.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Actions Footer */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
+                    <span className="text-[11px] text-slate-400 font-sans">
+                      FinteKia ERP · Gestión integral de Cartera
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {statementClient.phone && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            let text = `📋 *ESTADO DE CUENTA DE CARTERA - ${statementClient.name}*\n\n`;
+                            text += `Resumen al ${new Date().toISOString().substring(0, 10)}:\n`;
+                            text += `• Total Facturado: ${formatCOP(totalBilled)}\n`;
+                            text += `• Total Cobrado: ${formatCOP(totalCollected)}\n`;
+                            text += `• *Saldo Pendiente por Pagar: ${formatCOP(totalBalance)}*\n\n`;
+                            if (totalBalance > 0) {
+                              text += `Facturas pendientes:\n`;
+                              clientInvoices.filter(i => i.balance > 0).forEach(i => {
+                                text += ` - ${i.invoiceNo}: ${formatCOP(i.balance)} (Vence: ${i.dueDate}${i.daysOverdue > 0 ? ` · ${i.daysOverdue}d mora` : ''})\n`;
+                              });
+                            }
+                            text += `\nAgradecemos su atención. Si ya realizó el pago, por favor remita su soporte.`;
+                            const cleanPhone = statementClient.phone!.replace(/\D/g, '');
+                            const phone = cleanPhone.startsWith('57') ? cleanPhone : `57${cleanPhone}`;
+                            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
+                          }}
+                          className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                        >
+                          <Receipt className="w-4 h-4" /> Enviar por WhatsApp
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => window.print()}
+                        className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                      >
+                        <Download className="w-4 h-4" /> Imprimir Estado
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowStatementModal(false)}
+                        className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors cursor-pointer"
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
     </div>
   );

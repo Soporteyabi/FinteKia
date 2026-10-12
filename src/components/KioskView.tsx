@@ -22,6 +22,7 @@ interface KioskViewProps {
   products: Product[];
   boms: BOM[];
   updateOrderStatus: (id: string, newStatus: ProductionOrder['status']) => void;
+  onExitKiosk?: () => void;
 }
 
 interface InteractiveNote {
@@ -32,7 +33,7 @@ interface InteractiveNote {
   operator: string;
 }
 
-export default function KioskView({ productionOrders, products, boms, updateOrderStatus }: KioskViewProps) {
+export default function KioskView({ productionOrders, products, boms, updateOrderStatus, onExitKiosk }: KioskViewProps) {
   // State
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [activeTask, setActiveTask] = useState<ProductionOrder | null>(null);
@@ -213,7 +214,7 @@ export default function KioskView({ productionOrders, products, boms, updateOrde
             </div>
           </div>
 
-          <div className="flex items-center gap-6 self-end md:self-auto">
+          <div className="flex items-center gap-4 self-end md:self-auto">
             {/* Clock */}
             <div className="text-right font-mono bg-zinc-900/80 border border-slate-800 px-3.5 py-1.5 rounded-xl">
               <p className="text-amber-500 font-bold text-xs tracking-wider flex items-center gap-1.5 justify-end">
@@ -231,6 +232,18 @@ export default function KioskView({ productionOrders, products, boms, updateOrde
               </span>
               <p className="text-[9px] text-slate-400 font-medium italic mt-1">Jefe de Panificación Industrial</p>
             </div>
+
+            {onExitKiosk && (
+              <button
+                type="button"
+                onClick={onExitKiosk}
+                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer shrink-0"
+                title="Regresar a la vista administrativa del ERP"
+              >
+                <i className="ri-arrow-left-line text-sm"></i>
+                <span>Salir de Kiosco</span>
+              </button>
+            )}
           </div>
         </div>
 

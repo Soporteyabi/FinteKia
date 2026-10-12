@@ -12,9 +12,10 @@ interface PurchasesViewProps {
   inventory: InventoryItem[];
   warehouses: Warehouse[];
   puc: PucAccount[];
-  addVoucher: (p: { number: string; type: 'compra'; concept: string; thirdPartyId: string; total: number; lines: any[]; items?: any[] }) => void;
+  addVoucher: (p: { number: string; type: 'compra'; concept: string; thirdPartyId: string; total: number; lines: any[]; items?: any[]; paymentTerm?: 'contado' | 'credito'; dueDate?: string; retenciones?: any }) => void;
   updateInventory: (prodId: string, lotNum: string | undefined, diffQty: number, warehouseId?: string, expirationDate?: string) => void;
   addInventoryMovement?: (mov: any) => void;
+  updateProduct?: (p: Product) => void;
   theme?: 'slate_gray' | 'zinc_classic' | 'navy_dark' | 'steel_sage' | 'light_gray';
 }
 
@@ -29,12 +30,20 @@ export default function PurchasesView({
   addVoucher,
   addInventoryMovement,
   updateInventory,
+  updateProduct,
   theme = 'slate_gray'
 }: PurchasesViewProps) {
   const [selectedProvider, setSelectedProvider] = useState('');
   const [selectedWarehouse, setSelectedWarehouse] = useState('');
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().substring(0, 10));
   const [referenceInvoice, setReferenceInvoice] = useState('');
+
+  // Commercial terms and withholdings
+  const [paymentCondition, setPaymentCondition] = useState<'contado' | 'credito'>('contado');
+  const [creditDays, setCreditDays] = useState<number>(30);
+  const [retefuentePercent, setRetefuentePercent] = useState<number>(2.5);
+  const [reteIvaActive, setReteIvaActive] = useState<boolean>(false);
+  const [reteIcaRate, setReteIcaRate] = useState<number>(0);
   
   const [purchaseLines, setPurchaseLines] = useState<Array<{ productId: string; lotNumber?: string; qty: number; unitCost: number; expirationDate?: string }>>([]);
 
@@ -341,16 +350,30 @@ export default function PurchasesView({
     return acc + line.qty * line.unitCost;
   }, 0);
 
-  // Colombian average multi-tiered IVA estimation (Purchases have descontable tax)
+  // Colombian IVA estimation (Purchases have descontable tax)
   const totalTax = purchaseLines.reduce((acc, line) => {
     const p = products.find((p) => p.id === line.productId);
     const taxFactor = p ? p.tax / 100 : 0.19;
     return acc + line.qty * line.unitCost * taxFactor;
   }, 0);
 
+  // Withholdings calculation (DIAN Colombia)
+  const retefuenteAmount = subtotal * (retefuentePercent / 100);
+  const reteIvaAmount = reteIvaActive ? totalTax * 0.15 : 0;
+  const reteIcaAmount = subtotal * reteIcaRate;
+  const totalWithholdings = retefuenteAmount + reteIvaAmount + reteIcaAmount;
+  const netPayable = Math.max(0, subtotal + totalTax - totalWithholdings);
   const finalTotal = subtotal + totalTax;
 
-  // Generate Purchase Voucher Posting (CE-xxx / COM-xxx)
+  // Due Date calculation for credit purchases
+  const calculatedDueDate = useMemo(() => {
+    if (paymentCondition === 'contado') return purchaseDate;
+    const d = new Date(purchaseDate);
+    d.setDate(d.getDate() + creditDays);
+    return d.toISOString().substring(0, 10);
+  }, [purchaseDate, paymentCondition, creditDays]);
+
+  // Generate Purchase Voucher Posting (COM-xxx)
   const handleSavePurchase = () => {
     if (!selectedProvider) {
       alert("Por favor seleccione un Proveedor logístico.");
@@ -372,31 +395,66 @@ export default function PurchasesView({
     // Voucher lines representing Colombian accounting Double-Entry
     const ledgerLines = [
       {
-        accountCode: '140501', // Materias Primas (Debito / Suma Activo)
-        description: `Ingreso mat. prima COM No. ${nextNumber} - Ref: ${referenceInvoice || 'S/R'}`,
+        accountCode: '140501', // Materias Primas / Mercancías (Débito)
+        description: `Ingreso mercancía COM No. ${nextNumber} - Fac. Prov: ${referenceInvoice || 'S/R'}`,
         debit: Math.round(subtotal),
         credit: 0
       },
       {
-        accountCode: '240810', // IVA Descontable (Debito)
-        description: `IVA descontable del 19% en compras de insumos`,
+        accountCode: '240810', // IVA Descontable en Compras (Débito)
+        description: `IVA descontable compras COM ${nextNumber}`,
         debit: Math.round(totalTax),
         credit: 0
-      },
-      {
-        accountCode: '220505', // Proveedores Nacionales (Credito / Pasivo)
-        description: `Obligación comercial proveedor Harineros unificados`,
-        debit: 0,
-        credit: Math.round(finalTotal)
       }
     ];
+
+    if (retefuenteAmount > 0) {
+      ledgerLines.push({
+        accountCode: '236540', // Retención en la fuente compras (Crédito)
+        description: `ReteFuente ${retefuentePercent}% en compras COM ${nextNumber}`,
+        debit: 0,
+        credit: Math.round(retefuenteAmount)
+      });
+    }
+
+    if (reteIvaAmount > 0) {
+      ledgerLines.push({
+        accountCode: '236701', // ReteIVA por pagar (Crédito)
+        description: `ReteIVA 15% s/ IVA compras COM ${nextNumber}`,
+        debit: 0,
+        credit: Math.round(reteIvaAmount)
+      });
+    }
+
+    if (reteIcaAmount > 0) {
+      ledgerLines.push({
+        accountCode: '236801', // ReteICA por pagar (Crédito)
+        description: `ReteICA ${(reteIcaRate * 1000).toFixed(2)}‰ compras COM ${nextNumber}`,
+        debit: 0,
+        credit: Math.round(reteIcaAmount)
+      });
+    }
+
+    ledgerLines.push({
+      accountCode: '220505', // Proveedores Nacionales (Crédito / Neto a pagar)
+      description: `Obligación comercial proveedor neto COM ${nextNumber} (${paymentCondition.toUpperCase()})`,
+      debit: 0,
+      credit: Math.round(netPayable)
+    });
 
     addVoucher({
       number: nextNumber,
       type: 'compra',
-      concept: `Registro Compra Directa No. ${nextNumber} (Soporte Factura ${referenceInvoice || 'S/N'})`,
+      concept: `Registro Compra Directa No. ${nextNumber} (Factura Prov. ${referenceInvoice || 'S/N'}${paymentCondition === 'credito' ? ` - Crédito ${creditDays}d` : ' - Contado'})`,
       thirdPartyId: selectedProvider,
-      total: Math.round(finalTotal),
+      total: Math.round(netPayable),
+      paymentTerm: paymentCondition,
+      dueDate: calculatedDueDate,
+      retenciones: {
+        retefuente: Math.round(retefuenteAmount),
+        reteiva: Math.round(reteIvaAmount),
+        reteica: Math.round(reteIcaAmount)
+      },
       lines: ledgerLines,
       items: purchaseLines.map((l) => ({
         productId: l.productId,
@@ -425,7 +483,30 @@ export default function PurchasesView({
       }
     });
 
-    alert(`Compra de Insumos registrada y asentada exitosamente bajo el Comprobante ${nextNumber}.`);
+    // Recalculate Weighted Average Cost (CPP) for purchased items
+    if (updateProduct) {
+      purchaseLines.forEach((line) => {
+        const prod = products.find((p) => p.id === line.productId);
+        if (prod) {
+          const currentStock = inventory
+            .filter((item) => item.productId === prod.id)
+            .reduce((sum, item) => sum + item.quantity, 0);
+          
+          const newTotalStock = currentStock + line.qty;
+          if (newTotalStock > 0 && prod.cost !== line.unitCost) {
+            const weightedCost = Math.round(
+              ((currentStock * prod.cost) + (line.qty * line.unitCost)) / newTotalStock
+            );
+            updateProduct({
+              ...prod,
+              cost: weightedCost
+            });
+          }
+        }
+      });
+    }
+
+    alert(`Compra de Mercancía asentada exitosamente bajo el Comprobante ${nextNumber}.\nNeto a Pagar: ${formatCOP(netPayable)} (Retenciones: ${formatCOP(totalWithholdings)})`);
     
     // Clear / Reset form status
     setPurchaseLines([]);
@@ -514,6 +595,113 @@ export default function PurchasesView({
                 onChange={(e) => setReferenceInvoice(e.target.value)}
                 className={`w-full text-xs focus:border-blue-500 rounded-xl px-3 py-2.5 font-mono font-bold ${inputBg}`}
               />
+            </div>
+          </div>
+
+          {/* Condición Comercial & Retenciones DIAN */}
+          <div className={`p-4 rounded-2xl border space-y-3 ${isNavy ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+            <div className="flex items-center justify-between pb-2 border-b border-white/5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5 font-mono">
+                <i className="ri-scales-3-line text-xs"></i>
+                <span>Condición Comercial & Retenciones en la Fuente (Compras Colombia)</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {paymentCondition === 'credito' ? `Vence: ${calculatedDueDate}` : 'Pago Inmediato'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Payment Condition */}
+              <div className="space-y-1 block">
+                <label className={`text-[10px] font-bold uppercase tracking-wider block ${labelText}`}>
+                  Forma de Pago
+                </label>
+                <div className="flex rounded-xl p-0.5 bg-black/20 border border-white/10 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentCondition('contado')}
+                    className={`flex-1 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                      paymentCondition === 'contado' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Contado
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentCondition('credito')}
+                    className={`flex-1 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                      paymentCondition === 'credito' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Crédito
+                  </button>
+                </div>
+              </div>
+
+              {/* Credit Days (if credit) */}
+              <div className="space-y-1 block">
+                <label className={`text-[10px] font-bold uppercase tracking-wider block ${labelText}`}>
+                  Plazo / Vencimiento
+                </label>
+                <select
+                  disabled={paymentCondition === 'contado'}
+                  value={creditDays}
+                  onChange={(e) => setCreditDays(Number(e.target.value))}
+                  className={`w-full text-xs font-semibold rounded-xl px-3 py-2 outline-none border disabled:opacity-50 ${inputBg}`}
+                >
+                  <option value={15}>15 Días</option>
+                  <option value={30}>30 Días (1 Mes)</option>
+                  <option value={45}>45 Días</option>
+                  <option value={60}>60 Días (2 Meses)</option>
+                  <option value={90}>90 Días</option>
+                </select>
+              </div>
+
+              {/* ReteFuente Rate */}
+              <div className="space-y-1 block">
+                <label className={`text-[10px] font-bold uppercase tracking-wider block ${labelText}`}>
+                  ReteFuente Compras
+                </label>
+                <select
+                  value={retefuentePercent}
+                  onChange={(e) => setRetefuentePercent(Number(e.target.value))}
+                  className={`w-full text-xs font-semibold rounded-xl px-3 py-2 outline-none border ${inputBg}`}
+                >
+                  <option value={0}>0% (No Retener)</option>
+                  <option value={2.5}>2.5% (Declarantes General)</option>
+                  <option value={3.5}>3.5% (No Declarantes)</option>
+                  <option value={1.0}>1.0% (Bienes Específicos)</option>
+                </select>
+              </div>
+
+              {/* ReteIVA and ReteICA */}
+              <div className="space-y-1 block">
+                <label className={`text-[10px] font-bold uppercase tracking-wider block ${labelText}`}>
+                  ReteIVA & ReteICA
+                </label>
+                <div className="flex items-center gap-2 pt-1">
+                  <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={reteIvaActive}
+                      onChange={(e) => setReteIvaActive(e.target.checked)}
+                      className="rounded accent-blue-600"
+                    />
+                    <span>ReteIVA 15%</span>
+                  </label>
+
+                  <select
+                    value={reteIcaRate}
+                    onChange={(e) => setReteIcaRate(Number(e.target.value))}
+                    className={`flex-1 text-[11px] font-semibold rounded-lg px-2 py-1 outline-none border ${inputBg}`}
+                  >
+                    <option value={0}>Sin ReteICA</option>
+                    <option value={0.00414}>4.14‰ ICA</option>
+                    <option value={0.00966}>9.66‰ ICA</option>
+                    <option value={0.01104}>11.04‰ ICA</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1046,32 +1234,78 @@ export default function PurchasesView({
             
             <div className="space-y-2 text-xs">
               <div className="flex justify-between items-center text-slate-400">
-                <span>Total Bruto Insumos:</span>
-                <span className="font-bold font-mono">{formatCOP(subtotal)}</span>
+                <span>Total Bruto Mercancía:</span>
+                <span className="font-bold font-mono text-slate-200">{formatCOP(subtotal)}</span>
               </div>
               <div className="flex justify-between items-center text-slate-400">
-                <span>IVA Descontable (19% promedio):</span>
-                <span className="font-bold font-mono">{formatCOP(totalTax)}</span>
+                <span>IVA Descontable:</span>
+                <span className="font-bold font-mono text-slate-200">{formatCOP(totalTax)}</span>
               </div>
+
+              {/* Withholdings deductions */}
+              {retefuenteAmount > 0 && (
+                <div className="flex justify-between items-center text-amber-400/90">
+                  <span>(-) ReteFuente ({retefuentePercent}%):</span>
+                  <span className="font-mono font-bold">-{formatCOP(retefuenteAmount)}</span>
+                </div>
+              )}
+
+              {reteIvaAmount > 0 && (
+                <div className="flex justify-between items-center text-amber-400/90">
+                  <span>(-) ReteIVA (15% del IVA):</span>
+                  <span className="font-mono font-bold">-{formatCOP(reteIvaAmount)}</span>
+                </div>
+              )}
+
+              {reteIcaAmount > 0 && (
+                <div className="flex justify-between items-center text-amber-400/90">
+                  <span>(-) ReteICA ({(reteIcaRate * 1000).toFixed(2)}‰):</span>
+                  <span className="font-mono font-bold">-{formatCOP(reteIcaAmount)}</span>
+                </div>
+              )}
+
               <div className="border-t border-slate-700/60 my-2 pt-3 flex justify-between items-center text-white text-base">
-                <span className="font-bold">TOTAL OBLIGACIÓN:</span>
-                <span className="font-black font-mono text-amber-500">{formatCOP(finalTotal)}</span>
+                <span className="font-bold">NETO A PAGAR:</span>
+                <span className="font-black font-mono text-emerald-400">{formatCOP(netPayable)}</span>
               </div>
+              {totalWithholdings > 0 && (
+                <p className="text-[10px] text-slate-400 text-right">
+                  Total Retenido en la Fuente: <strong className="text-amber-400 font-mono">{formatCOP(totalWithholdings)}</strong>
+                </p>
+              )}
             </div>
 
             <div className="p-3.5 bg-white/5 rounded-xl border border-white/5 space-y-2 text-[10px]">
-              <span className="font-bold text-white/40 block">Distribución de Cuentas PUC</span>
+              <span className="font-bold text-white/40 block">Distribución de Cuentas PUC (Partida Doble)</span>
               <div className="flex justify-between text-slate-400">
-                <span>Débito (140501 M.P.):</span>
-                <span className="font-mono text-amber-400">+{formatCOP(subtotal)}</span>
+                <span>Débito (140501 / 143501 Inventarios):</span>
+                <span className="font-mono text-emerald-400">+{formatCOP(subtotal)}</span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>Débito (240810 IVA Descont.):</span>
-                <span className="font-mono text-amber-400">+{formatCOP(totalTax)}</span>
+                <span>Débito (240810 IVA Descontable):</span>
+                <span className="font-mono text-emerald-400">+{formatCOP(totalTax)}</span>
               </div>
-              <div className="flex justify-between text-slate-400">
-                <span>Crédito (220505 Proveedores):</span>
-                <span className="font-mono text-rose-400">-{formatCOP(finalTotal)}</span>
+              {retefuenteAmount > 0 && (
+                <div className="flex justify-between text-amber-400">
+                  <span>Crédito (236540 ReteFuente Compras):</span>
+                  <span className="font-mono">-{formatCOP(retefuenteAmount)}</span>
+                </div>
+              )}
+              {reteIvaAmount > 0 && (
+                <div className="flex justify-between text-amber-400">
+                  <span>Crédito (236701 ReteIVA por Pagar):</span>
+                  <span className="font-mono">-{formatCOP(reteIvaAmount)}</span>
+                </div>
+              )}
+              {reteIcaAmount > 0 && (
+                <div className="flex justify-between text-amber-400">
+                  <span>Crédito (236801 ReteICA por Pagar):</span>
+                  <span className="font-mono">-{formatCOP(reteIcaAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-slate-400 border-t border-white/5 pt-1 font-bold">
+                <span>Crédito (220505 Proveedores Nal.):</span>
+                <span className="font-mono text-rose-400">-{formatCOP(netPayable)}</span>
               </div>
             </div>
           </div>

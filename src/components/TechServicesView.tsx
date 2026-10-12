@@ -2,6 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { Product, Tercero, TechServiceOrder, Company } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import Pagination from './Pagination';
+import TechServicePrintModal from './TechServicePrintModal';
+import TechOrderDetailModal from './TechOrderDetailModal';
+import { 
+  WORKSHOP_STATUS_CONFIG, 
+  buildWhatsAppServiceNotification, 
+  getWhatsAppPhoneLink 
+} from '../lib/techServiceUtils';
 import { 
   Laptop, 
   Wrench, 
@@ -24,7 +31,16 @@ import {
   Tag,
   Hash,
   Boxes,
-  Factory
+  Factory,
+  Printer,
+  LayoutGrid,
+  Columns3,
+  Table as TableIcon,
+  ChevronLeft,
+  Calendar,
+  User,
+  Shield,
+  Layers
 } from 'lucide-react';
 
 interface TechServicesViewProps {
@@ -32,6 +48,7 @@ interface TechServicesViewProps {
   terceros: Tercero[];
   techServiceOrders?: TechServiceOrder[];
   onAddServiceOrder?: (order: Omit<TechServiceOrder, 'id'>) => void;
+  onUpdateServiceOrder?: (order: TechServiceOrder) => void;
   onUpdateServiceOrderStatus?: (id: string, status: TechServiceOrder['status']) => void;
   onAddProduct?: (p: Omit<Product, 'id'>) => void;
   setActiveView: (view: string) => void;
@@ -46,6 +63,7 @@ export default function TechServicesView({
   terceros,
   techServiceOrders: initialOrders = [],
   onAddServiceOrder,
+  onUpdateServiceOrder,
   onUpdateServiceOrderStatus,
   onAddProduct,
   setActiveView,
@@ -56,76 +74,46 @@ export default function TechServicesView({
 }: TechServicesViewProps) {
   const activeTheme = THEMES_MAP[theme as keyof typeof THEMES_MAP] || THEMES_MAP.navy_dark;
 
-  // Internal local state fallback for orders
+  // Local state for orders
   const [localOrders, setLocalOrders] = useState<TechServiceOrder[]>(() => {
     if (initialOrders && initialOrders.length > 0) return initialOrders;
-    return [
-      {
-        id: 'ot-1',
-        code: 'OT-101',
-        clientId: 'ter-2',
-        clientName: 'Supermercados Éxito S.A.',
-        device: 'Laptop Lenovo ThinkPad T14 Gen 3 (Core i7 / 16GB)',
-        serial: 'PF-28XYZ90',
-        reportedIssue: 'Recalentamiento severo y apagados intermitentes. Solicita mantenimiento preventivo y ampliación a SSD 1TB.',
-        diagnosis: 'Pasta térmica degradada y ventilador bloqueado con polvo. Requiere cambio de pasta térmica e instalación de SSD NVMe.',
-        status: 'en_proceso',
-        priority: 'alta',
-        estimatedCost: 280000,
-        createdAt: '2026-10-02',
-        deliveryDate: '2026-10-08',
-        technician: 'Washington Quiñones',
-        notes: 'Cliente requiere copia de seguridad previa de documentos.'
-      },
-      {
-        id: 'ot-2',
-        code: 'OT-102',
-        clientId: 'ter-4',
-        clientName: 'Distribuidora Granel Co',
-        device: 'Servidor Torre Dell PowerEdge T150 Xeon 32GB RAM',
-        serial: 'SVC-TAG-88J20',
-        reportedIssue: 'Configuración de arreglo RAID 1, servidor VPN corporativo y sistema de copias de seguridad en nube.',
-        diagnosis: 'Configuración de controlador PERC, aprovisionamiento de 2 discos SAS de 4TB en espejo y parametrización de OpenVPN.',
-        status: 'completado',
-        priority: 'urgente',
-        estimatedCost: 650000,
-        createdAt: '2026-09-28',
-        deliveryDate: '2026-10-05',
-        technician: 'Washington Quiñones',
-        notes: 'Servicio entregado a entera satisfacción y firmado.'
-      },
-      {
-        id: 'ot-3',
-        code: 'OT-103',
-        clientId: 'ter-1',
-        clientName: 'Harineras del Valle S.A.',
-        device: 'Infraestructura de Red Wi-Fi 6 (3 Access Points UniFi U6 Pro)',
-        serial: 'NET-U6-0922',
-        reportedIssue: 'Baja cobertura y caídas de señal en áreas de bodega y despachos. Requiere certificación y balanceo.',
-        diagnosis: 'Interferencia electromagnética en 2.4GHz y cableado defectuoso. Se cotiza recableado a Cat6A y segmentación de VLAN.',
-        status: 'en_diagnostico',
-        priority: 'media',
-        estimatedCost: 450000,
-        createdAt: '2026-10-04',
-        technician: 'Andrés Felipe Gómez',
-        notes: 'Esperando confirmación de presupuesto.'
-      }
-    ];
+    return [];
   });
 
-  // Current active subtab
+  // Sync when initialOrders prop changes
+  React.useEffect(() => {
+    if (initialOrders && initialOrders.length > 0) {
+      setLocalOrders(initialOrders);
+    }
+  }, [initialOrders]);
+
+  // Current active main subtab: ordenes, catalogo, garantias
   const [activeTab, setActiveTab] = useState<'ordenes' | 'catalogo' | 'garantias'>('ordenes');
+
+  // View mode inside 'ordenes': cards, kanban, table
+  const [ordersViewMode, setOrdersViewMode] = useState<'cards' | 'kanban' | 'table'>('cards');
 
   // Search & Status filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | TechServiceOrder['status']>('all');
 
+  // Modals for Detail & Printing
+  const [selectedOrderForDetail, setSelectedOrderForDetail] = useState<TechServiceOrder | null>(null);
+  const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<TechServiceOrder | null>(null);
+
   // New OT Modal state
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
   const [newClientName, setNewClientName] = useState('');
   const [newSelectedClientId, setNewSelectedClientId] = useState('');
+  const [newClientPhone, setNewClientPhone] = useState('');
+  const [newClientEmail, setNewClientEmail] = useState('');
   const [newDevice, setNewDevice] = useState('');
+  const [newBrand, setNewBrand] = useState('');
+  const [newModel, setNewModel] = useState('');
   const [newSerial, setNewSerial] = useState('');
+  const [newAccessories, setNewAccessories] = useState('');
+  const [newPhysicalCondition, setNewPhysicalCondition] = useState('');
+  const [newDevicePassword, setNewDevicePassword] = useState('');
   const [newReportedIssue, setNewReportedIssue] = useState('');
   const [newPriority, setNewPriority] = useState<TechServiceOrder['priority']>('media');
   const [newEstimatedCost, setNewEstimatedCost] = useState(150000);
@@ -141,26 +129,31 @@ export default function TechServicesView({
   const [newProdBrand, setNewProdBrand] = useState('');
   const [newProdWarranty, setNewProdWarranty] = useState(12);
 
+  // Serial Search State in Warranties tab
+  const [serialQuery, setSerialQuery] = useState('');
+
   // Pagination states (15 per page)
   const [ordersPage, setOrdersPage] = useState(1);
-  const ORDERS_PER_PAGE = 15;
+  const ORDERS_PER_PAGE = 12;
   const [techProdPage, setTechProdPage] = useState(1);
   const PRODS_PER_PAGE = 15;
 
   // Filtered orders
   const filteredOrders = useMemo(() => {
     return localOrders.filter(order => {
+      const q = searchQuery.toLowerCase();
       const matchSearch = 
-        order.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.device.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (order.serial && order.serial.toLowerCase().includes(searchQuery.toLowerCase()));
+        order.code.toLowerCase().includes(q) ||
+        order.clientName.toLowerCase().includes(q) ||
+        order.device.toLowerCase().includes(q) ||
+        (order.serial && order.serial.toLowerCase().includes(q)) ||
+        (order.technician && order.technician.toLowerCase().includes(q));
       const matchStatus = statusFilter === 'all' || order.status === statusFilter;
       return matchSearch && matchStatus;
     });
   }, [localOrders, searchQuery, statusFilter]);
 
-  // Paginated orders (15 per page)
+  // Paginated orders
   const totalOrdersPages = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PER_PAGE));
   const safeOrdersPage = Math.min(ordersPage, totalOrdersPages);
   const paginatedOrders = filteredOrders.slice(
@@ -173,7 +166,7 @@ export default function TechServicesView({
     return products.filter(p => p.type === 'tecnologia' || p.type === 'servicio');
   }, [products]);
 
-  // Paginated tech products (15 per page)
+  // Paginated tech products
   const totalTechProdPages = Math.max(1, Math.ceil(techProducts.length / PRODS_PER_PAGE));
   const safeTechProdPage = Math.min(techProdPage, totalTechProdPages);
   const paginatedTechProducts = techProducts.slice(
@@ -185,6 +178,23 @@ export default function TechServicesView({
   const clientsList = useMemo(() => {
     return terceros.filter(t => t.roles.includes('cliente'));
   }, [terceros]);
+
+  // When client changes in New Order modal, auto-fill phone & email
+  const handleClientSelectChange = (clientId: string) => {
+    setNewSelectedClientId(clientId);
+    if (clientId) {
+      const client = clientsList.find(c => c.id === clientId);
+      if (client) {
+        setNewClientName(client.name);
+        setNewClientPhone(client.phone || '');
+        setNewClientEmail(client.email || '');
+      }
+    } else {
+      setNewClientName('');
+      setNewClientPhone('');
+      setNewClientEmail('');
+    }
+  };
 
   // Create Service Order handler
   const handleCreateOrder = (e: React.FormEvent) => {
@@ -198,8 +208,15 @@ export default function TechServicesView({
       code: nextCode,
       clientId: newSelectedClientId || 'ter-new',
       clientName: clientFinalName,
+      clientPhone: newClientPhone.trim() || (client?.phone || undefined),
+      clientEmail: newClientEmail.trim() || (client?.email || undefined),
       device: newDevice.trim(),
+      brand: newBrand.trim() || undefined,
+      model: newModel.trim() || undefined,
       serial: newSerial.trim() || undefined,
+      accessoriesReceived: newAccessories.trim() || 'Únicamente el equipo principal.',
+      physicalCondition: newPhysicalCondition.trim() || 'Condiciones normales de uso.',
+      devicePassword: newDevicePassword.trim() || undefined,
       reportedIssue: newReportedIssue.trim(),
       diagnosis: 'En espera de revisión técnica.',
       status: 'recibido',
@@ -207,7 +224,16 @@ export default function TechServicesView({
       estimatedCost: Number(newEstimatedCost) || 0,
       createdAt: new Date().toISOString().substring(0, 10),
       technician: newTechnician,
-      notes: ''
+      receivedBy: newTechnician,
+      notes: '',
+      timeline: [
+        {
+          date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          status: 'Recibido',
+          note: 'Equipo ingresado al taller para diagnóstico.',
+          user: newTechnician
+        }
+      ]
     };
 
     setLocalOrders(prev => [newOrder, ...prev]);
@@ -217,15 +243,57 @@ export default function TechServicesView({
 
     // Reset and close
     setShowNewOrderModal(false);
+    setNewSelectedClientId('');
+    setNewClientName('');
+    setNewClientPhone('');
+    setNewClientEmail('');
     setNewDevice('');
+    setNewBrand('');
+    setNewModel('');
     setNewSerial('');
+    setNewAccessories('');
+    setNewPhysicalCondition('');
+    setNewDevicePassword('');
     setNewReportedIssue('');
     setNewEstimatedCost(150000);
   };
 
+  // Full Order Update handler
+  const handleSaveUpdatedOrder = (updated: TechServiceOrder) => {
+    setLocalOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
+    if (onUpdateServiceOrder) {
+      onUpdateServiceOrder(updated);
+    } else if (onUpdateServiceOrderStatus) {
+      onUpdateServiceOrderStatus(updated.id, updated.status);
+    }
+    setSelectedOrderForDetail(null);
+  };
+
   // Update status handler
   const handleUpdateStatus = (id: string, nextStatus: TechServiceOrder['status']) => {
-    setLocalOrders(prev => prev.map(o => o.id === id ? { ...o, status: nextStatus } : o));
+    const target = localOrders.find(o => o.id === id);
+    const timelineEntry = {
+      date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      status: WORKSHOP_STATUS_CONFIG[nextStatus]?.label || nextStatus,
+      note: `Estado cambiado a ${WORKSHOP_STATUS_CONFIG[nextStatus]?.label || nextStatus}`,
+      user: target?.technician || 'Washington Quiñones'
+    };
+
+    const updated = localOrders.map(o => {
+      if (o.id === id) {
+        return {
+          ...o,
+          status: nextStatus,
+          timeline: [timelineEntry, ...(o.timeline || [])],
+          deliveryDate: (nextStatus === 'completado' || nextStatus === 'entregado') && !o.deliveryDate 
+            ? new Date().toISOString().substring(0, 10) 
+            : o.deliveryDate
+        };
+      }
+      return o;
+    });
+
+    setLocalOrders(updated);
     if (onUpdateServiceOrderStatus) {
       onUpdateServiceOrderStatus(id, nextStatus);
     }
@@ -268,11 +336,18 @@ export default function TechServicesView({
     });
   };
 
+  // Serial lookup for Warranties tab
+  const serialLookupResults = useMemo(() => {
+    if (!serialQuery.trim()) return [];
+    const q = serialQuery.toLowerCase().trim();
+    return localOrders.filter(o => o.serial && o.serial.toLowerCase().includes(q));
+  }, [localOrders, serialQuery]);
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto w-full select-none">
+    <div className="space-y-6 max-w-7xl mx-auto w-full select-none pb-12">
       
       {/* ======================================================== */}
-      {/* TOP HEADER & MODULE ACTIVATION CONTROLLER BANNER         */}
+      {/* TOP HEADER & MODULE CONTROLLER BANNER                     */}
       {/* ======================================================== */}
       <div 
         className="rounded-3xl p-6 sm:p-7 relative overflow-hidden shadow-xl"
@@ -287,7 +362,7 @@ export default function TechServicesView({
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-sky-500/20 text-sky-300 border border-sky-400/40 uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
                 <Laptop className="w-3 h-3 text-sky-300" />
-                <span>Emprendimiento en Tecnología & Servicios</span>
+                <span>Gestión de Servicios TI & Taller de Soporte Técnico</span>
               </span>
 
               <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border flex items-center gap-1.5 ${
@@ -296,28 +371,28 @@ export default function TechServicesView({
                   : 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
               }`}>
                 <Factory className="w-3 h-3" />
-                <span>Módulo Producción: {isProductionActive ? 'Activado (MRP)' : 'Desactivado (Enfoque Servicios/Tech)'}</span>
+                <span>Módulo Producción: {isProductionActive ? 'Activado (MRP)' : 'Desactivado (Enfoque Taller/Tech)'}</span>
               </span>
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
-              <span>Gestión de Servicios TI & Venta de Tecnología</span>
+              <span>Órdenes de Trabajo (OT) & Taller Profesional</span>
             </h2>
             
             <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed font-normal">
-              Control integral de soporte técnico, órdenes de servicio (OT), garantías de equipos, licencias y facturación electrónica delegada vía Proveedor Tecnológico adaptada a tu emprendimiento.
+              Flujo de reparación y mantenimiento de equipos, asignación de repuestos, checklist de ingreso físico, actas de entrega, garantías y notificaciones automáticas por WhatsApp para clientes.
             </p>
           </div>
 
-          {/* Right Action: Production Toggle Switch Card */}
+          {/* Right Action: Production Toggle & New OT Button */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
             <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md flex items-center justify-between gap-4">
               <div className="text-left">
                 <span className="text-[10px] uppercase font-mono font-bold text-slate-300 block">
-                  Producción / Fabricación
+                  Producción Industrial
                 </span>
                 <span className="text-xs font-semibold text-white">
-                  {isProductionActive ? 'Habilitada para esta empresa' : 'Desactivada (Solo Servicios)'}
+                  {isProductionActive ? 'Habilitada (BOM/MRP)' : 'Desactivada (Solo Taller TI)'}
                 </span>
               </div>
 
@@ -350,7 +425,7 @@ export default function TechServicesView({
       </div>
 
       {/* ======================================================== */}
-      {/* KPI METRIC CARDS FOR TECH ENTREPRENEURSHIP               */}
+      {/* KPI METRIC CARDS FOR WORKSHOP & HARDWARE                 */}
       {/* ======================================================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-700/80 shadow-md">
@@ -367,24 +442,24 @@ export default function TechServicesView({
           </p>
           <p className="text-[11px] text-slate-300 mt-1 flex items-center gap-1 font-medium">
             <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
-            <span>{localOrders.filter(o => o.status === 'en_proceso' || o.status === 'recibido').length} activas en taller</span>
+            <span>{localOrders.filter(o => o.status === 'en_proceso' || o.status === 'recibido' || o.status === 'en_diagnostico').length} activas en taller</span>
           </p>
         </div>
 
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-700/80 shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-[10.5px] font-mono font-bold text-emerald-400 uppercase tracking-wider">
-              Servicios Completados
+              Listos para Entrega
             </span>
             <span className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs">
               <CheckCircle2 className="w-3.5 h-3.5" />
             </span>
           </div>
           <p className="text-2xl font-black text-emerald-400 mt-2 font-mono">
-            {localOrders.filter(o => o.status === 'completado' || o.status === 'entregado').length}
+            {localOrders.filter(o => o.status === 'completado').length}
           </p>
           <p className="text-[11px] text-slate-300 mt-1 font-medium">
-            Listos para entrega y facturación
+            {localOrders.filter(o => o.status === 'entregado').length} ya entregados a satisfacción
           </p>
         </div>
 
@@ -401,24 +476,24 @@ export default function TechServicesView({
             {techProducts.length} Ítems
           </p>
           <p className="text-[11px] text-slate-300 mt-1 font-medium">
-            Hardware, repuestos y servicios
+            Hardware, repuestos e insumos de taller
           </p>
         </div>
 
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-700/80 shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-[10.5px] font-mono font-bold text-amber-400 uppercase tracking-wider">
-              Valor en Servicios
+              Valor Total Liquidado
             </span>
             <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs">
               <TrendingUp className="w-3.5 h-3.5" />
             </span>
           </div>
           <p className="text-xl sm:text-2xl font-black text-amber-300 mt-2 font-mono">
-            {formatCOP(localOrders.reduce((sum, o) => sum + o.estimatedCost, 0))}
+            {formatCOP(localOrders.reduce((sum, o) => sum + (o.finalCost || o.estimatedCost), 0))}
           </p>
           <p className="text-[11px] text-slate-300 mt-1 font-medium">
-            Presupuesto total en órdenes
+            Repuestos + Mano de obra facturable
           </p>
         </div>
       </div>
@@ -452,7 +527,7 @@ export default function TechServicesView({
             }`}
           >
             <Laptop className="w-3.5 h-3.5" />
-            <span>Productos & Servicios Tech</span>
+            <span>Productos & Repuestos Tech</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30 font-mono">
               {techProducts.length}
             </span>
@@ -467,12 +542,12 @@ export default function TechServicesView({
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Garantías & Seriales</span>
+            <span>Garantías & Seriales (S/N)</span>
           </button>
         </div>
 
         {/* Action Button for Current Tab */}
-        <div>
+        <div className="flex items-center gap-2">
           {activeTab === 'catalogo' && (
             <button
               onClick={() => setShowNewProductModal(true)}
@@ -490,7 +565,7 @@ export default function TechServicesView({
               title="Ir a Facturación Electrónica vía Proveedor Tecnológico (Tercero)"
             >
               <FileText className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Facturación (Tercero)</span>
+              <span>Facturación DIAN</span>
               <ArrowUpRight className="w-3 h-3 text-slate-400" />
             </button>
           )}
@@ -502,13 +577,14 @@ export default function TechServicesView({
       {/* ======================================================== */}
       {activeTab === 'ordenes' && (
         <div className="space-y-4">
-          {/* Search & Status Pills Filter Bar */}
+          
+          {/* Search, Filter Pills & View Mode Switcher */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-900/80 p-3 rounded-2xl border border-slate-800">
             <div className="relative flex-1 max-w-md">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Buscar por código OT, cliente, equipo o número de serie..."
+                placeholder="Buscar por código OT, cliente, equipo, técnico o serial..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -520,131 +596,439 @@ export default function TechServicesView({
 
             {/* Status pills */}
             <div className="flex flex-wrap items-center gap-1.5">
-              {(['all', 'recibido', 'en_diagnostico', 'en_proceso', 'completado', 'entregado'] as const).map(status => (
-                <button
-                  key={status}
-                  onClick={() => {
-                    setStatusFilter(status);
-                    setOrdersPage(1);
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer capitalize ${
-                    statusFilter === status
-                      ? 'bg-blue-600 text-white font-bold'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                  }`}
-                >
-                  {status === 'all' ? 'Todos los Estados' : status.replace('_', ' ')}
-                </button>
-              ))}
+              {(['all', 'recibido', 'en_diagnostico', 'esperando_repuesto', 'en_proceso', 'completado', 'entregado'] as const).map(status => {
+                const isSelected = statusFilter === status;
+                const label = status === 'all' ? 'Todos' : (WORKSHOP_STATUS_CONFIG[status]?.label || status);
+                return (
+                  <button
+                    key={status}
+                    onClick={() => {
+                      setStatusFilter(status);
+                      setOrdersPage(1);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-600 text-white font-bold shadow-sm'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* View Mode Toggle: Cards, Kanban, Table */}
+            <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setOrdersViewMode('cards')}
+                className={`p-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                  ordersViewMode === 'cards'
+                    ? 'bg-slate-800 text-sky-400 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="Vista de Tarjetas / Mosaico"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrdersViewMode('kanban')}
+                className={`p-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                  ordersViewMode === 'kanban'
+                    ? 'bg-slate-800 text-sky-400 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="Vista Flujo Kanban de Taller"
+              >
+                <Columns3 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrdersViewMode('table')}
+                className={`p-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                  ordersViewMode === 'table'
+                    ? 'bg-slate-800 text-sky-400 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="Vista Tabla Detallada"
+              >
+                <TableIcon className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
 
-          {/* Service Orders Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {paginatedOrders.map(order => {
-              const statusStyles = {
-                recibido: { bg: 'bg-slate-500/20', text: 'text-slate-300', border: 'border-slate-500/40', label: 'Recibido' },
-                en_diagnostico: { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/40', label: 'En Diagnóstico' },
-                en_proceso: { bg: 'bg-sky-500/20', text: 'text-sky-300', border: 'border-sky-500/40', label: 'En Proceso / Taller' },
-                completado: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/40', label: 'Completado' },
-                entregado: { bg: 'bg-purple-500/20', text: 'text-purple-300', border: 'border-purple-500/40', label: 'Entregado' }
-              }[order.status] || { bg: 'bg-slate-500/20', text: 'text-slate-300', border: 'border-slate-500/40', label: order.status };
+          {/* ======================================================== */}
+          {/* VIEW MODE 1: CARDS / MOSAICO                             */}
+          {/* ======================================================== */}
+          {ordersViewMode === 'cards' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {paginatedOrders.map(order => {
+                const statusStyles = WORKSHOP_STATUS_CONFIG[order.status] || {
+                  label: order.status,
+                  color: 'text-slate-300',
+                  bg: 'bg-slate-500/20',
+                  border: 'border-slate-500/40'
+                };
 
-              const priorityBadge = {
-                urgente: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
-                alta: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-                media: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-                baja: 'bg-slate-500/20 text-slate-300 border-slate-500/30'
-              }[order.priority];
+                const priorityBadge = {
+                  urgente: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+                  alta: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+                  media: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+                  baja: 'bg-slate-500/20 text-slate-300 border-slate-500/30'
+                }[order.priority];
 
-              return (
-                <div 
-                  key={order.id}
-                  className="rounded-2xl p-4.5 bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between space-y-3 shadow-md"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-sm text-sky-400 bg-sky-950/80 px-2 py-0.5 rounded border border-sky-800/60">
-                          {order.code}
-                        </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${priorityBadge}`}>
-                          {order.priority}
+                const whatsappText = buildWhatsAppServiceNotification(order, currentCompany, formatCOP);
+                const whatsappUrl = getWhatsAppPhoneLink(order.clientPhone, whatsappText);
+                const grandTotal = order.finalCost || order.estimatedCost;
+
+                return (
+                  <div 
+                    key={order.id}
+                    className="rounded-2xl p-4.5 bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between space-y-3 shadow-md group"
+                  >
+                    <div className="space-y-2.5">
+                      {/* Top Header of Card */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setSelectedOrderForDetail(order)}
+                            className="font-mono font-black text-sm text-sky-400 bg-sky-950/80 px-2 py-0.5 rounded border border-sky-800/60 hover:bg-sky-900 transition-colors cursor-pointer"
+                            title="Ver Ficha Técnica Completa"
+                          >
+                            {order.code}
+                          </button>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${priorityBadge}`}>
+                            {order.priority}
+                          </span>
+                        </div>
+                        
+                        <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full border ${statusStyles.bg} ${statusStyles.color} ${statusStyles.border}`}>
+                          {statusStyles.label}
                         </span>
                       </div>
-                      
-                      <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full border ${statusStyles.bg} ${statusStyles.text} ${statusStyles.border}`}>
-                        {statusStyles.label}
+
+                      {/* Device & Client */}
+                      <div>
+                        <h4 
+                          onClick={() => setSelectedOrderForDetail(order)}
+                          className="font-bold text-sm text-white line-clamp-1 group-hover:text-sky-300 transition-colors cursor-pointer"
+                        >
+                          {order.device}
+                        </h4>
+                        <div className="flex items-center justify-between text-xs mt-0.5">
+                          <span className="text-cyan-300 font-medium truncate">
+                            {order.clientName}
+                          </span>
+                          {order.clientPhone && (
+                            <a
+                              href={whatsappUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10.5px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-mono shrink-0 ml-1"
+                              title="Contactar vía WhatsApp"
+                            >
+                              <Smartphone className="w-3 h-3" />
+                              <span>{order.clientPhone}</span>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Serial Tag */}
+                      {order.serial && (
+                        <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+                          <span className="flex items-center gap-1.5">
+                            <Tag className="w-3 h-3 text-slate-500" />
+                            <span>S/N: <strong className="text-slate-200">{order.serial}</strong></span>
+                          </span>
+                          {order.brand && <span className="text-slate-500">{order.brand}</span>}
+                        </div>
+                      )}
+
+                      {/* Issues and Diagnosis */}
+                      <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs space-y-1">
+                        <p className="text-slate-300 text-[11.5px] line-clamp-2">
+                          <strong className="text-slate-400">Falla:</strong> {order.reportedIssue}
+                        </p>
+                        {order.diagnosis && (
+                          <p className="text-sky-300/90 text-[11px] line-clamp-2 border-t border-slate-800/60 pt-1">
+                            <strong className="text-slate-400">Diagnóstico:</strong> {order.diagnosis}
+                          </p>
+                        )}
+                        {order.solutionApplied && (
+                          <p className="text-emerald-400/90 text-[11px] line-clamp-2 border-t border-slate-800/60 pt-1">
+                            <strong className="text-slate-400">Solución:</strong> {order.solutionApplied}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Parts badge if any */}
+                      {order.partsUsed && order.partsUsed.length > 0 && (
+                        <div className="flex items-center gap-1.5 text-[10.5px] text-purple-300 bg-purple-950/40 border border-purple-800/50 px-2 py-0.5 rounded-lg">
+                          <Cpu className="w-3 h-3 text-purple-400" />
+                          <span>{order.partsUsed.length} Repuesto(s) instalado(s)</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom Section: Total & Quick Actions */}
+                    <div className="pt-2 border-t border-slate-800 space-y-2.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">
+                          {order.finalCost ? 'Total Liquidado:' : 'Presupuesto Estimado:'}
+                        </span>
+                        <span className="font-mono font-bold text-emerald-400 text-sm">
+                          {formatCOP(grandTotal)}
+                        </span>
+                      </div>
+
+                      {/* Quick Status advancement and actions */}
+                      <div className="flex items-center justify-between gap-1.5 pt-1">
+                        <select
+                          value={order.status}
+                          onChange={(e) => handleUpdateStatus(order.id, e.target.value as any)}
+                          className="text-[10.5px] font-semibold bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 cursor-pointer flex-1"
+                          aria-label="Actualizar estado de orden"
+                        >
+                          <option value="recibido">1. Recibido</option>
+                          <option value="en_diagnostico">2. En Diagnóstico</option>
+                          <option value="esperando_repuesto">3. Esperando Repuesto</option>
+                          <option value="en_proceso">4. En Taller / Proceso</option>
+                          <option value="completado">5. Listo para Entrega</option>
+                          <option value="entregado">6. Entregado</option>
+                          <option value="cancelado">Cancelado</option>
+                        </select>
+
+                        {/* Print Button */}
+                        <button
+                          onClick={() => setSelectedOrderForPrint(order)}
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[10.5px] transition-all cursor-pointer"
+                          title="Imprimir Comprobante de Entrada o Acta de Entrega"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-sky-400" />
+                        </button>
+
+                        {/* Detail Modal Button */}
+                        <button
+                          onClick={() => setSelectedOrderForDetail(order)}
+                          className="px-2 py-1 rounded-lg bg-blue-600/30 hover:bg-blue-600 text-sky-300 hover:text-white border border-blue-500/40 text-[10.5px] font-bold transition-all cursor-pointer"
+                          title="Abrir Ficha Técnica y Bitácora"
+                        >
+                          Ficha
+                        </button>
+
+                        {/* Bill Button */}
+                        <button
+                          onClick={() => setActiveView('facturacion')}
+                          className="px-2 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[10.5px] font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                          title="Facturar este servicio mediante Facturación Electrónica DIAN"
+                        >
+                          <FileText className="w-3 h-3" />
+                          <span>Facturar</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* VIEW MODE 2: KANBAN COLUMNS (WORKSHOP PIPELINE)          */}
+          {/* ======================================================== */}
+          {ordersViewMode === 'kanban' && (
+            <div className="flex gap-3.5 overflow-x-auto pb-4">
+              {(['recibido', 'en_diagnostico', 'esperando_repuesto', 'en_proceso', 'completado', 'entregado'] as const).map(colStatus => {
+                const colOrders = filteredOrders.filter(o => o.status === colStatus);
+                const colInfo = WORKSHOP_STATUS_CONFIG[colStatus];
+
+                return (
+                  <div 
+                    key={colStatus}
+                    className="w-72 shrink-0 bg-slate-900/90 border border-slate-800 rounded-2xl p-3 flex flex-col max-h-[750px]"
+                  >
+                    {/* Column Header */}
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2.5 h-2.5 rounded-full ${colInfo.bg} ${colInfo.border} border`} />
+                        <h4 className="font-bold text-xs text-white">{colInfo.label}</h4>
+                      </div>
+                      <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-slate-950 text-slate-300 font-bold border border-slate-800">
+                        {colOrders.length}
                       </span>
                     </div>
 
-                    <div>
-                      <h4 className="font-bold text-sm text-white line-clamp-1">
-                        {order.device}
-                      </h4>
-                      <p className="text-xs text-cyan-300 font-medium line-clamp-1 mt-0.5">
-                        {order.clientName}
-                      </p>
-                    </div>
+                    {/* Column Cards */}
+                    <div className="flex-1 overflow-y-auto space-y-2.5 pt-2.5 pr-1">
+                      {colOrders.map(order => (
+                        <div
+                          key={order.id}
+                          className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-sky-500/50 transition-all space-y-2 shadow-sm"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono font-black text-xs text-sky-400">
+                              {order.code}
+                            </span>
+                            <span className="text-[10px] font-mono text-emerald-400 font-bold">
+                              {formatCOP(order.finalCost || order.estimatedCost)}
+                            </span>
+                          </div>
 
-                    {order.serial && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
-                        <Tag className="w-3 h-3 text-slate-500" />
-                        <span>S/N: <strong className="text-slate-200">{order.serial}</strong></span>
-                      </div>
-                    )}
+                          <div 
+                            onClick={() => setSelectedOrderForDetail(order)}
+                            className="cursor-pointer"
+                          >
+                            <p className="text-xs font-bold text-white line-clamp-1 hover:text-sky-300">
+                              {order.device}
+                            </p>
+                            <p className="text-[11px] text-cyan-300 line-clamp-1 mt-0.5">
+                              {order.clientName}
+                            </p>
+                          </div>
 
-                    <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs space-y-1">
-                      <p className="text-slate-300 text-[11.5px] line-clamp-2">
-                        <strong className="text-slate-400">Falla:</strong> {order.reportedIssue}
-                      </p>
-                      {order.diagnosis && (
-                        <p className="text-sky-300/90 text-[11px] line-clamp-2 border-t border-slate-800/60 pt-1">
-                          <strong className="text-slate-400">Diagnóstico:</strong> {order.diagnosis}
-                        </p>
+                          <p className="text-[10.5px] text-slate-400 line-clamp-2 bg-slate-900/60 p-1.5 rounded border border-slate-800/80">
+                            {order.reportedIssue}
+                          </p>
+
+                          {/* Quick movement controls */}
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[10px]">
+                            <button
+                              onClick={() => setSelectedOrderForDetail(order)}
+                              className="text-sky-400 hover:underline font-bold"
+                            >
+                              Ver Ficha
+                            </button>
+
+                            <button
+                              onClick={() => setSelectedOrderForPrint(order)}
+                              className="text-slate-400 hover:text-white"
+                              title="Imprimir"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+
+                            <select
+                              value={order.status}
+                              onChange={(e) => handleUpdateStatus(order.id, e.target.value as any)}
+                              className="bg-slate-900 text-slate-300 rounded px-1.5 py-0.5 border border-slate-700 text-[10px]"
+                            >
+                              <option value="recibido">1. Recibido</option>
+                              <option value="en_diagnostico">2. Diagnóstico</option>
+                              <option value="esperando_repuesto">3. Repuesto</option>
+                              <option value="en_proceso">4. En Taller</option>
+                              <option value="completado">5. Listo</option>
+                              <option value="entregado">6. Entregado</option>
+                            </select>
+                          </div>
+                        </div>
+                      ))}
+
+                      {colOrders.length === 0 && (
+                        <div className="py-8 text-center text-slate-500 text-xs italic">
+                          Sin órdenes en esta etapa
+                        </div>
                       )}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
 
-                  <div className="pt-2 border-t border-slate-800 space-y-2.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Presupuesto Estimado:</span>
-                      <span className="font-mono font-bold text-emerald-400 text-sm">
-                        {formatCOP(order.estimatedCost)}
-                      </span>
-                    </div>
+          {/* ======================================================== */}
+          {/* VIEW MODE 3: TABLA DETALLADA                             */}
+          {/* ======================================================== */}
+          {ordersViewMode === 'table' && (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/90 overflow-hidden shadow-md">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950 text-slate-400 font-mono border-b border-slate-800">
+                    <tr>
+                      <th className="py-2.5 px-3">Código OT</th>
+                      <th className="py-2.5 px-3">Fecha</th>
+                      <th className="py-2.5 px-3">Cliente / Contacto</th>
+                      <th className="py-2.5 px-3">Dispositivo & Serial</th>
+                      <th className="py-2.5 px-3">Falla / Diagnóstico</th>
+                      <th className="py-2.5 px-3">Estado</th>
+                      <th className="py-2.5 px-3 text-right">Valor Final</th>
+                      <th className="py-2.5 px-3 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/70 font-sans">
+                    {paginatedOrders.map(order => {
+                      const statusStyles = WORKSHOP_STATUS_CONFIG[order.status] || {
+                        label: order.status,
+                        color: 'text-slate-300',
+                        bg: 'bg-slate-500/20',
+                        border: 'border-slate-500/40'
+                      };
 
-                    {/* Status Step advancement buttons */}
-                    <div className="flex items-center justify-between gap-1.5 pt-1">
-                      <select
-                        value={order.status}
-                        onChange={(e) => handleUpdateStatus(order.id, e.target.value as any)}
-                        className="text-[10.5px] font-semibold bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 cursor-pointer flex-1"
-                        aria-label="Actualizar estado de orden"
-                      >
-                        <option value="recibido">1. Recibido</option>
-                        <option value="en_diagnostico">2. En Diagnóstico</option>
-                        <option value="en_proceso">3. En Taller / Proceso</option>
-                        <option value="completado">4. Completado</option>
-                        <option value="entregado">5. Entregado</option>
-                      </select>
+                      return (
+                        <tr key={order.id} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="py-2.5 px-3 font-mono font-bold text-sky-400">
+                            {order.code}
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-slate-400">
+                            {order.createdAt}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="font-semibold text-white block">{order.clientName}</span>
+                            {order.clientPhone && (
+                              <span className="text-[10px] text-slate-400 font-mono">{order.clientPhone}</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="font-medium text-slate-200 block">{order.device}</span>
+                            {order.serial && (
+                              <span className="text-[10px] text-sky-400 font-mono">S/N: {order.serial}</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 max-w-xs">
+                            <p className="truncate text-slate-300">{order.reportedIssue}</p>
+                            {order.diagnosis && (
+                              <p className="text-[10.5px] text-slate-400 truncate">Diag: {order.diagnosis}</p>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusStyles.bg} ${statusStyles.color} ${statusStyles.border}`}>
+                              {statusStyles.label}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400">
+                            {formatCOP(order.finalCost || order.estimatedCost)}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => setSelectedOrderForDetail(order)}
+                                className="px-2 py-0.5 rounded bg-blue-600/30 hover:bg-blue-600 text-sky-300 hover:text-white text-[10px] font-bold transition-all cursor-pointer"
+                                title="Ver Ficha Técnica"
+                              >
+                                Ficha
+                              </button>
+                              <button
+                                onClick={() => setSelectedOrderForPrint(order)}
+                                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] transition-all cursor-pointer"
+                                title="Imprimir"
+                              >
+                                <Printer className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
-                      <button
-                        onClick={() => setActiveView('facturacion')}
-                        className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[10.5px] font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0"
-                        title="Facturar este servicio mediante Facturación Electrónica vía Proveedor Tecnológico (Tercero)"
-                      >
-                        <FileText className="w-3 h-3" />
-                        <span>Facturar</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {filteredOrders.length > 0 && (
+          {/* Pagination for Cards & Table */}
+          {ordersViewMode !== 'kanban' && filteredOrders.length > 0 && (
             <Pagination
               currentPage={safeOrdersPage}
               totalItems={filteredOrders.length}
@@ -681,10 +1065,10 @@ export default function TechServicesView({
               <div>
                 <h3 className="font-bold text-sm text-white flex items-center gap-2">
                   <Laptop className="w-4 h-4 text-sky-400" />
-                  <span>Catálogo de Productos Tecnológicos y Servicios Profesionales</span>
+                  <span>Catálogo de Productos Tecnológicos y Repuestos de Taller</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Artículos configurados para facturación DIAN, venta al público o prestación de servicios de soporte.
+                  Artículos configurados para facturación DIAN, repuestos instalados en órdenes de trabajo o venta directa al público.
                 </p>
               </div>
 
@@ -693,7 +1077,7 @@ export default function TechServicesView({
                 className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Agregar Producto o Servicio</span>
+                <span>Agregar Producto o Repuesto</span>
               </button>
             </div>
 
@@ -730,7 +1114,7 @@ export default function TechServicesView({
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                            Hardware / Producto
+                            Hardware / Repuesto
                           </span>
                         )}
                       </td>
@@ -776,49 +1160,122 @@ export default function TechServicesView({
       {/* ======================================================== */}
       {activeTab === 'garantias' && (
         <div className="space-y-4">
-          <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-            <h3 className="font-bold text-sm text-white flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Control de Garantías, Seriales y Soporte Postventa</span>
-            </h3>
-            <p className="text-xs text-slate-400">
-              Registra los números de serie entregados a clientes para validar vigencia de garantía y hoja de vida de soporte.
-            </p>
+          <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Trazabilidad de Seriales (S/N) & Consulta de Garantías</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Consulta el historial completo de intervenciones técnicas y vigencia de garantía por número de serie.
+                </p>
+              </div>
 
+              {/* Serial Search Input */}
+              <div className="relative w-full sm:w-80">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Buscar serial (ej. PF-28XYZ90)..."
+                  value={serialQuery}
+                  onChange={(e) => setSerialQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-400 font-mono"
+                />
+              </div>
+            </div>
+
+            {/* If searched, display matching orders */}
+            {serialQuery.trim() && (
+              <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                <span className="font-bold text-xs text-sky-400 flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5" />
+                  <span>Historial de Intervenciones para Serial: "{serialQuery}" ({serialLookupResults.length} registros)</span>
+                </span>
+
+                {serialLookupResults.map(order => (
+                  <div key={order.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-sky-400">{order.code}</span>
+                        <span className="text-xs font-bold text-white">{order.device}</span>
+                      </div>
+                      <p className="text-xs text-slate-400">Cliente: {order.clientName} | Fecha: {order.createdAt}</p>
+                      <p className="text-[11px] text-slate-300">Trabajo: {order.solutionApplied || order.diagnosis}</p>
+                    </div>
+
+                    <div className="text-right space-y-1">
+                      <span className="text-xs font-mono font-bold text-emerald-400 block">
+                        Garantía: {order.warrantyDays || 30} Días
+                      </span>
+                      <button
+                        onClick={() => setSelectedOrderForDetail(order)}
+                        className="px-2.5 py-1 rounded bg-blue-600/30 hover:bg-blue-600 text-sky-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                      >
+                        Ver Detalle
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {serialLookupResults.length === 0 && (
+                  <p className="text-xs text-slate-500 py-3 text-center italic">
+                    No se encontraron órdenes previas registradas con ese número de serie.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Static Highlighted Warranties */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                 <div className="flex items-center justify-between text-xs text-sky-400 font-bold">
                   <span>Laptop ThinkPad T14</span>
-                  <span className="font-mono text-[10px]">PF-28XYZ90</span>
+                  <span className="font-mono text-[10px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                    PF-28XYZ90
+                  </span>
                 </div>
                 <p className="text-xs text-slate-300">Cliente: Supermercados Éxito S.A.</p>
-                <div className="flex items-center justify-between text-[11px] text-emerald-400 pt-1 border-t border-slate-800">
-                  <span>Garantía Vigente: 12 Meses</span>
-                  <span className="font-mono">Vence: Oct 2027</span>
+                <div className="flex items-center justify-between text-[11px] text-emerald-400 pt-1.5 border-t border-slate-800 font-medium">
+                  <span className="flex items-center gap-1">
+                    <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Garantía Vigente: 90 Días</span>
+                  </span>
+                  <span className="font-mono">Vence: Ene 2027</span>
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                 <div className="flex items-center justify-between text-xs text-sky-400 font-bold">
-                  <span>Servidor Dell PowerEdge</span>
-                  <span className="font-mono text-[10px]">SVC-TAG-88J20</span>
+                  <span>Servidor Dell PowerEdge T150</span>
+                  <span className="font-mono text-[10px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                    SVC-TAG-88J20
+                  </span>
                 </div>
                 <p className="text-xs text-slate-300">Cliente: Distribuidora Granel Co</p>
-                <div className="flex items-center justify-between text-[11px] text-emerald-400 pt-1 border-t border-slate-800">
-                  <span>Garantía Vigente: 36 Meses</span>
-                  <span className="font-mono">Vence: Oct 2029</span>
+                <div className="flex items-center justify-between text-[11px] text-emerald-400 pt-1.5 border-t border-slate-800 font-medium">
+                  <span className="flex items-center gap-1">
+                    <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Garantía Vigente: 180 Días</span>
+                  </span>
+                  <span className="font-mono">Vence: Abr 2027</span>
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                 <div className="flex items-center justify-between text-xs text-sky-400 font-bold">
-                  <span>Router Mikrotik hEX S</span>
-                  <span className="font-mono text-[10px]">MK-9002-BOG</span>
+                  <span>UniFi U6 Pro Access Points</span>
+                  <span className="font-mono text-[10px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                    NET-U6-0922
+                  </span>
                 </div>
                 <p className="text-xs text-slate-300">Cliente: Harineras del Valle</p>
-                <div className="flex items-center justify-between text-[11px] text-emerald-400 pt-1 border-t border-slate-800">
-                  <span>Garantía Vigente: 12 Meses</span>
-                  <span className="font-mono">Vence: Sep 2027</span>
+                <div className="flex items-center justify-between text-[11px] text-emerald-400 pt-1.5 border-t border-slate-800 font-medium">
+                  <span className="flex items-center gap-1">
+                    <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Garantía Vigente: 60 Días</span>
+                  </span>
+                  <span className="font-mono">Vence: Dic 2026</span>
                 </div>
               </div>
             </div>
@@ -827,17 +1284,20 @@ export default function TechServicesView({
       )}
 
       {/* ======================================================== */}
-      {/* MODAL: NUEVA ORDEN DE SERVICIO (OT)                      */}
+      {/* MODAL: NUEVA ORDEN DE SERVICIO TÉCNICO (OT)              */}
       {/* ======================================================== */}
       {showNewOrderModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-3xl p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center text-sm">
-                  <Wrench className="w-4 h-4" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center text-sm shadow-inner">
+                  <Wrench className="w-4.5 h-4.5" />
                 </div>
-                <h3 className="font-extrabold text-base text-white">Nueva Orden de Servicio Técnico (OT)</h3>
+                <div>
+                  <h3 className="font-extrabold text-base text-white">Nueva Orden de Servicio Técnico (OT)</h3>
+                  <p className="text-[11px] text-slate-400">Ingreso de equipo a taller y registro de cliente</p>
+                </div>
               </div>
               <button
                 onClick={() => setShowNewOrderModal(false)}
@@ -848,56 +1308,151 @@ export default function TechServicesView({
             </div>
 
             <form onSubmit={handleCreateOrder} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Cliente</label>
+              
+              {/* Cliente */}
+              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2.5">
+                <label className="block text-slate-300 font-bold">Datos del Propietario / Cliente *</label>
                 <select
                   value={newSelectedClientId}
-                  onChange={(e) => setNewSelectedClientId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white font-medium focus:border-sky-400 outline-none"
+                  onChange={(e) => handleClientSelectChange(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-medium focus:border-sky-400 outline-none"
                 >
-                  <option value="">-- Seleccionar de clientes registrados o ingresar nuevo --</option>
+                  <option value="">-- Seleccionar de clientes registrados o ingresar nuevo mostrador --</option>
                   {clientsList.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.nit})</option>
+                    <option key={c.id} value={c.id}>{c.name} ({c.nit}) {c.phone ? ` - Tel: ${c.phone}` : ''}</option>
                   ))}
                 </select>
-                {!newSelectedClientId && (
-                  <input
-                    type="text"
-                    placeholder="O escribe el nombre del cliente / empresa..."
-                    value={newClientName}
-                    onChange={(e) => setNewClientName(e.target.value)}
-                    className="w-full px-3 py-2 mt-1.5 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:border-sky-400 outline-none"
-                  />
-                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                  <div>
+                    <label className="block text-[10.5px] text-slate-400 mb-0.5">Nombre / Razón Social</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Nombre del cliente..."
+                      value={newClientName}
+                      onChange={(e) => setNewClientName(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs outline-none focus:border-sky-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] text-slate-400 mb-0.5">Teléfono / WhatsApp</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. 3101234567"
+                      value={newClientPhone}
+                      onChange={(e) => setNewClientPhone(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs outline-none focus:border-sky-400 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] text-slate-400 mb-0.5">Correo Electrónico</label>
+                    <input
+                      type="email"
+                      placeholder="cliente@email.com"
+                      value={newClientEmail}
+                      onChange={(e) => setNewClientEmail(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs outline-none focus:border-sky-400"
+                    />
+                  </div>
+                </div>
               </div>
 
+              {/* Dispositivo */}
+              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2.5">
+                <label className="block text-slate-300 font-bold">Datos del Equipo o Dispositivo *</label>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10.5px] text-slate-400 mb-0.5">Descripción del Dispositivo *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. Laptop Lenovo ThinkPad T14 o Servidor Dell T150"
+                      value={newDevice}
+                      onChange={(e) => setNewDevice(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:border-sky-400 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] text-slate-400 mb-0.5">Número de Serie (S/N)</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. PF-28XYZ90"
+                      value={newSerial}
+                      onChange={(e) => setNewSerial(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:border-sky-400 outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                  <div>
+                    <label className="block text-[10.5px] text-slate-400 mb-0.5">Marca</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. Lenovo, Dell, Apple, HP"
+                      value={newBrand}
+                      onChange={(e) => setNewBrand(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] text-slate-400 mb-0.5">Modelo</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. T14 Gen 3"
+                      value={newModel}
+                      onChange={(e) => setNewModel(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] text-slate-400 mb-0.5">Clave / PIN (Opcional pruebas)</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. 1234"
+                      value={newDevicePassword}
+                      onChange={(e) => setNewDevicePassword(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Accesorios & Estado Físico */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Dispositivo / Equipo *</label>
+                  <label className="block text-slate-300 font-semibold mb-1">Accesorios Dejados en Taller</label>
                   <input
                     type="text"
-                    required
-                    placeholder="Ej. Laptop HP Pavilion 15"
-                    value={newDevice}
-                    onChange={(e) => setNewDevice(e.target.value)}
+                    placeholder="Ej. Cargador 65W, estuche, cable USB..."
+                    value={newAccessories}
+                    onChange={(e) => setNewAccessories(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:border-sky-400 outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Número de Serie (S/N)</label>
+                  <label className="block text-slate-300 font-semibold mb-1">Estado Físico / Estético</label>
                   <input
                     type="text"
-                    placeholder="Ej. 5CD1234XYZ"
-                    value={newSerial}
-                    onChange={(e) => setNewSerial(e.target.value)}
+                    placeholder="Ej. Buen estado, rayones en tapa, pantalla intacta..."
+                    value={newPhysicalCondition}
+                    onChange={(e) => setNewPhysicalCondition(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:border-sky-400 outline-none"
                   />
                 </div>
               </div>
 
+              {/* Falla Reportada */}
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Problema Reportado / Servicio Solicitado *</label>
+                <label className="block text-slate-300 font-semibold mb-1">Problema Reportado por el Cliente *</label>
                 <textarea
                   required
                   rows={2}
@@ -908,6 +1463,7 @@ export default function TechServicesView({
                 />
               </div>
 
+              {/* Prioridad, Técnico y Presupuesto */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">Prioridad</label>
@@ -954,7 +1510,7 @@ export default function TechServicesView({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-400 to-blue-600 hover:from-white hover:to-sky-400 text-slate-950 font-black transition-all cursor-pointer"
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-sky-400 to-blue-600 hover:from-white hover:to-sky-400 text-slate-950 font-black transition-all cursor-pointer shadow-lg shadow-sky-500/20"
                 >
                   Registrar Orden OT
                 </button>
@@ -994,8 +1550,8 @@ export default function TechServicesView({
                     onChange={(e) => setNewProdType(e.target.value as any)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white font-medium focus:border-sky-400 outline-none"
                   >
-                    <option value="tecnologia">Hardware / Equipo Tecnológico</option>
-                    <option value="servicio">Servicio Profesional / Soporte TI</option>
+                    <option value="tecnologia">Hardware / Repuesto Tecnológico</option>
+                    <option value="servicio">Servicio Profesional / Mano de Obra TI</option>
                   </select>
                 </div>
 
@@ -1004,7 +1560,7 @@ export default function TechServicesView({
                   <input
                     type="text"
                     required
-                    placeholder="Ej. TECH-ROU-05 o SRV-MANT"
+                    placeholder="Ej. TECH-REP-01 o SRV-MANT"
                     value={newProdSku}
                     onChange={(e) => setNewProdSku(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:border-sky-400 outline-none font-mono"
@@ -1017,7 +1573,7 @@ export default function TechServicesView({
                 <input
                   type="text"
                   required
-                  placeholder="Ej. Router Wi-Fi 6 Doble Banda o Mantenimiento Servidor"
+                  placeholder="Ej. Pantalla LED 15.6 FHD o Mantenimiento Térmico"
                   value={newProdName}
                   onChange={(e) => setNewProdName(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:border-sky-400 outline-none"
@@ -1029,7 +1585,7 @@ export default function TechServicesView({
                   <label className="block text-slate-300 font-semibold mb-1">Marca / Fabricante</label>
                   <input
                     type="text"
-                    placeholder="Ej. Lenovo, Dell, MikroTik"
+                    placeholder="Ej. Lenovo, Dell, Kingston"
                     value={newProdBrand}
                     onChange={(e) => setNewProdBrand(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:border-sky-400 outline-none"
@@ -1089,6 +1645,39 @@ export default function TechServicesView({
             </form>
           </div>
         </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: FICHA TÉCNICA DETALLADA & BITÁCORA                */}
+      {/* ======================================================== */}
+      {selectedOrderForDetail && (
+        <TechOrderDetailModal
+          order={selectedOrderForDetail}
+          products={products}
+          company={currentCompany}
+          onClose={() => setSelectedOrderForDetail(null)}
+          onSave={handleSaveUpdatedOrder}
+          onPrint={(orderToPrint) => {
+            setSelectedOrderForPrint(orderToPrint);
+          }}
+          onInvoice={(orderToInvoice) => {
+            setSelectedOrderForDetail(null);
+            setActiveView('facturacion');
+          }}
+          formatCOP={formatCOP}
+        />
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: IMPRESIÓN COMPROBANTE RECEPCIÓN / ACTA ENTREGA    */}
+      {/* ======================================================== */}
+      {selectedOrderForPrint && (
+        <TechServicePrintModal
+          order={selectedOrderForPrint}
+          company={currentCompany}
+          onClose={() => setSelectedOrderForPrint(null)}
+          formatCOP={formatCOP}
+        />
       )}
 
     </div>

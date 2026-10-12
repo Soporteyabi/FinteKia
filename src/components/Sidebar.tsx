@@ -372,6 +372,7 @@ export default function Sidebar({
       label: 'CONFIGURACIÓN',
       items: [
         { id: 'empresa', label: 'Datos de la Empresa', icon: 'ri-building-4-line', roles: ['Admin', 'Contador'] },
+        { id: 'database', label: 'Base de Datos & Supabase', icon: 'ri-database-2-line', badge: 'SQL', roles: ['Admin', 'Contador'] },
         { id: 'alanube_config', label: 'API Alanube & DIAN', icon: 'ri-cloud-line', badge: 'DIAN API', roles: ['Admin', 'Contador'] },
         { id: 'usuarios', label: 'Control de Usuarios', icon: 'ri-user-settings-line', roles: ['Admin', 'Contador'] },
       ]
@@ -753,20 +754,6 @@ export default function Sidebar({
         {/* Expanded UI elements */}
         {!isCollapsed ? (
           <>
-            {/* Quick Kiosk mode switch button */}
-            <button
-              onClick={() => setKioskMode(!kioskMode)}
-              id="kiosk-toggle"
-              className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-[10px] font-black tracking-wider uppercase transition-all cursor-pointer ${
-                kioskMode
-                  ? 'bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
-                  : 'bg-white/[0.04] text-amber-400 border border-amber-500/20 hover:bg-white/[0.08]'
-              }`}
-            >
-              <i className="ri-ruler-2-line text-xs"></i>
-              {kioskMode ? 'Menú Principal' : 'Modo Operario / Kiosco'}
-            </button>
-
             {/* Profile widget card details with glassmorphism */}
             <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center gap-2.5">
               <div className="relative">
@@ -810,18 +797,6 @@ export default function Sidebar({
         ) : (
           /* Collapsed bottom shortcuts icons */
           <div className="flex flex-col gap-2.5 items-center">
-            {/* Collapsed Kiosk switch shortcut */}
-            <button
-              onClick={() => setKioskMode(!kioskMode)}
-              id="kiosk-toggle-collapsed"
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-                kioskMode ? 'bg-amber-500 text-slate-950 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-white/5 text-amber-400'
-              }`}
-              title="Modo Operario (Kiosco)"
-            >
-              <i className="ri-ruler-2-line text-base"></i>
-            </button>
-
             {/* Collapsed trigger sidebar expand */}
             <button
               onClick={handleToggleCollapse}

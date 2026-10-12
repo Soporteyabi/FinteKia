@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getInitialState, saveStateToLocalStorage } from './store';
 import { AppState, Company, Voucher, ProductionOrder, QualityInspection, Product, InventoryItem, Tercero, Warehouse, Asset, BankAccount, BankTransaction, Budget, PayrollLog, UserProfile, TechServiceOrder } from './types';
+import { useAuth } from './context/AuthContext.tsx';
 
 // Importing sub components
 import Sidebar, { THEMES_MAP } from './components/Sidebar';
@@ -26,9 +27,87 @@ import UsersView from './components/UsersView';
 import CompanyView from './components/CompanyView';
 import TechServicesView from './components/TechServicesView';
 import AlanubeConfigView from './components/AlanubeConfigView';
+import DatabaseView from './components/DatabaseView';
 
 export default function App() {
   const [state, setState] = useState<AppState>(getInitialState());
+  const { user: firebaseUser, signInWithGoogle, signOutUser, loading: authLoading } = useAuth();
+  const [isCloudSqlSyncing, setIsCloudSqlSyncing] = useState(false);
+  const [cloudSqlConnected, setCloudSqlConnected] = useState(true);
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync state with Cloud SQL on initial load
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCloudSqlData = async () => {
+      try {
+        setIsCloudSqlSyncing(true);
+        const res = await fetch('/api/erp/data');
+        if (!res.ok) throw new Error('Failed to query Cloud SQL');
+        const data = await res.json();
+        
+        if (isMounted) {
+          if (data && data.companies && data.companies.length > 0) {
+            setState(prev => {
+              const extra = data.extraState || {};
+              return {
+                ...prev,
+                companies: data.companies,
+                terceros: data.terceros?.length ? data.terceros : prev.terceros,
+                products: data.products?.length ? data.products : prev.products,
+                vouchers: data.vouchers?.length ? data.vouchers : (extra.vouchers || prev.vouchers),
+                inventory: data.inventory?.length ? data.inventory : (extra.inventory || prev.inventory),
+                bankAccounts: data.bankAccounts?.length ? data.bankAccounts : (extra.bankAccounts || prev.bankAccounts),
+                ...extra,
+              };
+            });
+          } else {
+            // First time initialization: seed current initial data to Cloud SQL
+            await fetch('/api/erp/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                companiesList: state.companies,
+                tercerosList: state.terceros,
+                productsList: state.products,
+                extraState: {
+                  vouchers: state.vouchers,
+                  inventory: state.inventory,
+                  bankAccounts: state.bankAccounts,
+                  budgets: state.budgets,
+                  payrollLogs: state.payrollLogs,
+                  productionOrders: state.productionOrders,
+                  techServiceOrders: state.techServiceOrders,
+                }
+              })
+            });
+          }
+          setCloudSqlConnected(true);
+        }
+      } catch (err) {
+        console.warn('Cloud SQL fetch notice:', err);
+      } finally {
+        if (isMounted) setIsCloudSqlSyncing(false);
+      }
+    };
+
+    fetchCloudSqlData();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Update currentUser if Firebase User logs in
+  useEffect(() => {
+    if (firebaseUser) {
+      setState(prev => ({
+        ...prev,
+        currentUser: {
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario DIAN',
+          role: prev.currentUser.role || 'Admin',
+          email: firebaseUser.email || prev.currentUser.email,
+        }
+      }));
+    }
+  }, [firebaseUser]);
 
   // Company creation wizard states
   const [showCreateCompanyModal, setShowCreateCompanyModal] = useState(false);
@@ -42,9 +121,47 @@ export default function App() {
   const [newCompSmmlv, setNewCompSmmlv] = useState(1423500); // Standard Colombian 2026 params
   const [newCompAuxTransporte, setNewCompAuxTransporte] = useState(172000);
 
-  // Save state immediately on modifications
+  // Save state immediately on modifications to local storage and debounce to Cloud SQL
   useEffect(() => {
     saveStateToLocalStorage(state);
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+
+    syncTimeoutRef.current = setTimeout(async () => {
+      try {
+        setIsCloudSqlSyncing(true);
+        await fetch('/api/erp/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companiesList: state.companies,
+            tercerosList: state.terceros,
+            productsList: state.products,
+            extraState: {
+              vouchers: state.vouchers,
+              inventory: state.inventory,
+              bankAccounts: state.bankAccounts,
+              budgets: state.budgets,
+              payrollLogs: state.payrollLogs,
+              productionOrders: state.productionOrders,
+              techServiceOrders: state.techServiceOrders,
+              users: state.users,
+            }
+          })
+        });
+        setCloudSqlConnected(true);
+      } catch (err) {
+        console.warn('Sync to Cloud SQL background error:', err);
+      } finally {
+        setIsCloudSqlSyncing(false);
+      }
+    }, 2000);
+
+    return () => {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    };
   }, [state]);
 
   const activeCompany = state.companies.find((co) => co.id === state.currentCompanyId) || state.companies[0];
@@ -163,6 +280,13 @@ export default function App() {
     setState((prev) => ({
       ...prev,
       techServiceOrders: (prev.techServiceOrders || []).map(o => o.id === id ? { ...o, status } : o)
+    }));
+  };
+
+  const handleUpdateTechOrder = (updatedOrder: TechServiceOrder) => {
+    setState((prev) => ({
+      ...prev,
+      techServiceOrders: (prev.techServiceOrders || []).map(o => o.id === updatedOrder.id ? updatedOrder : o)
     }));
   };
 
@@ -985,50 +1109,6 @@ export default function App() {
 
         {/* Right: Actions, User Profile & Live Time Widget */}
         <div className="flex items-center gap-2.5 shrink-0">
-          {/* Kiosk Mode button */}
-          <button
-            onClick={() => setState(prev => ({ ...prev, kioskMode: !prev.kioskMode }))}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              state.kioskMode
-                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30'
-                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-            }`}
-            title="Modo Operario / Kiosco"
-          >
-            <i className="ri-tools-line text-xs"></i>
-            <span className="hidden lg:inline">{state.kioskMode ? 'Kiosco Activo' : 'Kiosco'}</span>
-          </button>
-
-          {/* Quick Production Module Active/Inactive Toggle Button */}
-          <button
-            onClick={() => {
-              const next = activeCompany.enableProduction === false ? true : false;
-              handleUpdateCompany({ ...activeCompany, enableProduction: next });
-            }}
-            className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
-              activeCompany.enableProduction !== false
-                ? 'bg-amber-500/15 border-amber-400/40 text-amber-300 hover:bg-amber-500/25'
-                : 'bg-sky-500/15 border-sky-400/40 text-sky-300 hover:bg-sky-500/25'
-            }`}
-            title={
-              activeCompany.enableProduction !== false
-                ? "Producción Industrial (MRP) ACTIVO. Clic para desactivar y enfocar solo en Tecnología y Servicios."
-                : "Producción DESACTIVADA (Enfoque en Tecnología & Servicios). Clic para activar Producción/MRP."
-            }
-          >
-            <i className={activeCompany.enableProduction !== false ? "ri-tools-fill text-amber-400 text-sm" : "ri-macbook-line text-sky-400 text-sm"}></i>
-            <span className="hidden lg:inline">
-              {activeCompany.enableProduction !== false ? "Producción Activa" : "Modo Tecnología & Servicios"}
-            </span>
-            <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-bold ${
-              activeCompany.enableProduction !== false
-                ? 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
-                : 'bg-sky-400/20 text-sky-200 border border-sky-400/30'
-            }`}>
-              {activeCompany.enableProduction !== false ? "MRP ON" : "TECH"}
-            </span>
-          </button>
-
           {/* Theme Quick Toggle */}
           <button
             onClick={() => {
@@ -1080,22 +1160,66 @@ export default function App() {
             )}
           </div>
 
-          {/* User Profile Pill with Role Selector */}
+          {/* Cloud SQL / Supabase Database Sync Status Badge */}
+          <button
+            onClick={() => setState(prev => ({ ...prev, activeView: 'database' }))}
+            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700/80 text-[11px] font-medium text-slate-700 dark:text-slate-300 shadow-xs cursor-pointer transition-all active:scale-95"
+            title="Ver base de datos y sincronización con Supabase (clic para abrir)"
+          >
+            <span className={`w-2 h-2 rounded-full ${isCloudSqlSyncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-500'}`}></span>
+            <i className="ri-database-2-line text-emerald-400 text-xs"></i>
+            <span className="font-mono text-[10px] text-slate-400 hidden xl:inline">Postgres DB:</span>
+            <span className="font-bold text-[10px] text-emerald-400">{isCloudSqlSyncing ? 'Sincronizando...' : 'Conectado'}</span>
+          </button>
+
+          {/* User Profile & Google Authentication Pill */}
           <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-bold flex items-center justify-center text-xs shadow-sm select-none">
-              {state.currentUser.name[0] || 'W'}
-            </div>
-            <div className="hidden md:block leading-tight text-left">
-              <span className="font-bold text-xs block text-slate-800 dark:text-white truncate max-w-[130px]">
-                {state.currentUser.name}
-              </span>
+            {firebaseUser ? (
+              <div className="flex items-center gap-2">
+                {firebaseUser.photoURL ? (
+                  <img src={firebaseUser.photoURL} alt={firebaseUser.displayName || 'User'} className="w-8 h-8 rounded-full border border-cyan-400 shadow-sm" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-bold flex items-center justify-center text-xs shadow-sm select-none">
+                    {(firebaseUser.displayName || firebaseUser.email || 'U')[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="hidden md:block leading-tight text-left">
+                  <span className="font-bold text-xs block text-slate-800 dark:text-white truncate max-w-[130px]">
+                    {firebaseUser.displayName || state.currentUser.name}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-slate-400 font-mono truncate max-w-[100px]">{firebaseUser.email}</span>
+                    <button
+                      onClick={signOutUser}
+                      className="text-[9px] text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer"
+                      title="Cerrar sesión de Google"
+                    >
+                      Salir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={signInWithGoogle}
+                disabled={authLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer active:scale-95"
+                title="Iniciar sesión con Google para sincronizar en la nube"
+              >
+                <i className="ri-google-fill text-sm"></i>
+                <span className="hidden sm:inline">Iniciar con Google</span>
+              </button>
+            )}
+
+            {/* Role selector */}
+            <div className="hidden sm:block">
               <select
                 value={state.currentUser.role}
                 onChange={(e) => setState(prev => ({ ...prev, currentUser: { ...prev.currentUser, role: e.target.value as any } }))}
-                className="bg-transparent border-0 text-[10px] font-bold text-blue-600 dark:text-cyan-400 hover:text-blue-700 dark:hover:text-cyan-300 p-0 cursor-pointer uppercase tracking-wider block focus:ring-0"
+                className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold text-blue-600 dark:text-cyan-400 hover:text-blue-700 dark:hover:text-cyan-300 px-1.5 py-1 cursor-pointer uppercase tracking-wider block focus:ring-0"
                 aria-label="Rol de usuario"
               >
-                <option value="Admin" className="bg-white dark:bg-[#0c1220] text-slate-800 dark:text-white">Administrador</option>
+                <option value="Admin" className="bg-white dark:bg-[#0c1220] text-slate-800 dark:text-white">Admin</option>
                 <option value="Contador" className="bg-white dark:bg-[#0c1220] text-slate-800 dark:text-white">Contador</option>
                 <option value="Vendedor" className="bg-white dark:bg-[#0c1220] text-slate-800 dark:text-white">Vendedor</option>
                 <option value="Operario" className="bg-white dark:bg-[#0c1220] text-slate-800 dark:text-white">Operario</option>
@@ -1140,6 +1264,7 @@ export default function App() {
               products={state.products}
               boms={state.boms}
               updateOrderStatus={handleUpdateOrderStatus}
+              onExitKiosk={() => setState(prev => ({ ...prev, kioskMode: false }))}
             />
           ) : (
             <>
@@ -1175,6 +1300,7 @@ export default function App() {
                   terceros={state.terceros}
                   techServiceOrders={state.techServiceOrders}
                   onAddServiceOrder={handleAddTechOrder}
+                  onUpdateServiceOrder={handleUpdateTechOrder}
                   onUpdateServiceOrderStatus={handleUpdateTechOrderStatus}
                   onAddProduct={handleAddProduct}
                   setActiveView={(v) => setState((prev) => ({ ...prev, activeView: v }))}
@@ -1199,9 +1325,12 @@ export default function App() {
               {state.activeView === 'productos' && (
                 <ProductsView
                   products={state.products}
+                  inventory={state.inventory}
+                  warehouses={state.warehouses}
                   addProduct={handleAddProduct}
                   updateProduct={handleUpdateProduct}
                   deleteProduct={handleDeleteProduct}
+                  setActiveView={(v) => setState((prev) => ({ ...prev, activeView: v }))}
                   theme={currentThemeId}
                 />
               )}
@@ -1238,6 +1367,7 @@ export default function App() {
                   theme={currentThemeId}
                   updateCompany={handleUpdateCompany}
                   onOpenAlanubeConfig={() => setState((prev) => ({ ...prev, activeView: 'alanube_config' }))}
+                  addTercero={handleAddTercero}
                 />
               )}
 
@@ -1253,6 +1383,7 @@ export default function App() {
                   addVoucher={handleAddVoucher}
                   updateInventory={handleUpdateInventory}
                   addInventoryMovement={handleAddInventoryMovement}
+                  updateProduct={handleUpdateProduct}
                   theme={currentThemeId}
                 />
               )}
@@ -1292,6 +1423,7 @@ export default function App() {
                     addProductionOrder={handleAddProductionOrder}
                     updateOrderStatus={handleUpdateOrderStatus}
                     addQualityInspection={handleAddQualityInspection}
+                    onOpenKiosk={() => setState(prev => ({ ...prev, kioskMode: true }))}
                   />
                 )
               )}
@@ -1377,6 +1509,7 @@ export default function App() {
 
               {state.activeView === 'comprobantes' && (
                 <VouchersView
+                  currentCompany={activeCompany}
                   vouchers={state.vouchers}
                   puc={state.puc}
                   costCenters={state.costCenters}
@@ -1497,6 +1630,10 @@ export default function App() {
                   theme={currentThemeId}
                   onNavigateToInvoicing={() => setState((prev) => ({ ...prev, activeView: 'facturacion' }))}
                 />
+              )}
+
+              {state.activeView === 'database' && (
+                <DatabaseView theme={currentThemeId} />
               )}
             </>
           )}

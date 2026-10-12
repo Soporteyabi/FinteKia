@@ -154,26 +154,26 @@ export const INITIAL_TERCEROS: Tercero[] = [
 
 export const INITIAL_PRODUCTS: Product[] = [
   // Tecnología & Hardware
-  { id: 'p-t1', name: 'Laptop Corporativo Lenovo ThinkPad T14 Core i7 16GB SSD 512GB', sku: 'TECH-LAP-T14', barcode: '7709001000012', cost: 2450000, price: 3450000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Lenovo', model: 'ThinkPad T14 Gen 3', warrantyMonths: 12 },
-  { id: 'p-t2', name: 'Router Gigabit Wi-Fi 6 Mikrotik hEX S Dual-Band RouterBOARD', sku: 'TECH-ROU-MIK', barcode: '7709001000029', cost: 195000, price: 295000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'MikroTik', model: 'hEX S', warrantyMonths: 12 },
-  { id: 'p-t3', name: 'Disco Estado Sólido SSD NVMe 1TB Kingston KC3000 PCIe 4.0', sku: 'TECH-SSD-1TB', barcode: '7709001000036', cost: 230000, price: 360000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Kingston', model: 'KC3000', warrantyMonths: 24 },
-  { id: 'p-t4', name: 'Monitor Profesional Dell 27" UltraSharp IPS FHD HDMI/DP', sku: 'TECH-MON-27', barcode: '7709001000043', cost: 580000, price: 840000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Dell', model: 'P2722H', warrantyMonths: 36 },
-  { id: 'p-t5', name: 'Memoria RAM DDR4 16GB 3200MHz Corsair Vengeance para Laptop', sku: 'TECH-RAM-16', barcode: '7709001000050', cost: 110000, price: 175000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Corsair', model: 'Vengeance SO-DIMM', warrantyMonths: 12 },
+  { id: 'p-t1', name: 'Laptop Corporativo Lenovo ThinkPad T14 Core i7 16GB SSD 512GB', sku: 'TECH-LAP-T14', barcode: '7709001000012', cost: 2450000, price: 3450000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Lenovo', model: 'ThinkPad T14 Gen 3', warrantyMonths: 12, minStock: 3, category: 'Laptops & Cómputo', unitOfMeasure: 'UND' },
+  { id: 'p-t2', name: 'Router Gigabit Wi-Fi 6 Mikrotik hEX S Dual-Band RouterBOARD', sku: 'TECH-ROU-MIK', barcode: '7709001000029', cost: 195000, price: 295000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'MikroTik', model: 'hEX S', warrantyMonths: 12, minStock: 5, category: 'Redes & Conectividad', unitOfMeasure: 'UND' },
+  { id: 'p-t3', name: 'Disco Estado Sólido SSD NVMe 1TB Kingston KC3000 PCIe 4.0', sku: 'TECH-SSD-1TB', barcode: '7709001000036', cost: 230000, price: 360000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Kingston', model: 'KC3000', warrantyMonths: 24, minStock: 6, category: 'Almacenamiento & Repuestos', unitOfMeasure: 'UND' },
+  { id: 'p-t4', name: 'Monitor Profesional Dell 27" UltraSharp IPS FHD HDMI/DP', sku: 'TECH-MON-27', barcode: '7709001000043', cost: 580000, price: 840000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Dell', model: 'P2722H', warrantyMonths: 36, minStock: 2, category: 'Monitores & Pantallas', unitOfMeasure: 'UND' },
+  { id: 'p-t5', name: 'Memoria RAM DDR4 16GB 3200MHz Corsair Vengeance para Laptop', sku: 'TECH-RAM-16', barcode: '7709001000050', cost: 110000, price: 175000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Corsair', model: 'Vengeance SO-DIMM', warrantyMonths: 12, minStock: 5, category: 'Memorias & Repuestos', unitOfMeasure: 'UND' },
   // Servicios Profesionales & Soporte TI
-  { id: 'p-s1', name: 'Servicio de Mantenimiento Preventivo y Limpieza de Cómputo', sku: 'SRV-MANT-PC', barcode: '7709002000019', cost: 0, price: 120000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 3 },
-  { id: 'p-s2', name: 'Diagnóstico, Reparación y Actualización de Hardware (Por Equipo)', sku: 'SRV-REP-HW', barcode: '7709002000026', cost: 0, price: 160000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 3 },
-  { id: 'p-s3', name: 'Instalación y Configuración de Redes Wi-Fi / Cableado Estructurado (Punto)', sku: 'SRV-RED-PT', barcode: '7709002000033', cost: 0, price: 95000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 6 },
-  { id: 'p-s4', name: 'Póliza Mensual de Soporte Técnico Remoto y Presencial para Empresas', sku: 'SRV-POL-SOP', barcode: '7709002000040', cost: 0, price: 850000, tax: 19, type: 'servicio', lotTracking: false },
-  { id: 'p-s5', name: 'Licencia Anual y Parametrización Software Contable FinteKia Cloud', sku: 'SRV-LIC-FIN', barcode: '7709002000057', cost: 0, price: 680000, tax: 19, type: 'servicio', lotTracking: false },
+  { id: 'p-s1', name: 'Servicio de Mantenimiento Preventivo y Limpieza de Cómputo', sku: 'SRV-MANT-PC', barcode: '7709002000019', cost: 0, price: 120000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 3, category: 'Servicios TI', unitOfMeasure: 'SRV' },
+  { id: 'p-s2', name: 'Diagnóstico, Reparación y Actualización de Hardware (Por Equipo)', sku: 'SRV-REP-HW', barcode: '7709002000026', cost: 0, price: 160000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 3, category: 'Servicios TI', unitOfMeasure: 'SRV' },
+  { id: 'p-s3', name: 'Instalación y Configuración de Redes Wi-Fi / Cableado Estructurado (Punto)', sku: 'SRV-RED-PT', barcode: '7709002000033', cost: 0, price: 95000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 6, category: 'Servicios TI', unitOfMeasure: 'SRV' },
+  { id: 'p-s4', name: 'Póliza Mensual de Soporte Técnico Remoto y Presencial para Empresas', sku: 'SRV-POL-SOP', barcode: '7709002000040', cost: 0, price: 850000, tax: 19, type: 'servicio', lotTracking: false, category: 'Pólizas & Contratos', unitOfMeasure: 'MES' },
+  { id: 'p-s5', name: 'Licencia Anual y Parametrización Software Contable FinteKia Cloud', sku: 'SRV-LIC-FIN', barcode: '7709002000057', cost: 0, price: 680000, tax: 19, type: 'servicio', lotTracking: false, category: 'Software & Licencias', unitOfMeasure: 'LIC' },
   // Materias Primas & Panadería (Disponibles cuando producción está activa)
-  { id: 'p-1', name: 'Harina de Trigo Industrial (Kg)', sku: 'MP-HAR-01', barcode: '7701001000018', cost: 3200, price: 0, tax: 0, type: 'materia_prima', lotTracking: true },
-  { id: 'p-2', name: 'Azúcar Blanca Refinada (Kg)', sku: 'MP-AZU-01', barcode: '7701001000025', cost: 2800, price: 0, tax: 0, type: 'materia_prima', lotTracking: true },
-  { id: 'p-3', name: 'Mantequilla Premium (Kg)', sku: 'MP-MAN-01', barcode: '7701001000032', cost: 12000, price: 0, tax: 19, type: 'materia_prima', lotTracking: true },
-  { id: 'p-4', name: 'Esencia de Vainilla (L/Botella)', sku: 'MP-VAI-01', barcode: '7701001000049', cost: 15000, price: 0, tax: 0, type: 'materia_prima', lotTracking: false },
-  { id: 'p-5', name: 'Cajas de Cartón Galletas (Unidades)', sku: 'MP-CAJ-01', barcode: '7701001000056', cost: 450, price: 0, tax: 19, type: 'materia_prima', lotTracking: false },
+  { id: 'p-1', name: 'Harina de Trigo Industrial (Kg)', sku: 'MP-HAR-01', barcode: '7701001000018', cost: 3200, price: 0, tax: 0, type: 'materia_prima', lotTracking: true, minStock: 100, category: 'Materias Primas', unitOfMeasure: 'KG' },
+  { id: 'p-2', name: 'Azúcar Blanca Refinada (Kg)', sku: 'MP-AZU-01', barcode: '7701001000025', cost: 2800, price: 0, tax: 0, type: 'materia_prima', lotTracking: true, minStock: 80, category: 'Materias Primas', unitOfMeasure: 'KG' },
+  { id: 'p-3', name: 'Mantequilla Premium (Kg)', sku: 'MP-MAN-01', barcode: '7701001000032', cost: 12000, price: 0, tax: 19, type: 'materia_prima', lotTracking: true, minStock: 25, category: 'Materias Primas', unitOfMeasure: 'KG' },
+  { id: 'p-4', name: 'Esencia de Vainilla (L/Botella)', sku: 'MP-VAI-01', barcode: '7701001000049', cost: 15000, price: 0, tax: 0, type: 'materia_prima', lotTracking: false, minStock: 5, category: 'Insumos Líquidos', unitOfMeasure: 'L' },
+  { id: 'p-5', name: 'Cajas de Cartón Galletas (Unidades)', sku: 'MP-CAJ-01', barcode: '7701001000056', cost: 450, price: 0, tax: 19, type: 'materia_prima', lotTracking: false, minStock: 200, category: 'Empaques', unitOfMeasure: 'UND' },
   // Productos Terminados
-  { id: 'p-6', name: 'Caja Galletas de Vainilla x 12', sku: 'PT-GAL-VAI', barcode: '7702001000062', cost: 6500, price: 16500, tax: 19, type: 'terminado', lotTracking: true, shelfLifeDays: 90 },
-  { id: 'p-7', name: 'Pan de Avena Familiar 500g', sku: 'PT-PAN-AVE', barcode: '7702001000079', cost: 3200, price: 7800, tax: 5, type: 'terminado', lotTracking: true, shelfLifeDays: 12 }
+  { id: 'p-6', name: 'Caja Galletas de Vainilla x 12', sku: 'PT-GAL-VAI', barcode: '7702001000062', cost: 6500, price: 16500, tax: 19, type: 'terminado', lotTracking: true, shelfLifeDays: 90, minStock: 30, category: 'Productos Terminados', unitOfMeasure: 'CAJA' },
+  { id: 'p-7', name: 'Pan de Avena Familiar 500g', sku: 'PT-PAN-AVE', barcode: '7702001000079', cost: 3200, price: 7800, tax: 5, type: 'terminado', lotTracking: true, shelfLifeDays: 12, minStock: 15, category: 'Productos Terminados', unitOfMeasure: 'UND' }
 ];
 
 export const INITIAL_TECH_ORDERS: TechServiceOrder[] = [
@@ -182,50 +182,108 @@ export const INITIAL_TECH_ORDERS: TechServiceOrder[] = [
     code: 'OT-101',
     clientId: 'ter-2',
     clientName: 'Supermercados Éxito S.A.',
+    clientPhone: '3104567890',
+    clientEmail: 'soporte.ti@exito.com',
     device: 'Laptop Lenovo ThinkPad T14 Gen 3 (Core i7 / 16GB)',
+    brand: 'Lenovo',
+    model: 'ThinkPad T14 Gen 3',
     serial: 'PF-28XYZ90',
+    accessoriesReceived: 'Cargador original USB-C 65W y estuche protector negro.',
+    physicalCondition: 'Buen estado general. Pequeño desgaste estético en esquina inferior izquierda.',
+    devicePassword: 'PIN: 4820 (Usuario Admin)',
     reportedIssue: 'Recalentamiento severo y apagados intermitentes. Solicita mantenimiento preventivo y ampliación a SSD 1TB.',
     diagnosis: 'Pasta térmica degradada y ventilador bloqueado con polvo. Requiere cambio de pasta térmica e instalación de SSD NVMe.',
+    solutionApplied: 'Mantenimiento térmico profundo con pasta Arctic MX-4, limpieza por ultrasonido e instalación de SSD Kingston 1TB NVMe.',
     status: 'en_proceso',
     priority: 'alta',
     estimatedCost: 280000,
+    laborCost: 120000,
+    partsUsed: [
+      { id: 'part-1', name: 'SSD NVMe M.2 Kingston 1TB PCIe 4.0', quantity: 1, unitPrice: 220000 },
+      { id: 'part-2', name: 'Pasta Térmica Arctic MX-4 (Dosis)', quantity: 1, unitPrice: 25000 }
+    ],
+    finalCost: 365000,
+    warrantyDays: 90,
     createdAt: '2026-10-02',
     deliveryDate: '2026-10-08',
     technician: 'Washington Quiñones',
-    notes: 'Cliente requiere copia de seguridad previa de documentos.'
+    receivedBy: 'Washington Quiñones',
+    notes: 'Cliente requiere copia de seguridad previa de documentos.',
+    timeline: [
+      { date: '2026-10-02 09:30', status: 'Recibido', note: 'Equipo recibido en mostrador con cargador.', user: 'Washington Quiñones' },
+      { date: '2026-10-02 14:15', status: 'En Diagnóstico', note: 'Pruebas térmicas alcanzaron 94°C. Ventilador obstruido.', user: 'Washington Quiñones' },
+      { date: '2026-10-03 10:00', status: 'En Proceso', note: 'Presupuesto aprobado por cliente vía WhatsApp. Procediendo al cambio de SSD y pasta térmica.', user: 'Washington Quiñones' }
+    ]
   },
   {
     id: 'ot-2',
     code: 'OT-102',
     clientId: 'ter-4',
     clientName: 'Distribuidora Granel Co',
+    clientPhone: '3187654321',
+    clientEmail: 'sistemas@granelco.com.co',
     device: 'Servidor Torre Dell PowerEdge T150 Xeon 32GB RAM',
+    brand: 'Dell',
+    model: 'PowerEdge T150',
     serial: 'SVC-TAG-88J20',
+    accessoriesReceived: 'Cable de poder trifásico blindado, llaves de chasis frontal.',
+    physicalCondition: 'Excelente estado cosmético. Sin golpes.',
+    devicePassword: 'iDRAC root / Servidor sin clave de BIOS',
     reportedIssue: 'Configuración de arreglo RAID 1, servidor VPN corporativo y sistema de copias de seguridad en nube.',
-    diagnosis: 'Configuración de controlador PERC, aprovisionamiento de 2 discos SAS de 4TB en espejo y parametrización de OpenVPN.',
+    diagnosis: 'Controlador PERC sin inicializar. Requiere aprovisionamiento de 2 discos SAS de 4TB en espejo y parametrización de OpenVPN.',
+    solutionApplied: 'Inicialización de RAID 1, instalación y configuración de Ubuntu Server 24.04 LTS, OpenVPN con certificados SSL y script de sincronización a bucket Cloud.',
     status: 'completado',
     priority: 'urgente',
     estimatedCost: 650000,
+    laborCost: 450000,
+    partsUsed: [
+      { id: 'part-3', name: 'Disco Servidor SAS 4TB Seagate Enterprise 7200RPM', quantity: 2, unitPrice: 380000 }
+    ],
+    finalCost: 1210000,
+    warrantyDays: 180,
     createdAt: '2026-09-28',
     deliveryDate: '2026-10-05',
     technician: 'Washington Quiñones',
-    notes: 'Servicio entregado a entera satisfacción y firmado.'
+    receivedBy: 'Washington Quiñones',
+    notes: 'Servicio entregado a entera satisfacción y firmado.',
+    timeline: [
+      { date: '2026-09-28 08:00', status: 'Recibido', note: 'Servidor recibido para puesta en marcha.', user: 'Washington Quiñones' },
+      { date: '2026-09-29 11:30', status: 'En Proceso', note: 'Discos instalados y RAID 1 sincronizado al 100%.', user: 'Washington Quiñones' },
+      { date: '2026-10-01 16:40', status: 'Listo para Entrega', note: 'Pruebas de contingencia y failover validadas con éxito.', user: 'Washington Quiñones' }
+    ]
   },
   {
     id: 'ot-3',
     code: 'OT-103',
     clientId: 'ter-1',
     clientName: 'Harineras del Valle S.A.',
+    clientPhone: '3159988776',
+    clientEmail: 'infraestructura@harineras.com',
     device: 'Infraestructura de Red Wi-Fi 6 (3 Access Points UniFi U6 Pro)',
+    brand: 'Ubiquiti / UniFi',
+    model: 'U6 Pro',
     serial: 'NET-U6-0922',
+    accessoriesReceived: '3 Fuentes PoE Gigabit 48V, soportes de techo metálicos.',
+    physicalCondition: 'Equipos con rastros de polvo industrial.',
     reportedIssue: 'Baja cobertura y caídas de señal en áreas de bodega y despachos. Requiere certificación y balanceo.',
     diagnosis: 'Interferencia electromagnética en 2.4GHz y cableado defectuoso. Se cotiza recableado a Cat6A y segmentación de VLAN.',
     status: 'en_diagnostico',
     priority: 'media',
     estimatedCost: 450000,
+    laborCost: 350000,
+    partsUsed: [
+      { id: 'part-4', name: 'Bobina Cable UTP Cat6A Panduit LSZH (Metros)', quantity: 120, unitPrice: 2800 }
+    ],
+    finalCost: 686000,
+    warrantyDays: 60,
     createdAt: '2026-10-04',
     technician: 'Andrés Felipe Gómez',
-    notes: 'Esperando confirmación de presupuesto.'
+    receivedBy: 'Andrés Felipe Gómez',
+    notes: 'Esperando confirmación de presupuesto por gerencia.',
+    timeline: [
+      { date: '2026-10-04 10:15', status: 'Recibido', note: 'Equipos y fuentes ingresados para test de laboratorio.', user: 'Andrés Felipe Gómez' },
+      { date: '2026-10-05 09:00', status: 'En Diagnóstico', note: 'Mediciones de atenuación y pérdida de paquetes realizadas.', user: 'Andrés Felipe Gómez' }
+    ]
   }
 ];
 
@@ -258,10 +316,19 @@ export const INITIAL_BOMS: BOM[] = [
 
 export const INITIAL_WAREHOUSES: Warehouse[] = [
   { id: 'wh-1', name: 'Bodega de Materia Prima', address: 'Almacén 1, Planta Central Bogotá' },
-  { id: 'wh-2', name: 'Bodega de Despachos y Terminados', address: 'Dique de Despachos, Planta Bogotá' }
+  { id: 'wh-2', name: 'Bodega de Despachos y Terminados', address: 'Dique de Despachos, Planta Bogotá' },
+  { id: 'wh-3', name: 'Bodega Principal de Hardware & Equipos', address: 'Sede Principal Norte, Bogotá D.C.' },
+  { id: 'wh-4', name: 'Bodega de Repuestos & Taller TI', address: 'Laboratorio de Soporte, Bogotá D.C.' }
 ];
 
 export const INITIAL_INVENTORY: InventoryItem[] = [
+  // Hardware y Tecnología en Bodegas
+  { id: 'inv-item-t1', productId: 'p-t1', lotNumber: 'SN-LN-2026-A1', warehouseId: 'wh-3', quantity: 8, avgCost: 2450000 },
+  { id: 'inv-item-t2', productId: 'p-t2', lotNumber: 'SN-MK-2026-B4', warehouseId: 'wh-3', quantity: 14, avgCost: 195000 },
+  { id: 'inv-item-t3', productId: 'p-t3', lotNumber: 'LOT-SSD-KC30', warehouseId: 'wh-4', quantity: 22, avgCost: 230000 },
+  { id: 'inv-item-t4', productId: 'p-t4', lotNumber: 'SN-DL-MON-09', warehouseId: 'wh-3', quantity: 6, avgCost: 580000 },
+  { id: 'inv-item-t5', productId: 'p-t5', lotNumber: 'LOT-RAM-COR16', warehouseId: 'wh-4', quantity: 18, avgCost: 110000 },
+  // Materias primas y alimentos (cuando módulo MRP está activo)
   { id: 'inv-item-1', productId: 'p-1', lotNumber: 'L-HARI-005', expirationDate: '2026-11-30', warehouseId: 'wh-1', quantity: 550, avgCost: 3200 },
   { id: 'inv-item-2', productId: 'p-2', lotNumber: 'L-AZUC-012', expirationDate: '2027-04-15', warehouseId: 'wh-1', quantity: 300, avgCost: 2800 },
   { id: 'inv-item-3', productId: 'p-3', lotNumber: 'L-MANT-990', expirationDate: '2026-08-30', warehouseId: 'wh-1', quantity: 120, avgCost: 12000 },

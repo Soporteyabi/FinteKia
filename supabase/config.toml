@@ -1,0 +1,50 @@
+# ==============================================================================
+# Supabase Configuration for FinteKia ERP & GitHub CI/CD Integration
+# Project ID: irncymdscgeucoacwzfg
+# Organization: FinteKia / DIGITAL YA'BI
+# Owner: quinoneswash70@gmail.com
+# ==============================================================================
+
+[project]
+id = "irncymdscgeucoacwzfg"
+name = "FinteKia ERP - DIGITAL YA'BI"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[db.pooler]
+enabled = true
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[auth.external.github]
+enabled = true
+client_id = "env(GITHUB_CLIENT_ID)"
+secret = "env(GITHUB_CLIENT_SECRET)"
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
