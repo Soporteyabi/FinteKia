@@ -32,8 +32,11 @@ import {
   Laptop,
   Clock,
   Wrench,
-  ShieldCheck
+  ShieldCheck,
+  FileText,
+  Download
 } from 'lucide-react';
+import SalesReportModal from './SalesReportModal';
 
 interface DashboardViewProps {
   vouchers: Voucher[];
@@ -95,6 +98,9 @@ export default function DashboardView({
 
   // Toggle inline cash flow recharts line chart inside menu view
   const [showInlineCashFlow, setShowInlineCashFlow] = useState<boolean>(false);
+
+  // Sales & Operating Margins PDF Report Modal
+  const [isSalesReportModalOpen, setIsSalesReportModalOpen] = useState<boolean>(false);
 
   // Category filter state: starts on 'comercial' so the menu is compact/recogido on app start (Screenshot 2), and clicking 'Todas' unfolds all cards
   const [selectedCategory, setSelectedCategory] = useState<string>('comercial');
@@ -446,7 +452,7 @@ export default function DashboardView({
           links: [
             { label: 'Nueva Factura Electrónica', icon: 'ri-file-add-line', action: () => setActiveView('facturacion') },
             { label: 'Cotización / Pedido', icon: 'ri-file-list-3-line', action: () => setActiveView('facturacion') },
-            { label: 'Devoluciones y Notas', icon: 'ri-arrow-go-back-line', action: () => setActiveView('facturacion') },
+            { label: 'Reporte PDF Ventas & Márgenes', icon: 'ri-file-pdf-line', action: () => setIsSalesReportModalOpen(true) },
             { label: 'Historial de Facturación', icon: 'ri-bar-chart-fill', action: () => setActiveView('facturacion') },
           ]
         },
@@ -601,6 +607,7 @@ export default function DashboardView({
           icon: 'ri-bar-chart-2-fill',
           mainAction: () => setActiveView('impuestos'),
           links: [
+            { label: 'Reporte PDF Ventas & Rentabilidad', icon: 'ri-file-pdf-line', action: () => setIsSalesReportModalOpen(true) },
             { label: 'Declaración Impuestos DIAN', icon: 'ri-government-line', action: () => setActiveView('impuestos') },
             { label: 'Balance General', icon: 'ri-scales-3-line', action: () => setActiveView('comprobantes') },
             { label: 'Estado de Resultados (PyG)', icon: 'ri-line-chart-line', action: () => setActiveView('presupuestos') },
@@ -735,8 +742,18 @@ export default function DashboardView({
           )}
         </div>
 
-        {/* Global Privacy Toggle shortcut */}
+        {/* Actions: PDF Sales Report & Global Privacy Toggle */}
         <div className="flex items-center gap-2">
+          {/* PDF Sales & Operating Margins Report Button */}
+          <button
+            onClick={() => setIsSalesReportModalOpen(true)}
+            className="px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer bg-sky-500/10 text-sky-300 border border-sky-500/30 hover:bg-sky-500/20 hover:border-sky-500/50 shadow-sm"
+            title="Generar y exportar reporte en PDF de ventas y márgenes operativos (jsPDF)"
+          >
+            <FileText className="w-3.5 h-3.5 text-sky-400" />
+            <span>Reporte PDF Ventas</span>
+          </button>
+
           <button
             onClick={toggleMetricsVisibility}
             className={`px-2.5 py-1 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer border ${
@@ -1609,6 +1626,17 @@ export default function DashboardView({
           </div>
         </div>
       )}
+
+      {/* Sales & Operating Margins Client-Side PDF Report Modal */}
+      <SalesReportModal
+        isOpen={isSalesReportModalOpen}
+        onClose={() => setIsSalesReportModalOpen(false)}
+        vouchers={vouchers}
+        terceros={terceros}
+        products={products}
+        company={currentCompany}
+        currentUser={currentUser}
+      />
 
     </div>
   );
