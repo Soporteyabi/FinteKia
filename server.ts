@@ -1,11 +1,14 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { createServer as createViteServer } from "vite";
+import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 import { requireAuth, AuthRequest } from "./src/middleware/auth.ts";
 import { getOrCreateUser, getUsers } from "./src/db/users.ts";
 import { getErpData, saveErpData, getDbInspectorData } from "./src/db/erp.ts";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -162,6 +165,7 @@ async function startServer() {
 
   // Serve static UI / Setup development middleware HMR rules
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
