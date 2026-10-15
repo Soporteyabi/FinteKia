@@ -207,33 +207,74 @@ export default function VouchersView({
     ]);
   };
 
-  // Filter vouchers based on search & active tab
-  const filteredVouchers = vouchers.filter(v => {
-    // 1. Tab filtering
-    if (activeTab === 'ingreso' && v.type !== 'ingreso') return false;
-    if (activeTab === 'egreso' && v.type !== 'egreso') return false;
-    if (activeTab === 'diario' && v.type !== 'diario') return false;
-    if (activeTab === 'ajuste' && v.type !== 'ajuste') return false;
-    if (activeTab === 'venta_compra' && v.type !== 'venta' && v.type !== 'compra') return false;
+  // Advanced Combined Filters (Rango de Fechas + Estado + Tercero + Búsqueda)
+  const [voucherStartDate, setVoucherStartDate] = useState('');
+  const [voucherEndDate, setVoucherEndDate] = useState('');
+  const [voucherThirdPartyFilter, setVoucherThirdPartyFilter] = useState('');
+  const [voucherStatusFilter, setVoucherStatusFilter] = useState<'todos' | 'balanceados' | 'con_retencion' | 'con_iva'>('todos');
 
-    // 2. Search query matching (Check voucher number, concept, third party name, or accounts hit in lines)
-    if (!searchTerm.trim()) return true;
-    const q = searchTerm.toLowerCase();
-    
-    // Check basic details
-    const matchNumber = v.number.toLowerCase().includes(q);
-    const matchConcept = v.concept.toLowerCase().includes(q);
-    const thirdName = terceros.find(t => t.id === v.thirdPartyId)?.name || '';
-    const matchThirdName = thirdName.toLowerCase().includes(q);
+  // Filter vouchers based on search, active tab and combined filters
+  const filteredVouchers = useMemo(() => {
+    return vouchers.filter(v => {
+      // 1. Tab filtering
+      if (activeTab === 'ingreso' && v.type !== 'ingreso') return false;
+      if (activeTab === 'egreso' && v.type !== 'egreso') return false;
+      if (activeTab === 'diario' && v.type !== 'diario') return false;
+      if (activeTab === 'ajuste' && v.type !== 'ajuste') return false;
+      if (activeTab === 'venta_compra' && v.type !== 'venta' && v.type !== 'compra') return false;
 
-    // Check account codes nested
-    const matchAccount = v.lines?.some(line => 
-      line.accountCode.includes(q) || 
-      (line.description || '').toLowerCase().includes(q)
-    );
+      // 2. Date range
+      if (voucherStartDate && v.date < voucherStartDate) return false;
+      if (voucherEndDate && v.date > voucherEndDate) return false;
 
-    return matchNumber || matchConcept || matchThirdName || matchAccount;
-  });
+      // 3. Third party
+      if (voucherThirdPartyFilter && v.thirdPartyId !== voucherThirdPartyFilter) return false;
+
+      // 4. Status filter
+      if (voucherStatusFilter === 'balanceados') {
+        const d = v.lines?.reduce((sum, l) => sum + (Number(l.debit) || 0), 0) || v.total;
+        const c = v.lines?.reduce((sum, l) => sum + (Number(l.credit) || 0), 0) || v.total;
+        if (d !== c) return false;
+      }
+      if (voucherStatusFilter === 'con_retencion') {
+        const hasRet = v.lines?.some(l => l.accountCode.startsWith('2365') || l.accountCode.startsWith('2367') || l.accountCode.startsWith('2368'));
+        if (!hasRet) return false;
+      }
+      if (voucherStatusFilter === 'con_iva') {
+        const hasIva = v.lines?.some(l => l.accountCode.startsWith('2408'));
+        if (!hasIva) return false;
+      }
+
+      // 5. Search query matching
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        const matchNumber = v.number.toLowerCase().includes(q);
+        const matchConcept = (v.concept || '').toLowerCase().includes(q);
+        const thirdName = terceros.find(t => t.id === v.thirdPartyId)?.name || '';
+        const matchThirdName = thirdName.toLowerCase().includes(q);
+        const matchAccount = v.lines?.some(line => 
+          line.accountCode.includes(q) || 
+          (line.description || '').toLowerCase().includes(q)
+        );
+        if (!matchNumber && !matchConcept && !matchThirdName && !matchAccount) return false;
+      }
+
+      return true;
+    });
+  }, [vouchers, activeTab, voucherStartDate, voucherEndDate, voucherThirdPartyFilter, voucherStatusFilter, searchTerm, terceros]);
+
+  const hasActiveVoucherFilters = Boolean(
+    voucherStartDate || voucherEndDate || voucherThirdPartyFilter || voucherStatusFilter !== 'todos' || searchTerm.trim()
+  );
+
+  const clearVoucherFilters = () => {
+    setVoucherStartDate('');
+    setVoucherEndDate('');
+    setVoucherThirdPartyFilter('');
+    setVoucherStatusFilter('todos');
+    setSearchTerm('');
+    setCurrentPage(1);
+  };
 
   // Paginated records at 15 items per page
   const totalPages = Math.max(1, Math.ceil(filteredVouchers.length / ITEMS_PER_PAGE));
@@ -847,6 +888,97 @@ export default function VouchersView({
                 </div>
               </div>
 
+            </div>
+
+            {/* Filtros Avanzados Combinados (Rango de Fechas + Estado/Balance + Tercero Simultáneamente) */}
+            <div className={`p-3 rounded-xl border space-y-2 text-xs ${isDark ? 'bg-zinc-950/70 border-zinc-800' : 'bg-slate-50 border-slate-200'}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-1.5 border-white/5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                  <i className="ri-filter-3-line text-blue-400"></i>
+                  Filtros Avanzados Simultáneos ({filteredVouchers.length} coincidentes)
+                </span>
+                {hasActiveVoucherFilters && (
+                  <button
+                    type="button"
+                    onClick={clearVoucherFilters}
+                    className="text-[10px] font-semibold text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <i className="ri-restart-line"></i> Limpiar Filtros
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                <div className="space-y-0.5">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Fecha Desde:</label>
+                  <input
+                    type="date"
+                    value={voucherStartDate}
+                    onChange={(e) => {
+                      setVoucherStartDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className={`w-full rounded-lg px-2.5 py-1.5 text-xs outline-none border ${
+                      isDark ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-slate-200 text-slate-800'
+                    }`}
+                  />
+                </div>
+
+                <div className="space-y-0.5">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Fecha Hasta:</label>
+                  <input
+                    type="date"
+                    value={voucherEndDate}
+                    onChange={(e) => {
+                      setVoucherEndDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className={`w-full rounded-lg px-2.5 py-1.5 text-xs outline-none border ${
+                      isDark ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-slate-200 text-slate-800'
+                    }`}
+                  />
+                </div>
+
+                <div className="space-y-0.5">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Estado / Condición:</label>
+                  <select
+                    value={voucherStatusFilter}
+                    onChange={(e) => {
+                      setVoucherStatusFilter(e.target.value as any);
+                      setCurrentPage(1);
+                    }}
+                    className={`w-full rounded-lg px-2.5 py-1.5 text-xs outline-none border ${
+                      isDark ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-slate-200 text-slate-800'
+                    }`}
+                  >
+                    <option value="todos">Todos los Asientos</option>
+                    <option value="balanceados">Balanceados (Partida Doble OK)</option>
+                    <option value="con_retencion">Con Cuentas de Retención (2365/2367/2368)</option>
+                    <option value="con_iva">Con Cuenta de IVA (2408)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-0.5">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Tercero Contable:</label>
+                  <select
+                    value={voucherThirdPartyFilter}
+                    onChange={(e) => {
+                      setVoucherThirdPartyFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className={`w-full rounded-lg px-2.5 py-1.5 text-xs outline-none border truncate ${
+                      isDark ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-slate-200 text-slate-800'
+                    }`}
+                  >
+                    <option value="">Todos los Terceros ({terceros.length})</option>
+                    {terceros.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({t.nit})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
 
             {/* TABLA DE COMPROBANTES */}

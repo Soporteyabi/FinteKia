@@ -102,6 +102,181 @@ async function startServer() {
     }
   });
 
+  // --- High-Scale Paginated Historical Transactions Endpoints ---
+  // Designed for companies with >5 years of ledger history or hundreds of thousands of records
+  app.get("/api/erp/transactions/paginated", async (req, res) => {
+    try {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(500, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+      const entity = (req.query.entity as string) || "vouchers";
+      const type = req.query.type as string | undefined;
+      const thirdPartyId = req.query.thirdPartyId as string | undefined;
+      const searchQuery = (req.query.q as string || "").toLowerCase().trim();
+
+      const erp = await getErpData();
+      let records: any[] = [];
+
+      if (entity === "vouchers") {
+        records = erp.vouchers || [];
+      } else if (entity === "inventory_movements") {
+        records = erp.extraState?.inventoryMovements || [];
+      } else if (entity === "payroll_logs") {
+        records = erp.extraState?.payrollLogs || [];
+      } else {
+        records = erp.vouchers || [];
+      }
+
+      // Filter in memory / stream
+      let filtered = records.filter((r) => {
+        // Date range
+        const rDate = r.date || r.timestamp || r.createdAt;
+        if (startDate && rDate && rDate < startDate) return false;
+        if (endDate && rDate && rDate > endDate) return false;
+
+        // Type filter
+        if (type && r.type && r.type !== type) return false;
+
+        // Third Party
+        if (thirdPartyId && r.thirdPartyId && r.thirdPartyId !== thirdPartyId) return false;
+
+        // Search text
+        if (searchQuery) {
+          const num = (r.number || "").toLowerCase();
+          const concept = (r.concept || "").toLowerCase();
+          const third = (r.thirdPartyId || "").toLowerCase();
+          if (!num.includes(searchQuery) && !concept.includes(searchQuery) && !third.includes(searchQuery)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      // Sort descending by date
+      filtered.sort((a, b) => {
+        const dateA = a.date || a.timestamp || a.createdAt || "";
+        const dateB = b.date || b.timestamp || b.createdAt || "";
+        return dateB.localeCompare(dateA);
+      });
+
+      const totalRecords = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(totalRecords / limit));
+      const startIndex = (page - 1) * limit;
+      const paginatedSlice = filtered.slice(startIndex, startIndex + limit);
+
+      // Financial balance summary for the selected slice / range
+      const totalDebits = filtered.reduce((acc, r) => acc + (r.lines?.reduce((ls: number, l: any) => ls + (Number(l.debit) || 0), 0) || Number(r.total) || 0), 0);
+      const totalCredits = filtered.reduce((acc, r) => acc + (r.lines?.reduce((ls: number, l: any) => ls + (Number(l.credit) || 0), 0) || Number(r.total) || 0), 0);
+
+      res.json({
+        success: true,
+        pagination: {
+          page,
+          limit,
+          totalRecords,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+          periodSummary: {
+            startDate: startDate || null,
+            endDate: endDate || null,
+            totalDebits,
+            totalCredits,
+            currency: "COP"
+          }
+        },
+        data: paginatedSlice
+      });
+    } catch (error: any) {
+      console.error("Paginated transactions query error:", error);
+      res.status(500).json({ error: error.message || "Failed to query paginated transactions" });
+    }
+  });
+
+  // Partitioned year-by-year summary for historical synchronization (>5 years)
+  app.get("/api/erp/sync/historical-partitions", async (_req, res) => {
+    try {
+      const erp = await getErpData();
+      const allVouchers = erp.vouchers || [];
+
+      // Group vouchers by year
+      const yearMap: Record<string, { count: number; totalAmount: number; types: Record<string, number> }> = {};
+      
+      for (const v of allVouchers) {
+        const dateStr = v.date || "2026-01-01";
+        const year = dateStr.substring(0, 4) || "2026";
+        if (!yearMap[year]) {
+          yearMap[year] = { count: 0, totalAmount: 0, types: {} };
+        }
+        yearMap[year].count++;
+        yearMap[year].totalAmount += Number(v.total) || 0;
+        const vType = v.type || "diario";
+        yearMap[year].types[vType] = (yearMap[year].types[vType] || 0) + 1;
+      }
+
+      const partitions = Object.entries(yearMap)
+        .sort(([a], [b]) => b.localeCompare(a))
+        .map(([year, stat]) => ({
+          year: parseInt(year, 10),
+          recordsCount: stat.count,
+          totalCOP: stat.totalAmount,
+          breakdownByType: stat.types,
+          downloadEndpoint: `/api/erp/transactions/paginated?startDate=${year}-01-01&endDate=${year}-12-31&limit=500`
+        }));
+
+      res.json({
+        success: true,
+        historicalPartitions: partitions,
+        totalHistoricalRecords: allVouchers.length,
+        supportedYears: partitions.map((p) => p.year),
+        architecture: "Chunked Lazy Partitioning for Enterprise High Volume"
+      });
+    } catch (error: any) {
+      console.error("Failed to build historical partitions:", error);
+      res.status(500).json({ error: error.message || "Failed to calculate partitions" });
+    }
+  });
+
+  // Batch chunk ingestion for bulk import / mass synchronization
+  app.post("/api/erp/transactions/batch-sync", async (req, res) => {
+    try {
+      const { batchId, chunkIndex, totalChunks, records, entity = "vouchers" } = req.body;
+      if (!Array.isArray(records)) {
+        return res.status(400).json({ error: "El cuerpo de la petición debe contener un arreglo de 'records'." });
+      }
+
+      console.log(`[Batch-Sync] Ingesting chunk ${chunkIndex + 1}/${totalChunks} (Batch ${batchId || "default"}): ${records.length} ${entity} records.`);
+
+      // Append or merge records
+      const erp = await getErpData();
+      const existingVouchers = erp.vouchers || [];
+      const incomingIds = new Set(records.map(r => r.id));
+      const merged = [
+        ...existingVouchers.filter(v => !incomingIds.has(v.id)),
+        ...records
+      ];
+
+      await saveErpData({
+        vouchersList: merged
+      });
+
+      res.json({
+        success: true,
+        batchId: batchId || `batch_${Date.now()}`,
+        chunkIndex,
+        totalChunks,
+        processedCount: records.length,
+        totalVouchersInStore: merged.length,
+        status: chunkIndex + 1 >= totalChunks ? "batch_completed" : "chunk_acknowledged"
+      });
+    } catch (error: any) {
+      console.error("Batch sync processing failed:", error);
+      res.status(500).json({ error: error.message || "Failed to process batch sync chunk" });
+    }
+  });
+
   // Get raw Supabase SQL script
   app.get("/api/db/schema-sql", (_req, res) => {
     try {

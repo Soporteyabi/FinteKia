@@ -22,6 +22,9 @@ export interface ElectronicBillingConfig {
   lastTestTimestamp?: string;
   lastTestMessage?: string;
   availableCredits?: number;
+  dianHabilitationStatus?: 'pendiente' | 'en_proceso' | 'habilitado';
+  dianTestSetCompletedAt?: string;
+  dianTestInvoicesCount?: number;
 }
 
 export interface Company {

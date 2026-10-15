@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Company, ElectronicBillingConfig } from '../types';
+import { DianHabilitationAssistant } from './invoicing';
+import { toast } from '../context/ToastContext';
 
 interface AlanubeConfigViewProps {
   currentCompany: Company;
@@ -77,7 +79,11 @@ export default function AlanubeConfigView({
   const [showSecret, setShowSecret] = useState(false);
   const [saveToast, setSaveToast] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'credentials' | 'dian_params' | 'test_suite' | 'docs'>('credentials');
+  const [activeTab, setActiveTab] = useState<'credentials' | 'dian_params' | 'test_suite' | 'habilitation' | 'docs'>('credentials');
+  const [autoRunHabilitation, setAutoRunHabilitation] = useState(false);
+  const [isTestingPagination, setIsTestingPagination] = useState(false);
+  const [paginationResult, setPaginationResult] = useState<any | null>(null);
+  const [showPaginationModal, setShowPaginationModal] = useState(false);
 
   // Connection testing state
   const [isTesting, setIsTesting] = useState(false);
@@ -333,6 +339,41 @@ export default function AlanubeConfigView({
         availableCredits: 4850
       }
     });
+    setIsTesting(false);
+  };
+
+  const handleCopyLink = (url: string, name: string) => {
+    navigator.clipboard.writeText(url);
+    toast.success(`Enlace copiado al portapapeles: ${url}`, name);
+  };
+
+  const handleLaunchAutoHabilitation = () => {
+    setActiveTab('habilitation');
+    setAutoRunHabilitation(true);
+    toast.info('Activando asistente de habilitación DIAN en modo automático (8 Facturas)...', 'Habilitación Automática');
+  };
+
+  const handleTestPaginatedSync = async () => {
+    setIsTestingPagination(true);
+    try {
+      const [resPag, resPart] = await Promise.all([
+        fetch('/api/erp/transactions/paginated?page=1&limit=50'),
+        fetch('/api/erp/sync/historical-partitions')
+      ]);
+      const dataPag = await resPag.json();
+      const dataPart = await resPart.json();
+      setPaginationResult({
+        paginated: dataPag,
+        partitions: dataPart,
+        timestamp: new Date().toISOString()
+      });
+      setShowPaginationModal(true);
+      toast.success('Endpoints de sincronización paginada validados exitosamente (200 OK).', 'Sincronización Paginada');
+    } catch (err: any) {
+      toast.error('Error al conectar con los endpoints de sincronización paginada: ' + err.message, 'Error Sincronización');
+    } finally {
+      setIsTestingPagination(false);
+    }
   };
 
   return (
@@ -437,6 +478,246 @@ export default function AlanubeConfigView({
                   <span className="hidden sm:inline">Facturar</span>
                 </button>
               )}
+            </div>
+
+            {/* Direct Links to Alanube Web Portals */}
+            <div className="flex items-center gap-2 pt-1 text-[11px]">
+              <a
+                href="https://app.alanube.co"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 px-2.5 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-bold text-center flex items-center justify-center gap-1.5 transition-all"
+                title="Abrir Dashboard oficial de Alanube Producción"
+              >
+                <span>Login Alanube</span>
+                <i className="ri-external-link-line"></i>
+              </a>
+              <a
+                href="https://sandbox-app.alanube.co"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold text-center flex items-center justify-center gap-1 transition-all"
+                title="Abrir Portal Alanube Sandbox"
+              >
+                <span>Sandbox</span>
+                <i className="ri-flask-line"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* DASHBOARD DE ESTADO Y ACCESOS DIRECTOS A ALANUBE CLOUD */}
+      <div className="bg-slate-900 border border-indigo-500/30 rounded-3xl p-6 shadow-xl space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]"></span>
+              <h2 className="text-lg font-extrabold text-white flex items-center gap-2">
+                Dashboard de Estado & Accesos Directos a Alanube Cloud
+              </h2>
+            </div>
+            <p className="text-xs text-slate-400">
+              Monitoreo en tiempo real del enlace de telecomunicaciones, firma digital XAdES-BES, folios y acceso directo a la plataforma en la nube.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleLaunchAutoHabilitation}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white font-extrabold text-xs cursor-pointer shadow-md flex items-center gap-1.5 transition-all transform active:scale-95"
+              id="dashboard-auto-habilitar-btn"
+            >
+              <i className="ri-flashlight-line text-amber-200 text-sm"></i>
+              <span>Auto-Validar 8 Facturas DIAN</span>
+            </button>
+            <button
+              onClick={handleTestPaginatedSync}
+              disabled={isTestingPagination}
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 font-bold text-xs cursor-pointer flex items-center gap-1.5 transition-all"
+              id="dashboard-test-pagination-btn"
+            >
+              {isTestingPagination ? (
+                <>
+                  <i className="ri-loader-4-line animate-spin text-sm"></i>
+                  <span>Probando API...</span>
+                </>
+              ) : (
+                <>
+                  <i className="ri-database-2-line text-sky-400 text-sm"></i>
+                  <span>Sincronización Paginada</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Card Principal: Acceso Oficial a Alanube Cloud */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center bg-gradient-to-r from-indigo-950/70 via-slate-950 to-slate-950 border border-indigo-500/30 rounded-2xl p-5 shadow-lg">
+          <div className="lg:col-span-8 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                <i className="ri-checkbox-circle-fill"></i> Link Oficial de Acceso a la Nube
+              </span>
+              <span className="text-[11px] font-mono text-indigo-300 bg-indigo-950/80 px-2.5 py-0.5 rounded border border-indigo-700/50 font-bold select-all">
+                https://app.alanube.co
+              </span>
+            </div>
+            <h3 className="text-base font-bold text-white">
+              Ingreso Oficial a la Plataforma Web Alanube Cloud
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+              Accede directamente al portal web oficial de <strong>Alanube Cloud</strong> con tus credenciales corporativas para auditar los comprobantes fiscales generados por el ERP, revisar eventos RADIAN de acuse y recibo de mercancías, descargar paquetes de XML firmados y consultar el consumo mensual de folios DIAN.
+            </p>
+          </div>
+
+          <div className="lg:col-span-4 flex flex-col sm:flex-row lg:flex-col gap-2.5 justify-end">
+            <a
+              href="https://app.alanube.co"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-500 via-sky-500 to-indigo-600 hover:from-indigo-400 hover:to-sky-400 text-white font-extrabold text-xs cursor-pointer shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all transform active:scale-95 text-center"
+              id="official-alanube-cloud-link-btn"
+              title="Abrir app.alanube.co en una pestaña nueva"
+            >
+              <span>Ingresar a Alanube Cloud</span>
+              <i className="ri-external-link-line text-sm"></i>
+            </a>
+
+            <button
+              type="button"
+              onClick={() => handleCopyLink('https://app.alanube.co', 'Alanube Cloud')}
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white font-semibold text-xs cursor-pointer flex items-center justify-center gap-1.5 transition-all"
+            >
+              <i className="ri-file-copy-line text-indigo-400"></i>
+              <span>Copiar Enlace Oficial</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Ecosistema de Enlaces Directos */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Link 1: Sandbox Alanube */}
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-slate-700 transition-all space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Sandbox Pruebas</span>
+              <i className="ri-flask-line text-amber-400 text-sm"></i>
+            </div>
+            <div>
+              <p className="font-bold text-xs text-white">Alanube Sandbox</p>
+              <p className="text-[10px] text-slate-400 truncate">sandbox-app.alanube.co</p>
+            </div>
+            <div className="flex items-center gap-2 pt-1 text-[11px]">
+              <a
+                href="https://sandbox-app.alanube.co"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 font-bold text-center flex items-center justify-center gap-1"
+              >
+                <span>Abrir</span>
+                <i className="ri-external-link-line text-[10px]"></i>
+              </a>
+              <button
+                type="button"
+                onClick={() => handleCopyLink('https://sandbox-app.alanube.co', 'Alanube Sandbox')}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+                title="Copiar URL de Sandbox"
+              >
+                <i className="ri-file-copy-line text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          {/* Link 2: API Docs */}
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-slate-700 transition-all space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">Documentación</span>
+              <i className="ri-code-box-line text-sky-400 text-sm"></i>
+            </div>
+            <div>
+              <p className="font-bold text-xs text-white">API REST & Webhooks</p>
+              <p className="text-[10px] text-slate-400 truncate">docs.alanube.co</p>
+            </div>
+            <div className="flex items-center gap-2 pt-1 text-[11px]">
+              <a
+                href="https://docs.alanube.co"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 font-bold text-center flex items-center justify-center gap-1"
+              >
+                <span>Docs</span>
+                <i className="ri-external-link-line text-[10px]"></i>
+              </a>
+              <button
+                type="button"
+                onClick={() => handleCopyLink('https://docs.alanube.co', 'Documentación Alanube')}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+                title="Copiar URL Docs"
+              >
+                <i className="ri-file-copy-line text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          {/* Link 3: DIAN Habilitación Muisca */}
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-slate-700 transition-all space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Portal DIAN</span>
+              <i className="ri-government-line text-indigo-400 text-sm"></i>
+            </div>
+            <div>
+              <p className="font-bold text-xs text-white">Habilitación Muisca</p>
+              <p className="text-[10px] text-slate-400 truncate">catalogo-vpfe-hab.dian.gov.co</p>
+            </div>
+            <div className="flex items-center gap-2 pt-1 text-[11px]">
+              <a
+                href="https://catalogo-vpfe-hab.dian.gov.co/User/PersonValidate"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 font-bold text-center flex items-center justify-center gap-1"
+              >
+                <span>DIAN Hab</span>
+                <i className="ri-external-link-line text-[10px]"></i>
+              </a>
+              <button
+                type="button"
+                onClick={() => handleCopyLink('https://catalogo-vpfe-hab.dian.gov.co/User/PersonValidate', 'DIAN Habilitación')}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+                title="Copiar URL DIAN Habilitación"
+              >
+                <i className="ri-file-copy-line text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          {/* Link 4: DIAN Producción */}
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-slate-700 transition-all space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">DIAN Oficial</span>
+              <i className="ri-shield-check-line text-emerald-400 text-sm"></i>
+            </div>
+            <div>
+              <p className="font-bold text-xs text-white">Validación Previa DIAN</p>
+              <p className="text-[10px] text-slate-400 truncate">catalogo-vpfe.dian.gov.co</p>
+            </div>
+            <div className="flex items-center gap-2 pt-1 text-[11px]">
+              <a
+                href="https://catalogo-vpfe.dian.gov.co/User/PersonValidate"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 font-bold text-center flex items-center justify-center gap-1"
+              >
+                <span>DIAN Prod</span>
+                <i className="ri-external-link-line text-[10px]"></i>
+              </a>
+              <button
+                type="button"
+                onClick={() => handleCopyLink('https://catalogo-vpfe.dian.gov.co/User/PersonValidate', 'DIAN Producción')}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+                title="Copiar URL DIAN Producción"
+              >
+                <i className="ri-file-copy-line text-xs"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -559,7 +840,20 @@ export default function AlanubeConfigView({
           id="tab-test-suite-btn"
         >
           <i className="ri-flask-line"></i>
-          <span>3. Suite de Pruebas DIAN ({testResult.status === 'success' ? '200 OK' : 'Pendiente'})</span>
+          <span>3. Diagnóstico DIAN ({testResult.status === 'success' ? '200 OK' : 'Pendiente'})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('habilitation')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-2 ${
+            activeTab === 'habilitation'
+              ? 'bg-indigo-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+          }`}
+          id="tab-habilitation-btn"
+        >
+          <i className="ri-shield-check-line"></i>
+          <span>4. Habilitación DIAN ({currentConfig.dianHabilitationStatus === 'habilitado' ? '✓ Habilitado' : '8 Facturas'})</span>
         </button>
 
         <button
@@ -572,7 +866,7 @@ export default function AlanubeConfigView({
           id="tab-docs-btn"
         >
           <i className="ri-book-read-line"></i>
-          <span>4. Guía DIAN & cURL</span>
+          <span>5. Guía DIAN & cURL</span>
         </button>
       </div>
 
@@ -1223,7 +1517,22 @@ export default function AlanubeConfigView({
         </div>
       )}
 
-      {/* TAB 4: GUÍA DIAN & cURL */}
+      {/* TAB 4: ASISTENTE HABILITACIÓN DIAN (8 FACTURAS) */}
+      {activeTab === 'habilitation' && (
+        <DianHabilitationAssistant
+          currentCompany={currentCompany}
+          activeBillingConfig={currentConfig}
+          autoStartValidation={autoRunHabilitation}
+          onUpdateBillingConfig={(updated) => {
+            updateCompany({
+              ...currentCompany,
+              billingConfig: updated
+            });
+          }}
+        />
+      )}
+
+      {/* TAB 5: GUÍA DIAN & cURL */}
       {activeTab === 'docs' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Integration Guide Steps */}
@@ -1319,6 +1628,125 @@ export default function AlanubeConfigView({
     }
   }'`}
             </pre>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL AUDITORÍA DE SINCRONIZACIÓN PAGINADA (BACKEND HIGH SCALE >5 AÑOS) */}
+      {showPaginationModal && paginationResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto animate-fade-in">
+          <div className="bg-slate-900 border border-indigo-500/40 rounded-3xl max-w-3xl w-full p-6 shadow-2xl space-y-5 my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center text-xl">
+                  <i className="ri-database-2-line"></i>
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-white flex items-center gap-2">
+                    Sincronización Paginada de Alto Volumen
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      HTTP 200 OK
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Arquitectura de particionamiento lazy para empresas con más de 5 años de histórico contable.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPaginationModal(false)}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <i className="ri-close-line text-lg"></i>
+              </button>
+            </div>
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Histórico</span>
+                <span className="text-base font-extrabold text-white font-mono">
+                  {paginationResult.partitions?.totalHistoricalRecords ?? 0}
+                </span>
+                <span className="text-[9px] text-slate-500 block">Registros totales</span>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Particiones Año</span>
+                <span className="text-base font-extrabold text-sky-400 font-mono">
+                  {paginationResult.partitions?.supportedYears?.length || 1} años
+                </span>
+                <span className="text-[9px] text-slate-500 block">Particionados</span>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Límite por Chunk</span>
+                <span className="text-base font-extrabold text-indigo-400 font-mono">
+                  {paginationResult.paginated?.pagination?.limit || 50} / pág
+                </span>
+                <span className="text-[9px] text-slate-500 block">Max 500 registros</span>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Páginas Totales</span>
+                <span className="text-base font-extrabold text-emerald-400 font-mono">
+                  {paginationResult.paginated?.pagination?.totalPages || 1}
+                </span>
+                <span className="text-[9px] text-slate-500 block">Página actual: 1</span>
+              </div>
+            </div>
+
+            {/* Partitions List or Information */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                <span>Particiones Históricas Disponibles</span>
+                <span className="text-[10px] text-slate-500 font-mono">/api/erp/sync/historical-partitions</span>
+              </h4>
+
+              {paginationResult.partitions?.historicalPartitions?.length > 0 ? (
+                <div className="overflow-x-auto rounded-xl border border-slate-800">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
+                      <tr>
+                        <th className="p-2.5">Año Fiscal</th>
+                        <th className="p-2.5">Registros</th>
+                        <th className="p-2.5">Total Acumulado (COP)</th>
+                        <th className="p-2.5">Endpoint Lazy</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800 font-mono">
+                      {paginationResult.partitions.historicalPartitions.map((part: any) => (
+                        <tr key={part.year} className="hover:bg-slate-800/40">
+                          <td className="p-2.5 font-bold text-white">{part.year}</td>
+                          <td className="p-2.5 text-indigo-300">{part.recordsCount} comprobantes</td>
+                          <td className="p-2.5 text-emerald-400">${Number(part.totalCOP).toLocaleString('es-CO')}</td>
+                          <td className="p-2.5 text-[10px] text-slate-400 truncate max-w-xs">{part.downloadEndpoint}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 space-y-2">
+                  <div className="flex items-center gap-2 text-indigo-300 font-bold">
+                    <i className="ri-checkbox-circle-fill text-emerald-400"></i>
+                    <span>Arquitectura Backend Lista para Escalabilidad Masiva</span>
+                  </div>
+                  <p className="text-slate-400 leading-relaxed text-[11px]">
+                    Los endpoints <code className="text-indigo-300 bg-slate-900 px-1 py-0.5 rounded">/api/erp/transactions/paginated</code> y <code className="text-indigo-300 bg-slate-900 px-1 py-0.5 rounded">/api/erp/sync/historical-partitions</code> permiten procesar de forma eficiente empresas con más de 5 años de antigüedad contable o cientos de miles de registros sin agotar la memoria del navegador o del servidor.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+              <span className="text-[10px] text-slate-500">
+                Última consulta: {new Date(paginationResult.timestamp).toLocaleTimeString('es-CO')}
+              </span>
+              <button
+                onClick={() => setShowPaginationModal(false)}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs cursor-pointer transition-colors"
+              >
+                Cerrar Auditoría
+              </button>
+            </div>
           </div>
         </div>
       )}

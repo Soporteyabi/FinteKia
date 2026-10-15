@@ -10,7 +10,8 @@ import {
   BillingConfigModal,
   InvoicePrintPreview,
   JsonPayloadModal,
-  QuickClientModal
+  QuickClientModal,
+  DianHabilitationAssistant
 } from './invoicing';
 
 interface InvoicingViewProps {
@@ -805,7 +806,61 @@ export default function InvoicingView({
   const [salesPage, setSalesPage] = useState(1);
   const SALES_PER_PAGE = 15;
 
-  const salesHistory = vouchers.filter((v) => v.type === 'venta' || v.type === 'ingreso' && v.number.startsWith('FE'));
+  // Advanced Combined Filters (Rango de Fechas + Estado + Tercero + Búsqueda)
+  const [salesStartDate, setSalesStartDate] = useState('');
+  const [salesEndDate, setSalesEndDate] = useState('');
+  const [salesStatusFilter, setSalesStatusFilter] = useState<'todos' | 'contado' | 'credito' | 'cufe_ok'>('todos');
+  const [salesClientFilter, setSalesClientFilter] = useState('');
+  const [salesSearchQuery, setSalesSearchQuery] = useState('');
+  const [showHabilitationModal, setShowHabilitationModal] = useState(false);
+  const [autoRunHabilitationModal, setAutoRunHabilitationModal] = useState(false);
+
+  const salesHistory = useMemo(() => {
+    return vouchers
+      .filter((v) => v.type === 'venta' || (v.type === 'ingreso' && v.number.startsWith('FE')))
+      .filter((v) => {
+        // 1. Date Range
+        if (salesStartDate && v.date < salesStartDate) return false;
+        if (salesEndDate && v.date > salesEndDate) return false;
+
+        // 2. Status
+        if (salesStatusFilter === 'contado' && v.paymentTerm !== 'contado') return false;
+        if (salesStatusFilter === 'credito' && v.paymentTerm !== 'credito') return false;
+        if (salesStatusFilter === 'cufe_ok' && !v.billingProviderData?.cufe) return false;
+
+        // 3. Third Party
+        if (salesClientFilter && v.thirdPartyId !== salesClientFilter) return false;
+
+        // 4. Search query
+        if (salesSearchQuery.trim()) {
+          const q = salesSearchQuery.toLowerCase().trim();
+          const clientObj = terceros.find(t => t.id === v.thirdPartyId);
+          const clientName = (clientObj?.name || '').toLowerCase();
+          const clientNit = (clientObj?.nit || '').toLowerCase();
+          const matchNum = v.number.toLowerCase().includes(q);
+          const matchConcept = (v.concept || '').toLowerCase().includes(q);
+          const matchClient = clientName.includes(q) || clientNit.includes(q);
+          const matchCufe = (v.billingProviderData?.cufe || '').toLowerCase().includes(q);
+          if (!matchNum && !matchConcept && !matchClient && !matchCufe) return false;
+        }
+
+        return true;
+      });
+  }, [vouchers, salesStartDate, salesEndDate, salesStatusFilter, salesClientFilter, salesSearchQuery, terceros]);
+
+  const hasActiveSalesFilters = Boolean(
+    salesStartDate || salesEndDate || salesStatusFilter !== 'todos' || salesClientFilter || salesSearchQuery.trim()
+  );
+
+  const clearSalesFilters = () => {
+    setSalesStartDate('');
+    setSalesEndDate('');
+    setSalesStatusFilter('todos');
+    setSalesClientFilter('');
+    setSalesSearchQuery('');
+    setSalesPage(1);
+  };
+
   const totalSalesPages = Math.max(1, Math.ceil(salesHistory.length / SALES_PER_PAGE));
   const safeSalesPage = Math.min(salesPage, totalSalesPages);
   const paginatedSales = salesHistory.slice(
@@ -885,6 +940,29 @@ export default function InvoicingView({
                   <i className="ri-cloud-line"></i> API Alanube & DIAN
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => {
+                  setAutoRunHabilitationModal(true);
+                  setShowHabilitationModal(true);
+                }}
+                className="px-3.5 py-2 rounded-xl bg-amber-600/90 hover:bg-amber-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                title="Abrir asistente de habilitación de 8 facturas de prueba de la DIAN en modo automático"
+                id="open-habilitation-modal-btn"
+              >
+                <i className="ri-shield-check-line text-amber-200"></i>
+                <span>Habilitación DIAN ({activeBillingConfig.dianHabilitationStatus === 'habilitado' ? '✓ Listo' : '8 Facturas'})</span>
+              </button>
+              <a
+                href="https://app.alanube.co"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-white border border-slate-700 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Acceder directamente al portal de Alanube Producción"
+              >
+                <span>Login Alanube</span>
+                <i className="ri-external-link-line"></i>
+              </a>
               <button
                 type="button"
                 onClick={() => exportInvoicesToExcel(vouchers, terceros, products, currentCompany?.name)}
@@ -1737,6 +1815,152 @@ export default function InvoicingView({
                   </span>
                 </div>
               </div>
+
+              {/* Filtros Avanzados Combinados (Rango de Fechas + Estado + Tercero Simultáneamente) */}
+              <div className="p-3 mb-3 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2.5 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-850 pb-2">
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <i className="ri-filter-3-line text-indigo-400"></i>
+                    Filtros Avanzados Combinados
+                  </span>
+                  
+                  {hasActiveSalesFilters && (
+                    <button
+                      type="button"
+                      onClick={clearSalesFilters}
+                      className="text-[10px] font-semibold text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <i className="ri-restart-line"></i> Limpiar Filtros
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                  {/* 1. Date Range: Start Date */}
+                  <div className="space-y-1">
+                    <label className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Fecha Desde:</label>
+                    <input
+                      type="date"
+                      value={salesStartDate}
+                      onChange={(e) => {
+                        setSalesStartDate(e.target.value);
+                        setSalesPage(1);
+                      }}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-medium"
+                    />
+                  </div>
+
+                  {/* 2. Date Range: End Date */}
+                  <div className="space-y-1">
+                    <label className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Fecha Hasta:</label>
+                    <input
+                      type="date"
+                      value={salesEndDate}
+                      onChange={(e) => {
+                        setSalesEndDate(e.target.value);
+                        setSalesPage(1);
+                      }}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-medium"
+                    />
+                  </div>
+
+                  {/* 3. Status Filter */}
+                  <div className="space-y-1">
+                    <label className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Estado Fiscal:</label>
+                    <select
+                      value={salesStatusFilter}
+                      onChange={(e) => {
+                        setSalesStatusFilter(e.target.value as any);
+                        setSalesPage(1);
+                      }}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-medium"
+                    >
+                      <option value="todos">Todos los Estados</option>
+                      <option value="contado">Ventas de Contado</option>
+                      <option value="credito">Ventas a Crédito</option>
+                      <option value="cufe_ok">Con CUFE DIAN Validado</option>
+                    </select>
+                  </div>
+
+                  {/* 4. Client Selector */}
+                  <div className="space-y-1">
+                    <label className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Cliente / Tercero:</label>
+                    <select
+                      value={salesClientFilter}
+                      onChange={(e) => {
+                        setSalesClientFilter(e.target.value);
+                        setSalesPage(1);
+                      }}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-medium truncate"
+                    >
+                      <option value="">Todos los Clientes ({terceros.filter(t => t.roles.includes('cliente')).length})</option>
+                      {terceros
+                        .filter((t) => t.roles.includes('cliente'))
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.nit})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Search Text & Presets */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-1 border-t border-slate-850 text-xs">
+                  <div className="relative flex-1 w-full">
+                    <i className="ri-search-line absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                    <input
+                      type="text"
+                      placeholder="Buscar por número (FE-102), concepto o CUFE..."
+                      value={salesSearchQuery}
+                      onChange={(e) => {
+                        setSalesSearchQuery(e.target.value);
+                        setSalesPage(1);
+                      }}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 placeholder:text-slate-600"
+                    />
+                  </div>
+
+                  {/* Date Quick Presets */}
+                  <div className="flex items-center gap-1 shrink-0 text-[10px]">
+                    <span className="text-slate-500 mr-1">Rápido:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const today = new Date().toISOString().substring(0, 10);
+                        setSalesStartDate(today);
+                        setSalesEndDate(today);
+                        setSalesPage(1);
+                      }}
+                      className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 cursor-pointer"
+                    >
+                      Hoy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const year = now.getFullYear();
+                        const month = String(now.getMonth() + 1).padStart(2, '0');
+                        setSalesStartDate(`${year}-${month}-01`);
+                        setSalesEndDate(now.toISOString().substring(0, 10));
+                        setSalesPage(1);
+                      }}
+                      className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 cursor-pointer"
+                    >
+                      Este Mes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearSalesFilters}
+                      className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 cursor-pointer"
+                    >
+                      Todo
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {salesHistory.length > 0 ? (
                   paginatedSales.map((v) => {
@@ -1843,6 +2067,31 @@ export default function InvoicingView({
         }}
         addTercero={addTercero}
       />
+
+      {/* Modal: Asistente de Habilitación DIAN (8 Facturas de Prueba) */}
+      {showHabilitationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto animate-fade-in">
+          <div className="max-w-4xl w-full my-8">
+            <DianHabilitationAssistant
+              currentCompany={currentCompany}
+              activeBillingConfig={activeBillingConfig}
+              autoStartValidation={autoRunHabilitationModal}
+              onClose={() => {
+                setShowHabilitationModal(false);
+                setAutoRunHabilitationModal(false);
+              }}
+              onUpdateBillingConfig={(updatedConfig) => {
+                if (updateCompany) {
+                  updateCompany({
+                    ...currentCompany,
+                    billingConfig: updatedConfig
+                  });
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

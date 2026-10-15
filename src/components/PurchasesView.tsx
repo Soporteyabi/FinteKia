@@ -521,7 +521,58 @@ export default function PurchasesView({
   const [purchasesPage, setPurchasesPage] = useState(1);
   const PURCHASES_PER_PAGE = 15;
 
-  const purchasesHistory = vouchers.filter((v) => v.type === 'compra');
+  // Advanced Combined Filters (Rango de Fechas + Estado + Proveedor + Búsqueda)
+  const [purchasesStartDate, setPurchasesStartDate] = useState('');
+  const [purchasesEndDate, setPurchasesEndDate] = useState('');
+  const [purchasesStatusFilter, setPurchasesStatusFilter] = useState<'todos' | 'contado' | 'credito' | 'con_retencion'>('todos');
+  const [purchasesSupplierFilter, setPurchasesSupplierFilter] = useState('');
+  const [purchasesSearchQuery, setPurchasesSearchQuery] = useState('');
+
+  const purchasesHistory = useMemo(() => {
+    return vouchers
+      .filter((v) => v.type === 'compra')
+      .filter((v) => {
+        // 1. Date range
+        if (purchasesStartDate && v.date < purchasesStartDate) return false;
+        if (purchasesEndDate && v.date > purchasesEndDate) return false;
+
+        // 2. Status
+        if (purchasesStatusFilter === 'contado' && v.paymentTerm !== 'contado') return false;
+        if (purchasesStatusFilter === 'credito' && v.paymentTerm !== 'credito') return false;
+        if (purchasesStatusFilter === 'con_retencion' && !(v.retenciones && (v.retenciones.retefuente || v.retenciones.reteiva || v.retenciones.reteica))) return false;
+
+        // 3. Supplier
+        if (purchasesSupplierFilter && v.thirdPartyId !== purchasesSupplierFilter) return false;
+
+        // 4. Search query
+        if (purchasesSearchQuery.trim()) {
+          const q = purchasesSearchQuery.toLowerCase().trim();
+          const supp = terceros.find(t => t.id === v.thirdPartyId);
+          const suppName = (supp?.name || '').toLowerCase();
+          const suppNit = (supp?.nit || '').toLowerCase();
+          const matchNum = v.number.toLowerCase().includes(q);
+          const matchConcept = (v.concept || '').toLowerCase().includes(q);
+          const matchSupp = suppName.includes(q) || suppNit.includes(q);
+          if (!matchNum && !matchConcept && !matchSupp) return false;
+        }
+
+        return true;
+      });
+  }, [vouchers, purchasesStartDate, purchasesEndDate, purchasesStatusFilter, purchasesSupplierFilter, purchasesSearchQuery, terceros]);
+
+  const hasActivePurchasesFilters = Boolean(
+    purchasesStartDate || purchasesEndDate || purchasesStatusFilter !== 'todos' || purchasesSupplierFilter || purchasesSearchQuery.trim()
+  );
+
+  const clearPurchasesFilters = () => {
+    setPurchasesStartDate('');
+    setPurchasesEndDate('');
+    setPurchasesStatusFilter('todos');
+    setPurchasesSupplierFilter('');
+    setPurchasesSearchQuery('');
+    setPurchasesPage(1);
+  };
+
   const totalPurchasesPages = Math.max(1, Math.ceil(purchasesHistory.length / PURCHASES_PER_PAGE));
   const safePurchasesPage = Math.min(purchasesPage, totalPurchasesPages);
   const paginatedPurchases = purchasesHistory.slice(
@@ -1338,6 +1389,106 @@ export default function PurchasesView({
               >
                 <i className="ri-file-excel-2-line text-emerald-600"></i> Excel (.xlsx)
               </button>
+            </div>
+
+            {/* Filtros Avanzados Combinados (Rango de Fechas + Estado + Proveedor + Búsqueda) */}
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-1.5">
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+                  <i className="ri-filter-3-line text-blue-600"></i>
+                  Filtros Combinados
+                </span>
+                {hasActivePurchasesFilters && (
+                  <button
+                    type="button"
+                    onClick={clearPurchasesFilters}
+                    className="text-[10px] font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
+                  >
+                    <i className="ri-restart-line"></i> Limpiar
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-0.5">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Desde:</label>
+                  <input
+                    type="date"
+                    value={purchasesStartDate}
+                    onChange={(e) => {
+                      setPurchasesStartDate(e.target.value);
+                      setPurchasesPage(1);
+                    }}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800"
+                  />
+                </div>
+                <div className="space-y-0.5">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Hasta:</label>
+                  <input
+                    type="date"
+                    value={purchasesEndDate}
+                    onChange={(e) => {
+                      setPurchasesEndDate(e.target.value);
+                      setPurchasesPage(1);
+                    }}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-0.5">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Estado:</label>
+                  <select
+                    value={purchasesStatusFilter}
+                    onChange={(e) => {
+                      setPurchasesStatusFilter(e.target.value as any);
+                      setPurchasesPage(1);
+                    }}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800"
+                  >
+                    <option value="todos">Todos los Estados</option>
+                    <option value="contado">Contado</option>
+                    <option value="credito">Crédito</option>
+                    <option value="con_retencion">Con Retenciones</option>
+                  </select>
+                </div>
+
+                <div className="space-y-0.5">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase block">Proveedor:</label>
+                  <select
+                    value={purchasesSupplierFilter}
+                    onChange={(e) => {
+                      setPurchasesSupplierFilter(e.target.value);
+                      setPurchasesPage(1);
+                    }}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 truncate"
+                  >
+                    <option value="">Todos ({terceros.filter(t => t.roles.includes('proveedor')).length})</option>
+                    {terceros
+                      .filter((t) => t.roles.includes('proveedor'))
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="relative">
+                <i className="ri-search-line absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input
+                  type="text"
+                  placeholder="Buscar compra o factura..."
+                  value={purchasesSearchQuery}
+                  onChange={(e) => {
+                    setPurchasesSearchQuery(e.target.value);
+                    setPurchasesPage(1);
+                  }}
+                  className="w-full bg-white border border-slate-200 rounded-lg pl-7 pr-2 py-1 text-xs text-slate-800"
+                />
+              </div>
             </div>
 
             <div className="space-y-2 max-h-72 overflow-y-auto">
