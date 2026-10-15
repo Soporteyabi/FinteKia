@@ -29,10 +29,18 @@ import CompanyView from './components/CompanyView';
 import TechServicesView from './components/TechServicesView';
 import AlanubeConfigView from './components/AlanubeConfigView';
 import DatabaseView from './components/DatabaseView';
+import LoginView from './components/LoginView';
 
 export default function App() {
   const [state, setState] = useState<AppState>(getInitialState());
-  const { user: firebaseUser, signInWithGoogle, signOutUser, loading: authLoading } = useAuth();
+  const { 
+    user: firebaseUser, 
+    erpUser, 
+    isAuthenticated, 
+    signInWithGoogle, 
+    signOutUser, 
+    loading: authLoading 
+  } = useAuth();
   const [isCloudSqlSyncing, setIsCloudSqlSyncing] = useState(false);
   const [cloudSqlConnected, setCloudSqlConnected] = useState(true);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -96,9 +104,18 @@ export default function App() {
     return () => { isMounted = false; };
   }, []);
 
-  // Update currentUser if Firebase User logs in
+  // Update currentUser if Firebase User or ERP User logs in
   useEffect(() => {
-    if (firebaseUser) {
+    if (erpUser) {
+      setState(prev => ({
+        ...prev,
+        currentUser: {
+          name: erpUser.name,
+          role: erpUser.role,
+          email: erpUser.email
+        }
+      }));
+    } else if (firebaseUser) {
       setState(prev => ({
         ...prev,
         currentUser: {
@@ -108,7 +125,7 @@ export default function App() {
         }
       }));
     }
-  }, [firebaseUser]);
+  }, [erpUser, firebaseUser]);
 
   // Company creation wizard states
   const [showCreateCompanyModal, setShowCreateCompanyModal] = useState(false);
@@ -992,6 +1009,25 @@ export default function App() {
 
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
 
+  // Authentication Gate for Render deployment
+  if (authLoading && !erpUser) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white space-y-4 font-sans">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 flex items-center justify-center animate-pulse shadow-lg shadow-blue-500/30">
+          <i className="ri-building-4-line text-2xl"></i>
+        </div>
+        <div className="text-center space-y-1">
+          <p className="font-extrabold text-sm tracking-wide">FinteKia ERP Cloud</p>
+          <p className="text-xs text-slate-400">Verificando sesión en Render...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginView onSuccessLogin={() => setState(prev => ({ ...prev, activeView: 'dashboard' }))} />;
+  }
+
   return (
     <div className={`flex flex-col h-screen overflow-hidden ${activeThemeObj.mainBg} font-sans`}>
       
@@ -1173,44 +1209,35 @@ export default function App() {
             <span className="font-bold text-[10px] text-emerald-400">{isCloudSqlSyncing ? 'Sincronizando...' : 'Conectado'}</span>
           </button>
 
-          {/* User Profile & Google Authentication Pill */}
+          {/* User Profile & Authentication Pill */}
           <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
-            {firebaseUser ? (
-              <div className="flex items-center gap-2">
-                {firebaseUser.photoURL ? (
-                  <img src={firebaseUser.photoURL} alt={firebaseUser.displayName || 'User'} className="w-8 h-8 rounded-full border border-cyan-400 shadow-sm" />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-bold flex items-center justify-center text-xs shadow-sm select-none">
-                    {(firebaseUser.displayName || firebaseUser.email || 'U')[0].toUpperCase()}
-                  </div>
-                )}
-                <div className="hidden md:block leading-tight text-left">
-                  <span className="font-bold text-xs block text-slate-800 dark:text-white truncate max-w-[130px]">
-                    {firebaseUser.displayName || state.currentUser.name}
+            <div className="flex items-center gap-2">
+              {firebaseUser?.photoURL ? (
+                <img src={firebaseUser.photoURL} alt={firebaseUser.displayName || 'User'} className="w-8 h-8 rounded-full border border-cyan-400 shadow-sm" />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-500 text-white font-bold flex items-center justify-center text-xs shadow-sm select-none border border-cyan-400/40">
+                  {(erpUser?.name || firebaseUser?.displayName || state.currentUser.name || 'U')[0].toUpperCase()}
+                </div>
+              )}
+              <div className="hidden md:block leading-tight text-left">
+                <span className="font-bold text-xs block text-slate-800 dark:text-white truncate max-w-[140px]">
+                  {erpUser?.name || firebaseUser?.displayName || state.currentUser.name}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]">
+                    {erpUser?.email || firebaseUser?.email || state.currentUser.email}
                   </span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-slate-400 font-mono truncate max-w-[100px]">{firebaseUser.email}</span>
-                    <button
-                      onClick={signOutUser}
-                      className="text-[9px] text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer"
-                      title="Cerrar sesión de Google"
-                    >
-                      Salir
-                    </button>
-                  </div>
+                  <button
+                    onClick={signOutUser}
+                    className="text-[9px] text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer"
+                    title="Cerrar sesión y volver al login"
+                    id="btn-header-signout"
+                  >
+                    Salir
+                  </button>
                 </div>
               </div>
-            ) : (
-              <button
-                onClick={signInWithGoogle}
-                disabled={authLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer active:scale-95"
-                title="Iniciar sesión con Google para sincronizar en la nube"
-              >
-                <i className="ri-google-fill text-sm"></i>
-                <span className="hidden sm:inline">Iniciar con Google</span>
-              </button>
-            )}
+            </div>
 
             {/* Role selector */}
             <div className="hidden sm:block">

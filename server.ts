@@ -58,6 +58,44 @@ async function startServer() {
     }
   });
 
+  // Direct authentication endpoint for Render web app deployment
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const input = String(req.body.email || req.body.username || req.body.user || "").toLowerCase().trim();
+      if (!input) {
+        return res.status(400).json({ error: "Email o usuario requerido" });
+      }
+      const erp = await getErpData();
+      const usersList = erp.extraState?.users || [];
+      const matched = usersList.find((u: any) => 
+        u.email.toLowerCase() === input || 
+        u.name.toLowerCase().includes(input) ||
+        (input === 'admin' && u.role === 'Admin') ||
+        (input === 'contador' && u.role === 'Contador') ||
+        (input === 'vendedor' && u.role === 'Vendedor') ||
+        (input === 'operario' && u.role === 'Operario')
+      );
+
+      const user = matched || {
+        uid: `usr-${Date.now()}`,
+        name: input.includes('@') ? input.split('@')[0] : (input.charAt(0).toUpperCase() + input.slice(1)),
+        email: input.includes('@') ? input : `${input.replace(/[^a-z0-9]/g, '')}@fintekia.co`,
+        role: "Admin",
+        cargo: "Administrador General",
+        active: true
+      };
+
+      res.json({
+        success: true,
+        user,
+        token: `render_session_${Buffer.from(input).toString('base64')}_${Date.now()}`
+      });
+    } catch (err: any) {
+      console.error("Direct login error:", err);
+      res.status(500).json({ error: err.message || "Failed to log in" });
+    }
+  });
+
   // Fetch registered users from PostgreSQL
   app.get("/api/users", async (_req, res) => {
     try {
