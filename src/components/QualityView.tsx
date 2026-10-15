@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from "../context/ToastContext";
 import { QualityInspection, ProductionOrder, BOM, Product } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import Pagination from './Pagination';
@@ -94,7 +95,7 @@ export default function QualityView({
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOrderId) {
-      alert("Por favor seleccione un lote o número de OP para auditar.");
+      toast.warning("Por favor seleccione un lote o número de OP para auditar.", "Lote Requerido");
       return;
     }
 
@@ -118,7 +119,7 @@ export default function QualityView({
     const proposedStatus = liveResult === 'Rechazado' ? 'rechazada' : afterAuditStatus;
     updateOrderStatus(order.id, proposedStatus);
 
-    alert(`¡Inspección técnica registrada! El lote se ha clasificado como [${liveResult}] y la OP se actualizó a estado [${proposedStatus}].`);
+    toast.success(`Inspección registrada: Lote clasificado como [${liveResult}] y OP en estado [${proposedStatus}].`, "Control de Calidad");
     
     // Reset selection and revert tab back to log list
     setSelectedOrderId('');

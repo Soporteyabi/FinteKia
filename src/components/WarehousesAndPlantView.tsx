@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { toast } from "../context/ToastContext";
 import { Warehouse, Asset, InventoryItem, Product, InventoryMovement } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import { ConfirmModal } from './ConfirmModal';
 import Pagination from './Pagination';
+import { exportWarehouseStockToExcel } from '../utils/excelExport';
 
 interface WarehousesAndPlantViewProps {
   warehouses: Warehouse[];
@@ -293,7 +295,7 @@ export default function WarehousesAndPlantView({
   const handleWhSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!whName.trim() || !whAddress.trim()) {
-      alert("Por favor complete los campos de nombre y dirección.");
+      toast.warning("Por favor complete los campos de nombre y dirección.", "Campos Requeridos");
       return;
     }
 
@@ -315,7 +317,7 @@ export default function WarehousesAndPlantView({
     e.stopPropagation();
     const totalUnits = calculateWarehouseTotalUnits(id);
     if (totalUnits > 0) {
-      alert(`No se puede eliminar la bodega "${name}" porque contiene ${totalUnits} unidades de inventario en circulación.`);
+      toast.error(`No se puede eliminar la bodega "${name}" porque contiene ${totalUnits} unidades en inventario.`, "Bodega con Stock");
       return;
     }
 
@@ -351,7 +353,7 @@ export default function WarehousesAndPlantView({
   const handleAssetSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!assetName.trim() || !assetSerial.trim() || !assetLocation.trim()) {
-      alert("Por favor complete todos los datos obligatorios del activo.");
+      toast.warning("Por favor complete todos los datos obligatorios del activo.", "Datos Requeridos");
       return;
     }
 
@@ -405,12 +407,12 @@ export default function WarehousesAndPlantView({
   const handleTransferSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTransProdId || !transOriginWhId || !transDestWhId || transQty <= 0) {
-      alert("Por favor complete todos los datos del traslado.");
+      toast.warning("Por favor complete todos los datos del traslado.", "Datos Requeridos");
       return;
     }
 
     if (transOriginWhId === transDestWhId) {
-      alert("La bodega de origen debe ser diferente a la de destino.");
+      toast.warning("La bodega de origen debe ser diferente a la de destino.", "Bodegas Iguales");
       return;
     }
 
@@ -423,7 +425,7 @@ export default function WarehousesAndPlantView({
 
     if (!originItem || originItem.quantity < transQty) {
       const available = originItem ? originItem.quantity : 0;
-      alert(`Inventario disponible insuficiente. Cantidad en bodega de origen: ${available} unidades.`);
+      toast.error(`Inventario insuficiente. Disponible en bodega de origen: ${available} unidades.`, "Stock Insuficiente");
       return;
     }
 
@@ -436,7 +438,7 @@ export default function WarehousesAndPlantView({
     );
 
     setIsTransferFormOpen(false);
-    alert(`Traslado interno de ${transQty} unidades efectuado con éxito.`);
+    toast.success(`Traslado interno de ${transQty} unidades efectuado con éxito.`, "Traslado Exitoso");
   };
 
   // List of available products in the selected origin warehouse for transfer
@@ -476,6 +478,16 @@ export default function WarehousesAndPlantView({
         </div>
         
         <div className="flex flex-wrap gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => exportWarehouseStockToExcel(inventory, products, warehouses)}
+            className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+            title="Descargar stock valorizado de bodegas y almacenes en Excel (.xlsx)"
+            id="export-warehouses-excel-btn"
+          >
+            <i className="ri-file-excel-2-line text-emerald-200"></i> Exportar a Excel
+          </button>
+          
           <button
             onClick={handleOpenTransfer}
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"

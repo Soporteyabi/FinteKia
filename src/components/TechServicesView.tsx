@@ -40,8 +40,10 @@ import {
   Calendar,
   User,
   Shield,
-  Layers
+  Layers,
+  FileSpreadsheet
 } from 'lucide-react';
+import { exportTechServicesToExcel } from '../utils/excelExport';
 
 interface TechServicesViewProps {
   products: Product[];
@@ -617,6 +619,16 @@ export default function TechServicesView({
                 );
               })}
             </div>
+
+            <button
+              type="button"
+              onClick={() => exportTechServicesToExcel(localOrders, terceros)}
+              className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              title="Descargar órdenes de servicio técnico y diagnósticos en Excel (.xlsx)"
+              id="export-tech-excel-btn"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-100" /> Exportar a Excel
+            </button>
 
             {/* View Mode Toggle: Cards, Kanban, Table */}
             <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-1 shrink-0">

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from "../context/ToastContext";
 import { Voucher, PucAccount, Tercero, Company } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import { 
@@ -248,7 +249,7 @@ export default function TaxesView({
   const handleGenerateTaxSettlementVoucher = (taxType: 'IVA' | 'RETEFUENTE') => {
     if (taxType === 'IVA') {
       if (netIvaPayable === 0) {
-        alert("El saldo de IVA neto en este periodo es cero. No es necesario asiento de cierre.");
+        toast.info("El saldo de IVA neto en este periodo es cero. No requiere asiento de cierre.", "Cierre IVA");
         return;
       }
 
@@ -304,7 +305,7 @@ export default function TaxesView({
 
     } else {
       if (totalRetencionPracticada === 0) {
-        alert("No se practicaron retenciones en la fuente en este periodo. No es necesario asiento de cierre.");
+        toast.info("No se practicaron retenciones en la fuente en este periodo.", "Cierre ReteFuente");
         return;
       }
 
@@ -1050,7 +1051,7 @@ export default function TaxesView({
                   type="button"
                   onClick={() => {
                     if (!supplierWithholdingsSum) {
-                      alert("Este proveedor no presenta retenciones contables practicadas en el periodo para emitir certificados.");
+                      toast.warning("Este proveedor no presenta retenciones practicadas en el periodo seleccionado.", "Certificado Tributario");
                       return;
                     }
                     setIsCertificatePrinted(true);

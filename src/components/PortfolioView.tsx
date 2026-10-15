@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { toast } from "../context/ToastContext";
 import { Voucher, Tercero, BankAccount, PucAccount } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import Pagination from './Pagination';
+import { exportPortfolioToExcel } from '../utils/excelExport';
 import { 
   Wallet, 
   Activity, 
@@ -363,7 +365,7 @@ export default function PortfolioView({
   const handleReceiptSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!receiptThirdPartyId || !receiptDocNo || receiptAmount <= 0 || !receiptBankId) {
-      alert('Por favor complete todos los datos del Formulario de Recibo de Caja.');
+      toast.warning('Por favor complete todos los datos del Formulario de Recibo de Caja.', 'Datos Incompletos');
       return;
     }
 
@@ -411,7 +413,7 @@ export default function PortfolioView({
   const handlePaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!paymentThirdPartyId || !paymentDocNo || paymentAmount <= 0 || !paymentBankId) {
-      alert('Por favor complete todos los datos del Comprobante de Egreso.');
+      toast.warning('Por favor complete todos los datos del Comprobante de Egreso.', 'Datos Incompletos');
       return;
     }
 
@@ -514,6 +516,16 @@ export default function PortfolioView({
 
         {/* TOP LEVEL ACTION BUTTONS */}
         <div className="flex flex-wrap gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => exportPortfolioToExcel(vouchers, terceros)}
+            className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 text-xs shadow-sm cursor-pointer transition-all pointer-events-auto"
+            title="Exportar cartera comercial CxC y cuentas por pagar CxP en Excel (.xlsx)"
+            id="export-portfolio-excel-btn"
+          >
+            <Download className="w-4 h-4 text-emerald-100" /> Exportar Cartera (Excel)
+          </button>
+
           <button
             type="button"
             onClick={() => {

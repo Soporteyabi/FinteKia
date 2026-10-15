@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from "../context/ToastContext";
 import { ProductionOrder, Product, BOM, BOMItem } from '../types';
 import { 
   CheckCircle2, 
@@ -142,7 +143,7 @@ export default function KioskView({ productionOrders, products, boms, updateOrde
     setActiveTaskId(null);
     setActiveTask(null);
 
-    alert(`¡PROCESO COMPLETADO EXCELENTE!\n\nEl Lote ${order.generatedLot || order.orderNumber} ha sido reportado en el software de producción y bloqueado temporalmente. Se encuentra en cola de Control de Calidad (HACCP) para inspección física y posterior empaque.`);
+    toast.success(`Lote ${order.generatedLot || order.orderNumber} reportado y enviado a Control de Calidad (HACCP).`, "Proceso Completado");
   };
 
   const toggleIngredientCheck = (itemId: string) => {

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { toast } from "../context/ToastContext";
 import { Company } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import { 
@@ -157,7 +158,7 @@ export default function CompanyView({
 
   const handleFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
-      alert('Por favor selecciona únicamente un archivo de imagen (PNG, JPG, SVG, WEBP).');
+      toast.warning('Por favor selecciona un archivo de imagen (PNG, JPG, SVG, WEBP).', 'Formato Inválido');
       return;
     }
     
@@ -203,7 +204,7 @@ export default function CompanyView({
   const handleSubmitForm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !nit.trim()) {
-      alert('La Razón Social y el NIT de la organización son obligatorios.');
+      toast.warning('La Razón Social y el NIT de la organización son obligatorios.', 'Datos Requeridos');
       return;
     }
 
@@ -273,7 +274,7 @@ export default function CompanyView({
     e.stopPropagation();
     
     if (id === currentCompany.id) {
-      alert('No puedes desactivar la empresa registrada como activa en tus operaciones actuales. Cambia primero de organización.');
+      toast.error('No puedes desactivar la empresa activa en uso actual.', 'Operación Bloqueada');
       return;
     }
 
@@ -585,7 +586,7 @@ export default function CompanyView({
                             type="button"
                             onClick={() => {
                               if (!isStatusActive) {
-                                alert('Esta organización se encuentra inactiva. Actívela primero para poder iniciar operaciones en ella.');
+                                toast.warning('Esta organización se encuentra inactiva. Actívela primero.', 'Empresa Inactiva');
                                 return;
                               }
                               onSwitchCompany(co.id);

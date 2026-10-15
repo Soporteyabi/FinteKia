@@ -34,9 +34,11 @@ import {
   Wrench,
   ShieldCheck,
   FileText,
-  Download
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import SalesReportModal from './SalesReportModal';
+import { exportDashboardSalesToExcel } from '../utils/excelExport';
 
 interface DashboardViewProps {
   vouchers: Voucher[];
@@ -752,6 +754,17 @@ export default function DashboardView({
           >
             <FileText className="w-3.5 h-3.5 text-sky-400" />
             <span>Reporte PDF Ventas</span>
+          </button>
+
+          {/* Excel Sales & Operating Margins Report Button */}
+          <button
+            onClick={() => exportDashboardSalesToExcel(vouchers, terceros, products, currentCompany)}
+            className="px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/50 shadow-sm"
+            title="Exportar reporte ejecutivo de ventas, márgenes y KPIs a Excel (.xlsx)"
+            id="export-dashboard-excel-btn"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Reporte Excel Ventas</span>
           </button>
 
           <button

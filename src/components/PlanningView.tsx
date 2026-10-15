@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from "../context/ToastContext";
 import { BOM, Product, ProductionOrder, InventoryItem, Tercero, Warehouse } from '../types';
 import { THEMES_MAP } from './Sidebar';
 
@@ -222,7 +223,7 @@ export default function PlanningView({
   const handleExecuteSuggestedPurchase = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProviderId || !targetWarehouseId || suggestedItemsToBuy.length === 0) {
-      alert("Por favor complete los datos obligatorios.");
+      toast.warning("Por favor complete los datos obligatorios.", "Datos Requeridos");
       return;
     }
 
@@ -263,7 +264,7 @@ export default function PlanningView({
       updateInventory(item.productId, generatedLot, item.qty);
     });
 
-    alert(`¡Requisición Procesada! Se ha registrado el comprobante de compra y se han alimentado ${suggestedItemsToBuy.length} materias primas directo a la bodega.`);
+    toast.success(`¡Requisición Procesada! Se ingresaron ${suggestedItemsToBuy.length} materias primas a bodega.`, "Requisición Abastecida");
     setShowPurchaseModal(false);
   };
 
@@ -273,7 +274,7 @@ export default function PlanningView({
   const handleLaunchProductionOrder = (e: React.FormEvent) => {
     e.preventDefault();
     if (!launchBomId) {
-      alert("Por favor elija una receta para planificar.");
+      toast.warning("Por favor elija una receta para planificar.", "Receta Requerida");
       return;
     }
     const targetBOM = boms.find(b => b.id === launchBomId);
@@ -292,7 +293,7 @@ export default function PlanningView({
       }
     });
 
-    alert(`Orden de producción planificada con éxito.`);
+    toast.success("Orden de producción planificada con éxito.", "Planificación MPS");
     setShowLaunchModal(false);
   };
 
@@ -507,7 +508,7 @@ export default function PlanningView({
                     overhead: mpsEstimatedOverhead
                   }
                 });
-                alert(`Orden de producción OP planificada con ${mpsBatchQty} unidades con base al simulador.`);
+                toast.success(`Orden de producción OP planificada con ${mpsBatchQty} unidades.`, "Simulador MPS");
               }}
               className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
             >

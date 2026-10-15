@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
+import { toast } from "../context/ToastContext";
 import { Voucher, PucAccount, CostCenter, Tercero, Company } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import Pagination from './Pagination';
 import VoucherPrintModal from './VoucherPrintModal';
+import { exportVouchersToExcel } from '../utils/excelExport';
 
 interface VouchersViewProps {
   currentCompany?: Company;
@@ -159,19 +161,19 @@ export default function VouchersView({
 
   const saveVoucher = () => {
     if (!vConcept.trim()) {
-      alert("Por favor configure el concepto general del comprobante contable.");
+      toast.warning("Por favor configure el concepto general del comprobante contable.", "Concepto Requerido");
       return;
     }
     if (totalDebits === 0 && totalCredits === 0) {
-      alert("No puede registrar un asiento contable con montos en cero.");
+      toast.warning("No puede registrar un asiento contable con montos en cero.", "Montos en Cero");
       return;
     }
     if (totalDebits !== totalCredits) {
-      alert(`Asiento Descuadrado. Los Débitos (${formatCOP(totalDebits)}) deben ser iguales a los Créditos (${formatCOP(totalCredits)}) bajo partida doble.`);
+      toast.error(`Asiento Descuadrado: Débitos (${formatCOP(totalDebits)}) vs Créditos (${formatCOP(totalCredits)})`, "Descuadre Contable");
       return;
     }
     if (lines.some((l) => !l.accountCode)) {
-      alert("Por favor seleccione un código de cuenta PUC válido para cada línea.");
+      toast.warning("Por favor seleccione un código de cuenta PUC válido para cada línea.", "PUC Inválido");
       return;
     }
 
@@ -196,7 +198,7 @@ export default function VouchersView({
       lines: finalLines
     });
 
-    alert(`Comprobante ${nextNumber} guardado y balanceado de forma impecable.`);
+    toast.success(`Comprobante ${nextNumber} guardado y balanceado con éxito.`, "Comprobante Guardado");
     setShowCreator(false);
     setVConcept('');
     setLines([
@@ -273,7 +275,7 @@ export default function VouchersView({
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
-    alert(`Se ha descargado el comprobante fiscal ${v.number} en estructura balanceada JSON contable.`);
+    toast.info(`Comprobante fiscal ${v.number} descargado.`, "Descarga Contable");
   };
 
   // Balance de Comprobación (Trial Balance) Calculation
@@ -376,7 +378,7 @@ export default function VouchersView({
     });
 
     if (closingLines.length === 0) {
-      alert('No hay saldos en cuentas de resultado (clases 4, 5, 6) para cancelar.');
+      toast.info('No hay saldos en cuentas de resultado (clases 4, 5, 6) para cancelar.', 'Cierre Contable');
       return;
     }
 
@@ -409,7 +411,7 @@ export default function VouchersView({
       lines: closingLines
     });
 
-    alert(`¡Asiento de cierre contable generado exitosamente con el número ${voucherNum}! Cuentas 4, 5 y 6 saldadas contra el patrimonio.`);
+    toast.success(`¡Asiento de cierre contable ${voucherNum} generado exitosamente!`, 'Cierre Contable');
   };
 
   return (
@@ -430,7 +432,16 @@ export default function VouchersView({
           </p>
         </div>
         
-        <div className="flex gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => exportVouchersToExcel(vouchers, terceros, currentCompany?.name)}
+            className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+            title="Exportar Libro Diario y Balance de Comprobación PUC a Excel (.xlsx)"
+            id="export-vouchers-excel-btn"
+          >
+            <i className="ri-file-excel-2-line text-emerald-200"></i> Exportar a Excel
+          </button>
           <button
             onClick={() => {
               setAccountingModuleTab('diario');

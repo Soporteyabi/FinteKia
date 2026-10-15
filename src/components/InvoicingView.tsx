@@ -4,6 +4,14 @@ import { Tercero, Product, InventoryItem, Voucher, PucAccount } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import Pagination from './Pagination';
 import { calculateDIANDV, formatNITWithDV, buildWhatsAppInvoiceShareText } from '../lib/dianUtils';
+import { exportInvoicesToExcel } from '../utils/excelExport';
+import { toast } from '../context/ToastContext';
+import {
+  BillingConfigModal,
+  InvoicePrintPreview,
+  JsonPayloadModal,
+  QuickClientModal
+} from './invoicing';
 
 interface InvoicingViewProps {
   currentCompany: any;
@@ -641,7 +649,7 @@ export default function InvoicingView({
   const handleSaveQuickClient = (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickClientName.trim() || !quickClientNit.trim()) {
-      alert("Por favor ingrese razón social o nombre y NIT del cliente.");
+      toast.warning("Por favor ingrese razón social o nombre y NIT del cliente.", "Datos Requeridos");
       return;
     }
     const newId = `ter-${Date.now()}`;
@@ -674,11 +682,11 @@ export default function InvoicingView({
   // Generate Electronic Invoice & Transmit to Third-Party Billing Provider
   const handleSaveInvoice = () => {
     if (!selectedClient) {
-      alert("Por favor seleccione un adquirente / cliente.");
+      toast.warning("Por favor seleccione un adquirente / cliente.", "Cliente Requerido");
       return;
     }
     if (invoiceLines.length === 0 || invoiceLines.some((l) => !l.productId || l.qty <= 0)) {
-      alert("Por favor seleccione al menos un producto para la factura con cantidad válida.");
+      toast.warning("Por favor seleccione al menos un producto para la factura con cantidad válida.", "Productos Requeridos");
       return;
     }
 
@@ -808,389 +816,17 @@ export default function InvoicingView({
   return (
     <div className="space-y-6">
       
-      {/* Dual Printable Preview Node (Formato Carta Oficial DIAN & Formato Tirilla Térmica POS 80mm) */}
       {showPrintPreview && (
-        <div className="space-y-4">
-          {/* Action Toolbar on Screen (hidden when printed) */}
-          <div className="no-print bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs shadow-xl">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400 font-semibold mr-1">Formato de Impresión:</span>
-              <button
-                type="button"
-                onClick={() => setPrintFormat('carta')}
-                className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  printFormat === 'carta' 
-                    ? 'bg-blue-600 text-white shadow-md' 
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                }`}
-              >
-                <i className="ri-file-text-line"></i> Formato Carta (DIAN)
-              </button>
-              <button
-                type="button"
-                onClick={() => setPrintFormat('pos')}
-                className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  printFormat === 'pos' 
-                    ? 'bg-indigo-600 text-white shadow-md' 
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                }`}
-              >
-                <i className="ri-receipt-line"></i> Tirilla Térmica POS (80mm)
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {copyFeedback && (
-                <span className="text-emerald-400 font-semibold text-[11px] animate-fade-in mr-2">
-                  ✓ {copyFeedback}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => handleCopySummary(showPrintPreview)}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition-all flex items-center gap-1 cursor-pointer"
-                title="Copiar texto resumen de la factura al portapapeles"
-              >
-                <i className="ri-file-copy-line"></i> Copiar Resumen
-              </button>
-              <button
-                type="button"
-                onClick={() => handleShareWhatsApp(showPrintPreview)}
-                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-all flex items-center gap-1 cursor-pointer shadow-md"
-                title="Compartir enlace y datos de factura por WhatsApp"
-              >
-                <i className="ri-whatsapp-line"></i> Enviar por WhatsApp
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
-              >
-                <i className="ri-printer-line"></i> Imprimir / PDF
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowPrintPreview(null)}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-white transition-all cursor-pointer"
-                title="Cerrar vista previa"
-              >
-                <i className="ri-close-line text-base"></i>
-              </button>
-            </div>
-          </div>
-
-          {/* Render Formato Carta */}
-          {printFormat === 'carta' && (
-            <div id="print-section" className="bg-white p-8 rounded-2xl border border-slate-100 shadow-lg text-slate-800 max-w-3xl mx-auto space-y-6">
-              <div className="flex justify-between items-start border-b pb-6">
-                <div className="flex items-start gap-4">
-                  {currentCompany.logoUrl && (
-                    <img 
-                      src={currentCompany.logoUrl} 
-                      alt="Logo" 
-                      className="w-16 h-16 object-contain rounded-lg border border-slate-200 shrink-0"
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                  <div>
-                    <h1 className="font-display font-bold text-2xl text-slate-900 tracking-tight">{currentCompany.name}</h1>
-                    <p className="text-xs text-slate-500 mt-1">NIT: {currentCompany.nit}</p>
-                    <p className="text-xs text-slate-500">{currentCompany.address}</p>
-                    <div className="mt-2 text-[10px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-200 space-y-0.5">
-                      <div className="flex items-center gap-1 font-bold text-blue-700 text-[10px]">
-                        <i className="ri-shield-check-line"></i> EMISIÓN VÍA PROVEEDOR TECNOLÓGICO AUTORIZADO
-                      </div>
-                      <p>Intermediario: <strong className="text-slate-800">{showPrintPreview.billingProviderData?.providerName || activeBillingConfig.providerName}</strong> (NIT {activeBillingConfig.providerNit || '901.324.558-1'})</p>
-                      <p>AUTORIZACIÓN RESOLUCIÓN DIAN No. {activeBillingConfig.resolutionNumber || '187640000099'} de {activeBillingConfig.resolutionDate || '2026-01-15'}</p>
-                      <p className="text-[8.5px] text-slate-400">Prefijo {activeBillingConfig.prefix || 'FE'} ({activeBillingConfig.authorizedRangeFrom || 101} al {activeBillingConfig.authorizedRangeTo || 10000}) · Vigencia: 12 meses</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 font-bold text-xs rounded-full uppercase tracking-wider mb-2">FACTURA ELECTRÓNICA DE VENTA</span>
-                  <p className="text-lg font-bold font-mono text-slate-700">{showPrintPreview.number}</p>
-                  <p className="text-xs text-slate-500 mt-1">Fecha Emisión: {showPrintPreview.date}</p>
-                  {showPrintPreview.dueDate && showPrintPreview.paymentTerm === 'credito' && (
-                    <p className="text-xs text-amber-700 font-bold mt-0.5 font-mono">Vence: {showPrintPreview.dueDate}</p>
-                  )}
-                  <div className="mt-1 text-[9px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block">
-                    ✓ Validada ante la DIAN
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl text-xs">
-                <div>
-                  <p className="font-bold text-slate-400 uppercase tracking-wider text-[9px] mb-2">Adquiriente / Cliente</p>
-                  <p className="font-bold text-slate-900 text-sm">
-                    {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.name}
-                  </p>
-                  <p className="text-slate-600 mt-1">NIT/CC: {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.nit}</p>
-                  <p className="text-slate-600">Ciudad: {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.city}</p>
-                  <p className="text-slate-600">Dirección: {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.address}</p>
-                  {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.phone && (
-                    <p className="text-slate-600">Tel: {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.phone}</p>
-                  )}
-                </div>
-                <div>
-                  <p className="font-bold text-slate-400 uppercase tracking-wider text-[9px] mb-2">Condiciones de Pago</p>
-                  <p className="font-semibold text-slate-700 capitalize">Condición: {showPrintPreview.paymentTerm === 'credito' ? 'Venta a Crédito' : 'Venta de Contado'}</p>
-                  <p className="text-slate-500 mt-1">Canal: Transferencia / Efectivo</p>
-                  <p className="text-slate-500">Moneda: COP - Pesos Colombianos</p>
-                  <p className="text-slate-500">Régimen: {currentCompany.regimen || 'Responsable de IVA'}</p>
-                </div>
-              </div>
-
-              <table className="w-full text-left text-xs text-slate-600 border-collapse">
-                <thead>
-                  <tr className="border-b font-semibold text-slate-400 uppercase tracking-wider text-[10px]">
-                    <th className="py-2.5">Concepto del Producto / Servicio</th>
-                    <th className="py-2.5 text-right">Cant</th>
-                    <th className="py-2.5 text-right">Precio Unit</th>
-                    <th className="py-2.5 text-right">Total Neto</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-slate-700">
-                  {showPrintPreview.items && showPrintPreview.items.length > 0 ? (
-                    showPrintPreview.items.map((item, index) => {
-                      const prod = products.find((p) => p.id === item.productId);
-                      const lotLabel = item.lotNumber && item.lotNumber !== 'S/L' && item.lotNumber !== 'No aplica lote' ? ` [Lote: ${item.lotNumber}]` : '';
-                      const itemName = prod ? `${prod.name}${lotLabel}` : 'Artículo comercial';
-                      return (
-                        <tr key={index}>
-                          <td className="py-3 font-medium text-slate-900">{itemName}</td>
-                          <td className="py-3 text-right">{item.qty}</td>
-                          <td className="py-3 text-right">{formatCOP(item.unitPrice)}</td>
-                          <td className="py-3 text-right font-semibold">{formatCOP(item.qty * item.unitPrice)}</td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    showPrintPreview.lines
-                      .filter((l) => l.accountCode === '413501')
-                      .map((l, index) => {
-                        return (
-                          <tr key={index}>
-                            <td className="py-3 font-medium text-slate-900">{l.description}</td>
-                            <td className="py-3 text-right">1</td>
-                            <td className="py-3 text-right">{formatCOP(l.credit)}</td>
-                            <td className="py-3 text-right font-semibold">{formatCOP(l.credit)}</td>
-                          </tr>
-                        );
-                      })
-                  )}
-                </tbody>
-              </table>
-
-              <div className="flex justify-between items-start pt-6 border-t font-sans">
-                <div className="max-w-md">
-                  <div className="p-3 bg-slate-50 rounded-xl space-y-1.5 text-[9px] font-mono break-all leading-normal text-slate-600 border border-slate-200">
-                    <div className="flex items-center justify-between pb-1 border-b border-slate-200/60 font-sans">
-                      <span className="font-bold uppercase text-slate-700 block">CUFE Validado por {showPrintPreview.billingProviderData?.providerName || activeBillingConfig.providerName}:</span>
-                      <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-bold text-[8.5px]">Validación DIAN Confirmada</span>
-                    </div>
-                    <div className="font-mono text-slate-700">
-                      {showPrintPreview.billingProviderData?.cufe || getCUFESample(showPrintPreview.number)}
-                    </div>
-                    <div className="pt-1 text-[8.5px] text-slate-400 font-sans flex items-center justify-between">
-                      <span>UUID Transacción Proveedor: <strong className="font-mono text-slate-600">{showPrintPreview.billingProviderData?.transactionId || `fac_tx_${showPrintPreview.number}`}</strong></span>
-                      <span>Canal: API REST Tercero</span>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-center gap-3">
-                    <i className="ri-qr-code-line text-4xl text-slate-400"></i>
-                    <p className="text-[9.5px] text-slate-400 leading-snug">
-                      Documento electrónico generado y transmitido a través de Proveedor Tecnológico debidamente autorizado ante la DIAN ({activeBillingConfig.providerName}).
-                    </p>
-                  </div>
-                </div>
-                <div className="w-68 space-y-2 text-xs">
-                  <div className="flex justify-between border-b pb-1.5">
-                    <span className="text-slate-500">Subtotal Neto:</span>
-                    <span className="font-semibold text-slate-800">
-                      {showPrintPreview.items && showPrintPreview.items.length > 0
-                        ? formatCOP(showPrintPreview.items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0))
-                        : formatCOP(showPrintPreview.lines.find((l) => l.accountCode === '413501')?.credit || 0)}
-                    </span>
-                  </div>
-                  {showPrintPreview.discountTotal && showPrintPreview.discountTotal > 0 ? (
-                    <div className="flex justify-between border-b pb-1.5 text-emerald-700">
-                      <span>Descuento Comercial:</span>
-                      <span className="font-semibold">-{formatCOP(showPrintPreview.discountTotal)}</span>
-                    </div>
-                  ) : null}
-                  <div className="flex justify-between border-b pb-1.5">
-                    <span className="text-slate-500 font-medium">IVA Estimado:</span>
-                    <span className="font-semibold text-slate-800">
-                      {showPrintPreview.items && showPrintPreview.items.length > 0
-                        ? formatCOP(showPrintPreview.items.reduce((acc, item) => {
-                            const prod = products.find((p) => p.id === item.productId);
-                            const taxFactor = prod ? prod.tax / 100 : 0.19;
-                            return acc + item.qty * item.unitPrice * taxFactor;
-                          }, 0))
-                        : formatCOP(showPrintPreview.lines.find((l) => l.accountCode === '240805')?.credit || 0)}
-                    </span>
-                  </div>
-                  {showPrintPreview.retenciones?.retefuente && showPrintPreview.retenciones.retefuente > 0 ? (
-                    <div className="flex justify-between border-b pb-1.5 text-rose-700">
-                      <span>ReteFuente:</span>
-                      <span className="font-semibold">-{formatCOP(showPrintPreview.retenciones.retefuente)}</span>
-                    </div>
-                  ) : null}
-                  <div className="flex justify-between pt-1.5 font-bold text-sm text-blue-600">
-                    <span>TOTAL A PAGAR:</span>
-                    <span>{formatCOP(showPrintPreview.total)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Render Formato Tirilla POS (80mm) */}
-          {printFormat === 'pos' && (
-            <div id="print-section-pos" className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xl text-slate-900 max-w-[340px] mx-auto font-mono text-[11px] leading-tight space-y-3">
-              {/* POS Centered Header */}
-              <div className="text-center space-y-1 pb-2 border-b border-dashed border-slate-400">
-                {currentCompany.logoUrl && (
-                  <img 
-                    src={currentCompany.logoUrl} 
-                    alt="Logo" 
-                    className="w-12 h-12 mx-auto object-contain mb-1" 
-                    referrerPolicy="no-referrer"
-                  />
-                )}
-                <h2 className="font-bold text-sm uppercase">{currentCompany.name}</h2>
-                <p>NIT: {currentCompany.nit}</p>
-                <p>{currentCompany.address}</p>
-                <p>Régimen: {currentCompany.regimen || 'Responsable de IVA'}</p>
-                <div className="pt-1 text-[9.5px] text-slate-600">
-                  <p>RESOLUCIÓN DIAN No. {activeBillingConfig.resolutionNumber}</p>
-                  <p>Prefijo {activeBillingConfig.prefix} ({activeBillingConfig.authorizedRangeFrom || 101} al {activeBillingConfig.authorizedRangeTo || 10000})</p>
-                </div>
-              </div>
-
-              {/* Invoice & Client Data */}
-              <div className="space-y-1 pb-2 border-b border-dashed border-slate-400 text-[10.5px]">
-                <div className="flex justify-between font-bold">
-                  <span>FACTURA ELECTRÓNICA:</span>
-                  <span>{showPrintPreview.number}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>FECHA:</span>
-                  <span>{showPrintPreview.date}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>ADQUIRIENTE:</span>
-                  <span className="truncate max-w-[160px] text-right font-semibold">
-                    {terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.name || 'Cliente'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>NIT/CC:</span>
-                  <span>{terceros.find((t) => t.id === showPrintPreview.thirdPartyId)?.nit || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>CONDICIÓN:</span>
-                  <span className="uppercase font-bold">{showPrintPreview.paymentTerm === 'credito' ? 'Crédito' : 'Contado'}</span>
-                </div>
-                {showPrintPreview.dueDate && showPrintPreview.paymentTerm === 'credito' && (
-                  <div className="flex justify-between text-amber-800 font-bold">
-                    <span>VENCE:</span>
-                    <span>{showPrintPreview.dueDate}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Items Table */}
-              <div className="pb-2 border-b border-dashed border-slate-400">
-                <div className="flex justify-between font-bold pb-1 text-[10px] text-slate-700">
-                  <span>CANT / ARTÍCULO</span>
-                  <span>TOTAL</span>
-                </div>
-                <div className="space-y-1.5 pt-1">
-                  {showPrintPreview.items && showPrintPreview.items.length > 0 ? (
-                    showPrintPreview.items.map((item, index) => {
-                      const prod = products.find((p) => p.id === item.productId);
-                      const itemName = prod ? prod.name : 'Artículo';
-                      return (
-                        <div key={index} className="space-y-0.5">
-                          <div className="flex justify-between font-semibold">
-                            <span className="truncate max-w-[200px]">{item.qty}x {itemName}</span>
-                            <span>{formatCOP(item.qty * item.unitPrice)}</span>
-                          </div>
-                          <div className="text-[9px] text-slate-500 pl-4">
-                            Unit: {formatCOP(item.unitPrice)} {item.lotNumber && item.lotNumber !== 'S/L' ? `· Lt: ${item.lotNumber}` : ''}
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="flex justify-between">
-                      <span>1x Venta de mercancías</span>
-                      <span>{formatCOP(showPrintPreview.total)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Totals */}
-              <div className="space-y-1 pb-2 border-b border-dashed border-slate-400 text-right">
-                <div className="flex justify-between">
-                  <span>SUBTOTAL:</span>
-                  <span>
-                    {showPrintPreview.items && showPrintPreview.items.length > 0
-                      ? formatCOP(showPrintPreview.items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0))
-                      : formatCOP(showPrintPreview.total / 1.19)}
-                  </span>
-                </div>
-                {showPrintPreview.discountTotal && showPrintPreview.discountTotal > 0 ? (
-                  <div className="flex justify-between text-emerald-800 font-semibold">
-                    <span>DESCUENTO:</span>
-                    <span>-{formatCOP(showPrintPreview.discountTotal)}</span>
-                  </div>
-                ) : null}
-                <div className="flex justify-between">
-                  <span>IVA ESTIMADO:</span>
-                  <span>
-                    {showPrintPreview.items && showPrintPreview.items.length > 0
-                      ? formatCOP(showPrintPreview.items.reduce((acc, item) => {
-                          const prod = products.find((p) => p.id === item.productId);
-                          const taxFactor = prod ? prod.tax / 100 : 0.19;
-                          return acc + item.qty * item.unitPrice * taxFactor;
-                        }, 0))
-                      : formatCOP(showPrintPreview.total - (showPrintPreview.total / 1.19))}
-                  </span>
-                </div>
-                {showPrintPreview.retenciones?.retefuente && showPrintPreview.retenciones.retefuente > 0 ? (
-                  <div className="flex justify-between text-rose-800 font-semibold">
-                    <span>RETEFUENTE:</span>
-                    <span>-{formatCOP(showPrintPreview.retenciones.retefuente)}</span>
-                  </div>
-                ) : null}
-                <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-300">
-                  <span>TOTAL A PAGAR:</span>
-                  <span>{formatCOP(showPrintPreview.total)}</span>
-                </div>
-              </div>
-
-              {/* CUFE & QR Verification */}
-              <div className="text-center space-y-1.5 pt-1 text-[9px] text-slate-600">
-                <div className="p-1 bg-slate-50 border border-slate-200 rounded break-all font-mono text-[8px] leading-tight">
-                  <span className="font-bold block text-slate-800">CUFE:</span>
-                  {showPrintPreview.billingProviderData?.cufe || getCUFESample(showPrintPreview.number)}
-                </div>
-                <div className="flex items-center justify-center gap-2 pt-1">
-                  <i className="ri-qr-code-line text-3xl text-slate-800"></i>
-                  <span className="text-[8.5px] text-left text-slate-500 max-w-[190px]">
-                    Documento validado por la DIAN a través del Proveedor Tecnológico {showPrintPreview.billingProviderData?.providerName || activeBillingConfig.providerName}
-                  </span>
-                </div>
-                <p className="font-bold pt-2 text-[10.5px] text-slate-900">¡GRACIAS POR SU COMPRA!</p>
-                <p className="text-[8px] text-slate-400">Software FinteKia Cloud ERP</p>
-              </div>
-            </div>
-          )}
-        </div>
+        <InvoicePrintPreview
+          invoice={showPrintPreview}
+          onClose={() => setShowPrintPreview(null)}
+          currentCompany={currentCompany}
+          terceros={terceros}
+          products={products}
+          activeBillingConfig={activeBillingConfig}
+          getCUFESample={getCUFESample}
+          formatCOP={formatCOP}
+        />
       )}
 
       {/* Standard Interactive Form Layout on screens */}
@@ -1249,6 +885,15 @@ export default function InvoicingView({
                   <i className="ri-cloud-line"></i> API Alanube & DIAN
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => exportInvoicesToExcel(vouchers, terceros, products, currentCompany?.name)}
+                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                title="Descargar libro de facturas de venta y detalle de productos en Excel (.xlsx)"
+                id="export-invoices-excel-btn"
+              >
+                <i className="ri-file-excel-2-line text-emerald-200"></i> Exportar a Excel
+              </button>
               <button
                 type="button"
                 onClick={() => setShowPayloadModal(true)}
@@ -2077,10 +1722,20 @@ export default function InvoicingView({
             {/* Sales invoices logs scroll */}
             <div className="mt-8 border-t border-slate-800 pt-4">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Comprobantes Transmitidos</h4>
-                <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                  Vía Proveedor
-                </span>
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Comprobantes Transmitidos ({salesHistory.length})</h4>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => exportInvoicesToExcel(vouchers, terceros, products, currentCompany?.name)}
+                    className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 px-2 py-0.5 rounded-lg border border-emerald-500/30 flex items-center gap-1 cursor-pointer transition-all"
+                    title="Exportar facturas transmitidas a Excel"
+                  >
+                    <i className="ri-file-excel-2-line"></i> Excel (.xlsx)
+                  </button>
+                  <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                    Vía Proveedor
+                  </span>
+                </div>
               </div>
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {salesHistory.length > 0 ? (
@@ -2146,443 +1801,48 @@ export default function InvoicingView({
       </div>
       )}
 
-      {/* Modal: Quick Provider Configuration */}
-      {showConfigModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-5 shadow-2xl text-slate-100">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
-                  <i className="ri-settings-4-line"></i>
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-base text-white">Configuración de Proveedor Tecnológico</h3>
-                  <p className="text-[11px] text-slate-400">Facturación electrónica delegada a un tercero</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setShowConfigModal(false)}
-                className="text-slate-400 hover:text-white text-lg p-1"
-              >
-                <i className="ri-close-line"></i>
-              </button>
-            </div>
+      {/* Submodule Modals */}
+      <BillingConfigModal
+        isOpen={showConfigModal}
+        onClose={() => setShowConfigModal(false)}
+        activeBillingConfig={activeBillingConfig}
+        onSaveConfig={(updatedConfig) => {
+          if (updateCompany) {
+            updateCompany({
+              ...currentCompany,
+              billingConfig: updatedConfig
+            });
+          }
+          setShowConfigModal(false);
+        }}
+      />
 
-            <form onSubmit={handleSaveQuickConfig} className="space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="font-bold text-slate-300 block">Proveedor Tecnológico Autorizado:</label>
-                <select
-                  value={cfgProviderName}
-                  onChange={(e) => {
-                    const nextP = e.target.value as any;
-                    setCfgProviderName(nextP);
-                    if (nextP === 'Alanube' && (!cfgToken || cfgToken.startsWith('fk_'))) {
-                      setCfgToken('ala_live_sec_98f7e2a4d3_auth_key');
-                    } else if (nextP === 'Factus' && (!cfgToken || cfgToken.startsWith('ala_'))) {
-                      setCfgToken('fk_live_9a87d6e5c4b3a2_token_auth');
-                    }
-                    setCfgTestStatus(null);
-                  }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="Alanube">Alanube (API Cloud REST - Recomendado)</option>
-                  <option value="Factus">Factus (API REST Moderna)</option>
-                  <option value="Siigo">Siigo Nube API</option>
-                  <option value="Alegra">Alegra Facturación</option>
-                  <option value="Dataico">Dataico Gateway</option>
-                  <option value="TheFactoryHKA">The Factory HKA</option>
-                  <option value="Personalizado">Proveedor Personalizado / API Externa</option>
-                </select>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  Menos complicado: el proveedor valida, firma y transmite a la DIAN.
-                </p>
-              </div>
+      <JsonPayloadModal
+        isOpen={showPayloadModal || !!selectedPayloadInvoice}
+        onClose={() => {
+          setShowPayloadModal(false);
+          setSelectedPayloadInvoice(null);
+        }}
+        selectedInvoice={selectedPayloadInvoice}
+        activeBillingConfig={activeBillingConfig}
+        defaultPayload={buildThirdPartyPayload(
+          `${activeBillingConfig.prefix || "FE"}-102`,
+          selectedClient || (terceros.find(t => t.roles.includes("cliente"))?.id || "ter-2"),
+          invoiceLines.length > 0 ? invoiceLines : [{ productId: products[0]?.id || "p-1", qty: 2, unitPrice: products[0]?.price || 50000 }],
+          subtotal > 0 ? subtotal : 100000,
+          totalTax > 0 ? totalTax : 19000,
+          finalTotal > 0 ? finalTotal : 119000
+        )}
+      />
 
-              {cfgProviderName === 'Alanube' && (
-                <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/30 space-y-2 text-[11px]">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-sky-400 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                      Alanube Technologies (NIT 901.464.305-6)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsTestingCfg(true);
-                        setCfgTestStatus(null);
-                        setTimeout(() => {
-                          setIsTestingCfg(false);
-                          setCfgTestStatus({
-                            ok: true,
-                            msg: `Conexión verificada (Ping: 88ms · Token activo · DIAN Online)`
-                          });
-                        }, 600);
-                      }}
-                      disabled={isTestingCfg}
-                      className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold cursor-pointer transition-all"
-                    >
-                      {isTestingCfg ? 'Probando...' : 'Test Conexión'}
-                    </button>
-                  </div>
-                  {cfgTestStatus && (
-                    <div className="p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10.5px]">
-                      ✓ {cfgTestStatus.msg}
-                    </div>
-                  )}
-                  <div className="text-[10px] font-mono text-slate-400">
-                    Endpoint: {cfgEnvironment === 'produccion' ? 'https://api.alanube.co/dian/v1/invoices' : 'https://sandbox-api.alanube.co/dian/v1/invoices'}
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-300 block">Ambiente Operativo:</label>
-                  <select
-                    value={cfgEnvironment}
-                    onChange={(e) => setCfgEnvironment(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  >
-                    <option value="produccion">Producción (Real)</option>
-                    <option value="pruebas">Sandbox (Pruebas)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-300 block">Prefijo Autorizado:</label>
-                  <input
-                    type="text"
-                    value={cfgPrefix}
-                    onChange={(e) => setCfgPrefix(e.target.value.toUpperCase())}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white font-mono uppercase focus:outline-none focus:border-indigo-500"
-                    placeholder="FE"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-300 block">No. Resolución DIAN:</label>
-                  <input
-                    type="text"
-                    value={cfgResolution}
-                    onChange={(e) => setCfgResolution(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white font-mono focus:outline-none focus:border-indigo-500"
-                    placeholder="187640000099"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-300 block">Fecha Resolución:</label>
-                  <input
-                    type="date"
-                    value={cfgResolutionDate}
-                    onChange={(e) => setCfgResolutionDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-bold text-slate-300 block">API Token / Clave del Proveedor:</label>
-                <input
-                  type="password"
-                  value={cfgToken}
-                  onChange={(e) => setCfgToken(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white font-mono focus:outline-none focus:border-indigo-500"
-                  placeholder="fk_live_..."
-                />
-              </div>
-
-              <div className="pt-1 flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-                <span className="text-slate-300 text-xs">Enviar factura por correo al cliente automáticamente</span>
-                <input
-                  type="checkbox"
-                  checked={cfgAutoEmail}
-                  onChange={(e) => setCfgAutoEmail(e.target.checked)}
-                  className="rounded text-indigo-600 focus:ring-0 w-4 h-4"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowConfigModal(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-md"
-                >
-                  Guardar Configuración
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: View Clean JSON Structure for Third-Party API */}
-      {(showPayloadModal || selectedPayloadInvoice) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-2xl w-full space-y-4 shadow-2xl text-slate-100 flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
-                  <i className="ri-code-s-slash-line"></i>
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-base text-white">
-                    {selectedPayloadInvoice 
-                      ? `Estructura JSON: ${selectedPayloadInvoice.number}`
-                      : `Estructura JSON Enviada al Proveedor (${activeBillingConfig.providerName})`}
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Formato JSON liviano procesado por el tercero (reemplaza el pesado XML UBL 2.1 con SOAP directo)
-                  </p>
-                </div>
-              </div>
-              <button 
-                onClick={() => {
-                  setShowPayloadModal(false);
-                  setSelectedPayloadInvoice(null);
-                }}
-                className="text-slate-400 hover:text-white text-lg p-1"
-              >
-                <i className="ri-close-line"></i>
-              </button>
-            </div>
-
-            <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-300 leading-relaxed">
-              💡 <strong>¿Por qué es menos complicado?</strong> Al usar un Proveedor Tecnológico ({activeBillingConfig.providerName}), su ERP solo envía este documento JSON limpio vía REST API. El proveedor se encarga de aplicar la firma criptográfica digital, generar el XML UBL 2.1 y responder con el CUFE validado ante la DIAN.
-            </div>
-
-            <div className="flex-1 overflow-auto bg-slate-950 rounded-2xl p-4 border border-slate-800 font-mono text-[11px] text-indigo-200">
-              <pre className="whitespace-pre-wrap leading-relaxed">
-                {JSON.stringify(
-                  selectedPayloadInvoice 
-                    ? (selectedPayloadInvoice.billingProviderData?.rawPayloadSent || buildThirdPartyPayload(
-                        selectedPayloadInvoice.number,
-                        selectedPayloadInvoice.thirdPartyId,
-                        selectedPayloadInvoice.items || [],
-                        selectedPayloadInvoice.total / 1.19,
-                        selectedPayloadInvoice.total - (selectedPayloadInvoice.total / 1.19),
-                        selectedPayloadInvoice.total
-                      ))
-                    : buildThirdPartyPayload(
-                        `${activeBillingConfig.prefix || 'FE'}-102`,
-                        selectedClient || (terceros.find(t => t.roles.includes('cliente'))?.id || 'ter-2'),
-                        invoiceLines.length > 0 ? invoiceLines : [{ productId: products[0]?.id || 'p-1', qty: 2, unitPrice: products[0]?.price || 50000 }],
-                        subtotal > 0 ? subtotal : 100000,
-                        totalTax > 0 ? totalTax : 19000,
-                        finalTotal > 0 ? finalTotal : 119000
-                      ),
-                  null,
-                  2
-                )}
-              </pre>
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
-              <span className="text-[11px] text-slate-500 font-mono">
-                Transmisión: POST {activeBillingConfig.apiEndpoint || (activeBillingConfig.providerName === 'Alanube' ? 'https://api.alanube.co/dian/v1/invoices' : 'https://api.factus.com.co/v1/bills')}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const dataToCopy = JSON.stringify(
-                      selectedPayloadInvoice 
-                        ? (selectedPayloadInvoice.billingProviderData?.rawPayloadSent || {})
-                        : buildThirdPartyPayload(
-                            `${activeBillingConfig.prefix || 'FE'}-102`,
-                            selectedClient || 'ter-2',
-                            invoiceLines,
-                            subtotal,
-                            totalTax,
-                            finalTotal
-                          ),
-                      null,
-                      2
-                    );
-                    navigator.clipboard.writeText(dataToCopy);
-                    alert("JSON copiado al portapapeles con éxito.");
-                  }}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition-all flex items-center gap-1.5"
-                >
-                  <i className="ri-file-copy-line"></i> Copiar JSON
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPayloadModal(false);
-                    setSelectedPayloadInvoice(null);
-                  }}
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-md"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Quick Client Creation */}
-      {showQuickClientModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl text-slate-100 flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
-                  <i className="ri-user-add-line"></i>
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-base text-white">
-                    Registrar Cliente Express
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Se creará en la base de datos y se seleccionará inmediatamente en esta factura
-                  </p>
-                </div>
-              </div>
-              <button 
-                type="button"
-                onClick={() => setShowQuickClientModal(false)}
-                className="text-slate-400 hover:text-white text-lg p-1"
-              >
-                <i className="ri-close-line"></i>
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveQuickClient} className="space-y-3.5 overflow-y-auto pr-1 flex-1 text-xs">
-              {/* Name */}
-              <div className="space-y-1">
-                <label className="font-bold text-slate-300 block">Razón Social / Nombre:</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ej. Inversiones Andinas S.A.S o Carlos Gómez"
-                  value={quickClientName}
-                  onChange={(e) => setQuickClientName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-blue-500 font-semibold"
-                />
-              </div>
-
-              {/* NIT with DV */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-slate-300 block">NIT / Cédula:</label>
-                  {quickClientNit.trim() && (
-                    <span className="text-[10px] font-mono bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30 font-bold">
-                      DV DIAN: -{quickComputedDV}
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    required
-                    placeholder="ej. 901482394"
-                    value={quickClientNit}
-                    onChange={(e) => setQuickClientNit(e.target.value)}
-                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white font-mono font-bold focus:outline-none focus:border-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setQuickClientNit(formatNITWithDV(quickClientNit))}
-                    className="px-2.5 py-1 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-blue-400 rounded-xl border border-slate-700 cursor-pointer shrink-0"
-                    title="Aplicar formato de NIT con Dígito de Verificación"
-                  >
-                    + DV
-                  </button>
-                </div>
-              </div>
-
-              {/* Phone and Email */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-300 block">Teléfono / WhatsApp:</label>
-                  <input
-                    type="text"
-                    placeholder="ej. 3101234567"
-                    value={quickClientPhone}
-                    onChange={(e) => setQuickClientPhone(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-300 block">Email Facturación:</label>
-                  <input
-                    type="email"
-                    placeholder="cliente@ejemplo.com"
-                    value={quickClientEmail}
-                    onChange={(e) => setQuickClientEmail(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Address and City */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-300 block">Ciudad:</label>
-                  <input
-                    type="text"
-                    placeholder="Bogotá, D.C."
-                    value={quickClientCity}
-                    onChange={(e) => setQuickClientCity(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-300 block">Régimen DIAN:</label>
-                  <select
-                    value={quickClientRegimen}
-                    onChange={(e) => setQuickClientRegimen(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="no_responsable">No Responsable de IVA</option>
-                    <option value="responsable">Responsable de IVA</option>
-                    <option value="simple">Régimen Simple (RST)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Address full */}
-              <div className="space-y-1">
-                <label className="font-bold text-slate-300 block">Dirección:</label>
-                <input
-                  type="text"
-                  placeholder="ej. Carrera 7 # 71 - 21 Of. 501"
-                  value={quickClientAddress}
-                  onChange={(e) => setQuickClientAddress(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowQuickClientModal(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-md cursor-pointer flex items-center gap-1.5"
-                >
-                  <i className="ri-check-line"></i> Guardar y Seleccionar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
+      <QuickClientModal
+        isOpen={showQuickClientModal}
+        onClose={() => setShowQuickClientModal(false)}
+        onClientCreated={(newClient) => {
+          setSelectedClient(newClient.id);
+        }}
+        addTercero={addTercero}
+      />
     </div>
   );
 }

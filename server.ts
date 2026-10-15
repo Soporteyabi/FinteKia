@@ -16,6 +16,11 @@ async function startServer() {
   const app = express();
   app.use(express.json({ limit: "10mb" }));
 
+  // Ultra-fast health check endpoint for Render spin-up and keep-alive pingers
+  app.get(["/health", "/api/health"], (_req, res) => {
+    res.status(200).json({ status: "ok", app: "FinteKia ERP", uptime: process.uptime() });
+  });
+
   // Helper for lazy loading Gemini API client
   let aiClient: GoogleGenAI | null = null;
   function getGeminiClient() {

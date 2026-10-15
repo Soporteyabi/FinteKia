@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { toast } from "../context/ToastContext";
 import { Company, Tercero, BankAccount, PucAccount, PayrollLog, Voucher, BankTransaction } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import Pagination from './Pagination';
+import { exportPayrollToExcel } from '../utils/excelExport';
 import {
   User,
   Users,
@@ -302,7 +304,7 @@ export default function PayrollView({
   const handleSaveEmployee = (e: React.FormEvent) => {
     e.preventDefault();
     if (!empName || !empNit || !empCargo || empSalary <= 0) {
-      alert('Por favor complete los campos obligatorios del Colaborador.');
+      toast.warning('Por favor complete los campos obligatorios del Colaborador.', 'Datos Requeridos');
       return;
     }
 
@@ -373,7 +375,7 @@ export default function PayrollView({
   // Calculator record creation
   const handleSaveCalculatedRow = () => {
     if (!calcEmployeeId) {
-      alert('Por favor elija un colaborador primero.');
+      toast.warning('Por favor elija un colaborador primero.', 'Colaborador Requerido');
       return;
     }
 
@@ -530,7 +532,7 @@ export default function PayrollView({
     );
 
     if (pendingEmployees.length === 0) {
-      alert(`Todos los colaboradores ya han sido liquidados para el periodo ${selectedPeriod}.`);
+      toast.info(`Todos los colaboradores ya han sido liquidados para el periodo ${selectedPeriod}.`, 'Nómina al Día');
       return;
     }
 
@@ -701,7 +703,7 @@ export default function PayrollView({
   const handleMassEmitDianPayroll = () => {
     const pendingLogs = activePeriodLogs.filter(l => l.dianStatus !== 'aprobado_dian');
     if (pendingLogs.length === 0) {
-      alert('Todas las nóminas de este período ya cuentan con validación y CUNE de la DIAN.');
+      toast.info('Todas las nóminas de este período ya cuentan con validación y CUNE de la DIAN.', 'Validación DIAN');
       return;
     }
 
@@ -731,7 +733,7 @@ export default function PayrollView({
   // Post provisions voucher to PUC
   const handlePostProvisionsVoucher = () => {
     if (activePeriodLogs.length === 0) {
-      alert('No hay nóminas registradas para este período para calcular provisiones.');
+      toast.warning('No hay nóminas registradas para este período para calcular provisiones.', 'Sin Registros');
       return;
     }
 
@@ -1035,12 +1037,12 @@ export default function PayrollView({
 
               {activePeriodLogs.length > 0 && (
                 <button
-                  onClick={() => {
-                    alert('Planilla oficial consolidada para el período. Lista para reporte electrónico UGPP de ley.');
-                  }}
-                  className="bg-zinc-900 border border-zinc-800 text-slate-300 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
+                  onClick={() => exportPayrollToExcel(payrollLogs, terceros, selectedPeriod, activeCompany?.name)}
+                  className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 cursor-pointer transition-all shadow-sm"
+                  title="Exportar planilla consolidada y provisiones patronales a Excel (.xlsx)"
+                  id="export-payroll-excel-btn"
                 >
-                  <Download className="w-4 h-4 text-emerald-450" /> Exportar Planilla (CSV)
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-100" /> Exportar Planilla (Excel)
                 </button>
               )}
             </div>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from "../context/ToastContext";
 import { THEMES_MAP } from './Sidebar';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -84,7 +85,7 @@ export default function UsersView({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formEmail.trim()) {
-      alert('Por favor complete el nombre y correo electrónico.');
+      toast.warning('Por favor complete el nombre y correo electrónico.', 'Campos Requeridos');
       return;
     }
 
@@ -107,7 +108,7 @@ export default function UsersView({
         onUpdateUser(updated);
       } else {
         // Fallback alert/toast if using demo state
-        alert('Usuario actualizado temporalmente en vista.');
+        toast.success('Usuario actualizado con éxito.', 'Usuario Actualizado');
       }
     } else {
       const newUser: UserProfile = {
@@ -122,7 +123,7 @@ export default function UsersView({
       if (onAddUser) {
         onAddUser(newUser);
       } else {
-        alert('Usuario registrado temporalmente en vista de simulación.');
+        toast.success('Usuario registrado con éxito.', 'Usuario Registrado');
       }
     }
 
@@ -132,7 +133,7 @@ export default function UsersView({
   // Quick action: switch role and logs in as selected user
   const handleImpersonateUser = (user: UserProfile) => {
     if (!user.active) {
-      alert('Este usuario se encuentra bloqueado del sistema. Actívelo antes de iniciar sesión.');
+      toast.warning('Este usuario se encuentra bloqueado del sistema. Actívelo antes de iniciar sesión.', 'Acceso Restringido');
       return;
     }
     
@@ -146,13 +147,13 @@ export default function UsersView({
       });
     }
     
-    alert(`Sesión iniciada con éxito. Ahora navega como: ${user.name} (${user.role})`);
+    toast.success(`Sesión iniciada con éxito como: ${user.name} (${user.role})`, 'Sesión Activa');
   };
 
   // Toggle user state (active / inactive)
   const handleToggleState = (user: UserProfile) => {
     if (user.email === currentUser.email) {
-      alert('No puedes bloquear tu propio usuario activo del sistema.');
+      toast.error('No puedes bloquear tu propio usuario activo del sistema.', 'Operación No Permitida');
       return;
     }
     const updated = { ...user, active: !user.active };

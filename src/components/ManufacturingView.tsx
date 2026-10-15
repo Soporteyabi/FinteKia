@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from "../context/ToastContext";
 import { BOM, Product, ProductionOrder, InventoryItem, QualityInspection, Warehouse } from '../types';
 import Pagination from './Pagination';
 import { 
@@ -8,11 +9,13 @@ import {
   UserCheck, 
   Settings, 
   Warehouse as WhIcon, 
-  Clock, 
+  Clock,
   Coins, 
   CheckCircle, 
-  AlertTriangle 
+  AlertTriangle,
+  FileSpreadsheet
 } from 'lucide-react';
+import { exportManufacturingToExcel } from '../utils/excelExport';
 
 interface ManufacturingViewProps {
   boms: BOM[];
@@ -168,7 +171,7 @@ export default function ManufacturingView({
 
   const launchOrder = () => {
     if (!selectedBOMId) {
-      alert("Seleccione una receta BOM para iniciar.");
+      toast.warning("Seleccione una receta BOM para iniciar.", "Receta Requerida");
       return;
     }
     const targetBOM = boms.find((b) => b.id === selectedBOMId);
@@ -193,14 +196,14 @@ export default function ManufacturingView({
       overheadHourlyRate
     });
 
-    alert("Se ha lanzado la orden de producción de forma exitosa en el planificador.");
+    toast.success("Se ha lanzado la orden de producción de forma exitosa.", "Orden Lanzada");
     setSelectedBOMId('');
     setProdQty(10);
   };
 
   const handleCreateQC = () => {
     if (!qcTargetOrderId) {
-      alert("Seleccione la orden de lote técnica.");
+      toast.warning("Seleccione la orden de lote técnica.", "Lote Requerido");
       return;
     }
     const targetOrder = productionOrders.find((o) => o.id === qcTargetOrderId);
@@ -219,7 +222,7 @@ export default function ManufacturingView({
 
     // Automatically update order status with calculated actual costs
     updateOrderStatus(qcTargetOrderId, qcResult === 'Aprobado' ? 'completada' : 'rechazada');
-    alert(`Control de Calidad guardado. Estado del Lote actualizado a: ${qcResult}. Insumos deducidos y costo real causado.`);
+    toast.success(`Control de Calidad guardado. Estado: ${qcResult}.`, "Calidad Guardada");
     setQcTargetOrderId('');
     setQcNotes('');
   };
@@ -453,11 +456,25 @@ export default function ManufacturingView({
 
         {/* Manufacturing Active Orders Register Table */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-black/5 dark:border-white/5 p-6 shadow-sm space-y-4">
-          <div className="flex justify-between items-center border-b border-black/5 dark:border-white/5 pb-4">
-            <h3 className="font-display font-semibold text-slate-800 dark:text-white text-base">Registro Operativo de Planta (Kardex-OP)</h3>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
-              {productionOrders.length} órdenes registradas
-            </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/5 dark:border-white/5 pb-4">
+            <div>
+              <h3 className="font-display font-semibold text-slate-800 dark:text-white text-base">Registro Operativo de Planta (Kardex-OP)</h3>
+              <p className="text-[11px] text-slate-400">Control de órdenes de fabricación, lotes, bodegas y costos reales</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => exportManufacturingToExcel(productionOrders, boms, products, warehouses)}
+                className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Descargar órdenes de producción y costos en Excel (.xlsx)"
+                id="export-manufacturing-excel-btn"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-100" /> Exportar a Excel
+              </button>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                {productionOrders.length} OP
+              </span>
+            </div>
           </div>
 
           <div className="overflow-x-auto">

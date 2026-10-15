@@ -13,7 +13,8 @@ import {
   Users, 
   Building2, 
   Layers,
-  ArrowUpRight
+  ArrowUpRight,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Voucher, Tercero, Product, Company } from '../types';
 import { 
@@ -21,6 +22,7 @@ import {
   computeSalesReportData, 
   formatCOPNumber 
 } from '../utils/salesPdfReport';
+import { exportDashboardSalesToExcel } from '../utils/excelExport';
 
 interface SalesReportModalProps {
   isOpen: boolean;
@@ -158,6 +160,16 @@ export default function SalesReportModal({
         setIsGenerating(false);
       }
     }, 150);
+  };
+
+  const handleDownloadExcel = () => {
+    try {
+      exportDashboardSalesToExcel(previewData.filteredVouchers, terceros, products, company, effectiveDates.label);
+      setDownloadSuccess(true);
+      setTimeout(() => setDownloadSuccess(false), 3000);
+    } catch (err) {
+      console.error('Error al exportar a Excel:', err);
+    }
   };
 
   return (
@@ -516,6 +528,18 @@ export default function SalesReportModal({
             >
               <Printer className="w-3.5 h-3.5 text-sky-400" />
               <span>Ver / Imprimir</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadExcel}
+              disabled={isGenerating || previewData.totalVouchersCount === 0}
+              className="px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-550 text-white shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              title="Exportar datos analíticos de ventas y márgenes a Excel (.xlsx)"
+              id="export-sales-report-excel-modal-btn"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
+              <span>Exportar Excel</span>
             </button>
 
             <button

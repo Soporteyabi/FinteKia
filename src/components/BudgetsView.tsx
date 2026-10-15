@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Budget, CostCenter, PucAccount, Voucher } from '../types';
+import { toast } from '../context/ToastContext';
 import { THEMES_MAP } from './Sidebar';
 import { ConfirmModal } from './ConfirmModal';
 import { 
@@ -25,8 +26,10 @@ import {
   Download, 
   RefreshCw, 
   X,
-  FileCheck
+  FileCheck,
+  FileSpreadsheet
 } from 'lucide-react';
+import { exportBudgetsToExcel } from '../utils/excelExport';
 
 interface BudgetsViewProps {
   budgets: Budget[];
@@ -210,18 +213,18 @@ export default function BudgetsView({
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTargetId) {
-      alert('Debe seleccionar la Cuenta PUC o el Centro de Costos correspondiente.');
+      toast.warning('Debe seleccionar la Cuenta PUC o el Centro de Costos correspondiente.', 'Destino Requerido');
       return;
     }
     if (newAmount <= 0) {
-      alert('El monto del presupuesto debe ser mayor a cero.');
+      toast.warning('El monto del presupuesto debe ser mayor a cero.', 'Monto Inválido');
       return;
     }
 
     // Verify duplication
     const duplicate = budgets.find(b => b.targetType === newTargetType && b.targetId === newTargetId && b.period === newPeriod);
     if (duplicate) {
-      alert(`Ya existe un presupuesto cargado para este destino en el periodo ${newPeriod}. Intente editando la cantidad.`);
+      toast.warning(`Ya existe un presupuesto cargado para este destino en el periodo ${newPeriod}.`, 'Presupuesto Duplicado');
       return;
     }
 
@@ -242,15 +245,15 @@ export default function BudgetsView({
   const handleTransferSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!transferSourceId || !transferDestId) {
-      alert('Debe elegir un presupuesto de origen y uno de destino.');
+      toast.warning('Debe elegir un presupuesto de origen y uno de destino.', 'Partidas Requeridas');
       return;
     }
     if (transferSourceId === transferDestId) {
-      alert('El presupuesto origen no puede ser igual al de destino.');
+      toast.warning('El presupuesto origen no puede ser igual al de destino.', 'Partidas Iguales');
       return;
     }
     if (transferAmount <= 0) {
-      alert('Monto de traslado inválido.');
+      toast.warning('Monto de traslado inválido.', 'Monto Inválido');
       return;
     }
 
@@ -258,7 +261,7 @@ export default function BudgetsView({
     if (!sourceB) return;
     
     if (sourceB.amount < transferAmount) {
-      alert(`Fondos insuficientes en el origen. El límite de este presupuesto es de ${formatCOP(sourceB.amount)}.`);
+      toast.error(`Fondos insuficientes en el origen. Límite: ${formatCOP(sourceB.amount)}`, 'Presupuesto Insuficiente');
       return;
     }
 
@@ -275,7 +278,7 @@ export default function BudgetsView({
 
   const handleSaveEdit = (id: string) => {
     if (editingAmount <= 0) {
-      alert('Monto del límite inválido.');
+      toast.warning('Monto del límite inválido.', 'Límite Inválido');
       return;
     }
     updateBudget(id, editingAmount);
@@ -334,6 +337,16 @@ export default function BudgetsView({
         
         {/* ACTION BUTTONS HEADER */}
         <div className="flex flex-wrap gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => exportBudgetsToExcel(budgets, vouchers)}
+            className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 text-xs shadow-sm cursor-pointer transition-all pointer-events-auto"
+            title="Exportar ejecución presupuestal y desviaciones a Excel (.xlsx)"
+            id="export-budgets-excel-btn"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-100" /> Exportar a Excel
+          </button>
+          
           <button
             type="button"
             onClick={() => {

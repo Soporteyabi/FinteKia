@@ -3,6 +3,8 @@ import { Product, InventoryItem, Warehouse } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import { ConfirmModal } from './ConfirmModal';
 import Pagination from './Pagination';
+import { exportProductsToExcel } from '../utils/excelExport';
+import { toast } from '../context/ToastContext';
 
 interface ProductsViewProps {
   products: Product[];
@@ -176,7 +178,7 @@ export default function ProductsView({
 
   const handleFillSuggestedSku = () => {
     if (!formName) {
-      alert("Por favor ingrese el nombre primero para generar el SKU.");
+      toast.warning("Por favor ingrese el nombre primero para generar el SKU.", "Nombre Requerido");
       return;
     }
     setFormSku(suggestSku(formName, formType));
@@ -186,7 +188,7 @@ export default function ProductsView({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim()) {
-      alert("Por favor ingrese el nombre del producto o insumo.");
+      toast.warning("Por favor ingrese el nombre del producto o insumo.", "Nombre Requerido");
       return;
     }
 
@@ -365,6 +367,17 @@ export default function ProductsView({
                   <span>Registrar Compra</span>
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={() => exportProductsToExcel(products, inventory, warehouses)}
+                className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                title="Descargar catálogo de productos y existencias por bodega en Excel (.xlsx)"
+                id="export-products-excel-btn"
+              >
+                <i className="ri-file-excel-2-line text-emerald-200"></i>
+                <span>Exportar a Excel</span>
+              </button>
 
               <button
                 id="new-product-btn"

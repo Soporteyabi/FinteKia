@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { toast } from "../context/ToastContext";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { Tercero, Product, InventoryItem, Voucher, PucAccount, Warehouse } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import Pagination from './Pagination';
+import { exportPurchasesToExcel } from '../utils/excelExport';
 
 interface PurchasesViewProps {
   currentCompany: any;
@@ -376,15 +378,15 @@ export default function PurchasesView({
   // Generate Purchase Voucher Posting (COM-xxx)
   const handleSavePurchase = () => {
     if (!selectedProvider) {
-      alert("Por favor seleccione un Proveedor logístico.");
+      toast.warning("Por favor seleccione un Proveedor logístico.", "Proveedor Requerido");
       return;
     }
     if (!selectedWarehouse) {
-      alert("Por favor seleccione la planta o bodega destino para el ingreso.");
+      toast.warning("Por favor seleccione la planta o bodega destino para el ingreso.", "Bodega Requerida");
       return;
     }
     if (purchaseLines.length === 0 || purchaseLines.some((l) => !l.productId || l.qty <= 0 || l.unitCost <= 0)) {
-      alert("Por favor agregue al menos un insumo o producto con cantidad y costo válidos.");
+      toast.warning("Por favor agregue al menos un insumo o producto con cantidad y costo válidos.", "Productos Requeridos");
       return;
     }
 
@@ -506,7 +508,7 @@ export default function PurchasesView({
       });
     }
 
-    alert(`Compra de Mercancía asentada exitosamente bajo el Comprobante ${nextNumber}.\nNeto a Pagar: ${formatCOP(netPayable)} (Retenciones: ${formatCOP(totalWithholdings)})`);
+    toast.success(`Compra de Mercancía asentada bajo Comprobante ${nextNumber}. Neto: ${formatCOP(netPayable)}`, "Compra Registrada");
     
     // Clear / Reset form status
     setPurchaseLines([]);
@@ -534,9 +536,20 @@ export default function PurchasesView({
         
         {/* Left main: Register purchase receipt card form */}
         <div className={`${activeTheme.cardStyles} p-6 shadow-sm space-y-6 lg:col-span-2`}>
-          <div className={`border-b pb-4 ${sectionBorder}`}>
-            <h3 className={`font-display font-semibold text-lg ${headingText}`}>Inscribir Compra y Abastecimiento</h3>
-            <p className="text-xs text-slate-400 font-medium font-display">Asiente facturas de proveedores logísticos de trigo, esencias y empaques</p>
+          <div className={`border-b pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${sectionBorder}`}>
+            <div>
+              <h3 className={`font-display font-semibold text-lg ${headingText}`}>Inscribir Compra y Abastecimiento</h3>
+              <p className="text-xs text-slate-400 font-medium font-display">Asiente facturas de proveedores logísticos de trigo, esencias y empaques</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => exportPurchasesToExcel(vouchers, terceros, products, currentCompany?.name)}
+              className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer self-start sm:self-auto"
+              title="Descargar historial de compras e insumos en Excel (.xlsx)"
+              id="export-purchases-excel-btn"
+            >
+              <i className="ri-file-excel-2-line text-emerald-200"></i> Exportar Compras (Excel)
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1312,9 +1325,19 @@ export default function PurchasesView({
 
           {/* Historical purchases receipts log list */}
           <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm space-y-4">
-            <div>
-              <h4 className="font-display font-semibold text-slate-800 text-sm">Historial Compra Directa</h4>
-              <p className="text-[10px] text-slate-400 font-medium">Últimos registros sentados</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-display font-semibold text-slate-800 text-sm">Historial Compra Directa</h4>
+                <p className="text-[10px] text-slate-400 font-medium">Últimos registros sentados ({purchasesHistory.length})</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => exportPurchasesToExcel(vouchers, terceros, products, currentCompany?.name)}
+                className="text-[10px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded-lg border border-emerald-200 flex items-center gap-1 cursor-pointer transition-all"
+                title="Exportar a Excel"
+              >
+                <i className="ri-file-excel-2-line text-emerald-600"></i> Excel (.xlsx)
+              </button>
             </div>
 
             <div className="space-y-2 max-h-72 overflow-y-auto">

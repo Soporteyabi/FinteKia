@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { toast } from "../context/ToastContext";
 import { BankAccount, BankTransaction, Voucher, PucAccount, Tercero } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import Pagination from './Pagination';
+import { exportBanksToExcel } from '../utils/excelExport';
 import { 
   Plus, 
   Search, 
@@ -154,7 +156,7 @@ export default function BanksView({
   const handleAddNewAccount = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAccName.trim() || !newAccNumber.trim()) {
-      alert("Por favor diligencie todos los campos requeridos para la cuenta bancaria.");
+      toast.warning("Por favor diligencie todos los campos requeridos para la cuenta bancaria.", "Datos Requeridos");
       return;
     }
     
@@ -165,7 +167,7 @@ export default function BanksView({
       balance: Number(newAccBalance) || 0
     });
 
-    alert(`Cuenta bancaria ${newAccName} registrada en el catálogo corporativo.`);
+    toast.success(`Cuenta bancaria ${newAccName} registrada con éxito.`, "Cuenta Registrada");
     setNewAccName('');
     setNewAccNumber('');
     setNewAccBalance(0);
@@ -175,15 +177,15 @@ export default function BanksView({
   const handleAddNewTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeAccount) {
-      alert("No hay una cuenta bancaria seleccionada.");
+      toast.warning("No hay una cuenta bancaria seleccionada.", "Cuenta no seleccionada");
       return;
     }
     if (newTxAmount <= 0) {
-      alert("El monto de la transacción bancaria debe ser mayor a cero.");
+      toast.warning("El monto de la transacción bancaria debe ser mayor a cero.", "Monto Inválido");
       return;
     }
     if (!newTxConcept.trim()) {
-      alert("Establezca una descripción o concepto para el extracto.");
+      toast.warning("Establezca una descripción o concepto para el extracto.", "Concepto Requerido");
       return;
     }
 
@@ -196,7 +198,7 @@ export default function BanksView({
       reconciled: false
     });
 
-    alert(`Transacción registrada en el extracto conciliable de ${activeAccount.name}`);
+    toast.success(`Transacción registrada en ${activeAccount.name}.`, "Movimiento Registrado");
     setNewTxAmount(0);
     setNewTxConcept('');
     setShowAddTxModal(false);
@@ -295,7 +297,7 @@ export default function BanksView({
 
   const handleRunAutoReconciliation = () => {
     if (autoMatches.length === 0) {
-      alert("No se detectaron emparejamientos exactos adicionales en este turno bancario.");
+      toast.info("No se detectaron emparejamientos exactos adicionales.", "Conciliación Bancaria");
       return;
     }
 
@@ -307,7 +309,7 @@ export default function BanksView({
       }
     });
 
-    alert(`¡Conciliación automática exitosa! Se han emparejado e hilado mercantilmente [${count}] transacciones en el Libro Mayor de la DIAN.`);
+    toast.success(`¡Conciliación automática exitosa! Se han emparejado ${count} transacciones.`, "Conciliación DIAN");
   };
 
   // Handlers for manual reconciliador tab selection
@@ -335,12 +337,12 @@ export default function BanksView({
   const handleManualReconcileSubmit = () => {
     if (!activeTxForReconcile) return;
     if (!selectedVoucherForLink) {
-      alert("Debe elegir un Comprobante Contable de la lista para emparejar.");
+      toast.warning("Debe elegir un Comprobante Contable de la lista para emparejar.", "Asiento Requerido");
       return;
     }
 
     reconcileTransaction(activeTxForReconcile.id, selectedVoucherForLink);
-    alert(`¡Transacción conciliada exitosamente! Se asoció con el comprobante ${vouchers.find(v => v.id === selectedVoucherForLink)?.number}`);
+    toast.success(`Transacción conciliada con el comprobante ${vouchers.find(v => v.id === selectedVoucherForLink)?.number}`, "Conciliación Exitosa");
     setActiveTxForReconcile(null);
     setSelectedVoucherForLink('');
   };
@@ -395,7 +397,7 @@ export default function BanksView({
     // Instead of guessing, we can reconcile it with the last voucher added. Since the state updates, the best way is to let handleAddVoucher run. Let's send the voucher and let the client know.
     // To be absolutely clean and safe, the parent handleAddVoucher creates the voucher. We can retrieve the newly created voucher easily.
     
-    alert(`Ajuste contable ${generatedVoucherNumber} posteado en el libro general. Proceda a conciliarlo en la lista.`);
+    toast.success(`Ajuste contable ${generatedVoucherNumber} posteado en el libro general.`, "Ajuste Contable");
     setShowAdjustmentForm(false);
     
     // we can close reconciliation workspace
@@ -420,7 +422,16 @@ export default function BanksView({
           </p>
         </div>
         
-        <div className="flex gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => exportBanksToExcel(bankTransactions, bankAccounts)}
+            className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+            title="Descargar cuentas bancarias y extractos de movimientos en Excel (.xlsx)"
+            id="export-banks-excel-btn"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-100" /> Exportar a Excel
+          </button>
           <button
             onClick={() => setShowAddAccountModal(true)}
             className="bg-zinc-800 hover:bg-zinc-750 text-slate-300 font-bold text-xs px-3.5 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1 cursor-pointer"
@@ -848,7 +859,7 @@ export default function BanksView({
                           type="button"
                           onClick={() => {
                             reconcileTransaction(match.tx.id, match.voucher.id);
-                            alert(`Asiento ${match.voucher.number} conciliado perfectamente.`);
+                            toast.success(`Asiento ${match.voucher.number} conciliado perfectamente.`, "Conciliado");
                           }}
                           className="bg-blue-600/10 hover:bg-blue-650/20 text-blue-405 font-bold px-3 py-1.5 rounded-lg border border-blue-500/20 transition-all text-[10px] shrink-0"
                         >

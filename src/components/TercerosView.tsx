@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
+import { toast } from "../context/ToastContext";
 import { Tercero } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import { ConfirmModal } from './ConfirmModal';
 import Pagination from './Pagination';
 import { calculateDIANDV, formatNITWithDV } from '../lib/dianUtils';
+import { exportTercerosToExcel } from '../utils/excelExport';
 
 interface TercerosViewProps {
   currentCompany: any;
@@ -117,7 +119,7 @@ export default function TercerosView({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formNit.trim()) {
-      alert("Por favor ingrese razón social o nombre y el NIT/identificación.");
+      toast.warning("Por favor ingrese razón social o nombre y el NIT/identificación.", "Datos Requeridos");
       return;
     }
 
@@ -145,10 +147,10 @@ export default function TercerosView({
         ...payload,
         id: editingTercero.id
       });
-      alert(`Tercero ${formName} actualizado con éxito.`);
+      toast.success(`Tercero ${formName} actualizado con éxito.`, "Actualizado");
     } else {
       addTercero(payload);
-      alert(`Nuevo Tercero ${formName} registrado con éxito.`);
+      toast.success(`Nuevo Tercero ${formName} registrado con éxito.`, "Registrado");
     }
 
     setIsFormOpen(false);
@@ -455,6 +457,16 @@ export default function TercerosView({
                   }`}
                 />
               </div>
+
+              <button
+                type="button"
+                onClick={() => exportTercerosToExcel(terceros, currentCompany?.name)}
+                className="bg-emerald-600 hover:bg-emerald-550 text-white font-semibold text-xs px-3.5 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+                title="Descargar directorio de clientes, proveedores y empleados en Excel (.xlsx)"
+                id="export-terceros-excel-btn"
+              >
+                <i className="ri-file-excel-2-line text-emerald-200"></i> Exportar a Excel
+              </button>
 
               <button
                 onClick={handleOpenCreateForm}

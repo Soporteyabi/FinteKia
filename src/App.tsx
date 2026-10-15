@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { toast } from "./context/ToastContext";
 import { getInitialState, saveStateToLocalStorage } from './store';
 import { AppState, Company, Voucher, ProductionOrder, QualityInspection, Product, InventoryItem, Tercero, Warehouse, Asset, BankAccount, BankTransaction, Budget, PayrollLog, UserProfile, TechServiceOrder } from './types';
 import { useAuth } from './context/AuthContext.tsx';
@@ -201,7 +202,7 @@ export default function App() {
   const handleSaveNewCompany = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCompName.trim() || !newCompNit.trim()) {
-      alert("Por favor ingrese el Razón Social y el NIT de la organización.");
+      toast.warning("Por favor ingrese la Razón Social y el NIT de la organización.", "Datos Obligatorios");
       return;
     }
 
