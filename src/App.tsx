@@ -1356,20 +1356,22 @@ export default function App() {
                   <div className="space-y-1 pt-1 border-t border-slate-100 dark:border-slate-800/80">
                     <button
                       onClick={() => {
-                        setState(prev => ({ ...prev, activeView: 'users' }));
+                        setState(prev => ({ ...prev, activeView: 'usuarios' }));
                         setShowUserMenu(false);
                       }}
                       className="w-full px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-2 cursor-pointer transition-colors"
+                      id="menu-btn-gestion-usuarios"
                     >
                       <i className="ri-team-line text-blue-500"></i>
                       <span>Gestión de Usuarios</span>
                     </button>
                     <button
                       onClick={() => {
-                        setState(prev => ({ ...prev, activeView: 'alanube' }));
+                        setState(prev => ({ ...prev, activeView: 'alanube_config' }));
                         setShowUserMenu(false);
                       }}
                       className="w-full px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-2 cursor-pointer transition-colors"
+                      id="menu-btn-config-alanube"
                     >
                       <i className="ri-cloud-line text-cyan-400"></i>
                       <span>Configuración Alanube DIAN</span>
@@ -1763,7 +1765,7 @@ export default function App() {
                 />
               )}
 
-              {state.activeView === 'usuarios' && (
+              {(state.activeView === 'usuarios' || state.activeView === 'users') && (
                 <UsersView
                   currentUser={state.currentUser}
                   switchCurrentUser={(role) => setState((prev) => ({ ...prev, currentUser: { ...prev.currentUser, role } }))}
@@ -1787,7 +1789,7 @@ export default function App() {
                 />
               )}
 
-              {state.activeView === 'alanube_config' && (
+              {(state.activeView === 'alanube_config' || state.activeView === 'alanube') && (
                 <AlanubeConfigView
                   currentCompany={activeCompany}
                   updateCompany={handleUpdateCompany}
