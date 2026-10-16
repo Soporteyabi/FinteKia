@@ -1008,6 +1008,19 @@ export default function App() {
   }, []);
 
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Authentication Gate for Render deployment
   if (authLoading && !erpUser) {
@@ -1031,235 +1044,358 @@ export default function App() {
   return (
     <div className={`flex flex-col h-screen overflow-hidden ${activeThemeObj.mainBg} font-sans`}>
       
-      {/* Header App bar matching FinteKia Portal design (Full Width, No Sidebar) */}
-      <header className="no-print border-b flex items-center justify-between px-6 py-2.5 shrink-0 gap-4 shadow-sm bg-white dark:bg-[#0c1220] border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white z-20">
-        {/* Left: FinteKia Brand Lockup (Clickable to return to Menu) */}
-        <div className="flex items-center gap-3 shrink-0">
+      {/* Header App bar: Clean, Organized Enterprise Top Navigation */}
+      <header className="no-print border-b flex items-center justify-between px-3 sm:px-6 py-2 shrink-0 gap-3 shadow-xs bg-white dark:bg-[#090e1a] border-slate-200 dark:border-slate-800/80 text-slate-800 dark:text-white z-30 relative">
+        
+        {/* Left Section: Brand & Context */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* Logo & Brand Title */}
           <button
             onClick={() => setState((prev) => ({ ...prev, activeView: 'dashboard' }))}
             className="flex items-center gap-2.5 text-left cursor-pointer group transition-all"
             title="Ir al Menú Principal de Tarjetas"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-400 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
-              <i className="ri-pulse-fill text-xl"></i>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-400 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+              <i className="ri-pulse-fill text-lg"></i>
             </div>
             <div className="hidden sm:block leading-tight">
-              <span className="font-black text-base tracking-tight text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors">
+              <span className="font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-white group-hover:text-blue-500 dark:group-hover:text-cyan-400 transition-colors">
                 FinteKia
               </span>
-              <p className="text-[10px] text-slate-400 font-medium">
-                Tu aliado en la gestión contable y financiera
+              <p className="text-[10px] text-slate-400 font-medium leading-none">
+                ERP Empresarial
               </p>
             </div>
           </button>
 
-          {/* Quick prominent 'Volver al Menú' Button */}
+          {/* Quick 'Volver al Menú' Button (when in sub-views) */}
           {state.activeView !== 'dashboard' && (
             <button
               onClick={() => setState((prev) => ({ ...prev, activeView: 'dashboard' }))}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer active:scale-95 ml-1"
-              title="Regresar al menú de tarjetas"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-blue-600/10 hover:bg-blue-600 text-blue-600 dark:text-cyan-400 hover:text-white border border-blue-500/25 hover:border-blue-500 text-xs font-bold transition-all cursor-pointer active:scale-95"
+              title="Regresar al menú principal"
             >
               <i className="ri-arrow-left-line text-xs"></i>
-              <i className="ri-layout-grid-line text-xs"></i>
-              <span>Menú Principal</span>
+              <span className="hidden md:inline">Menú</span>
             </button>
           )}
 
           {/* Organization Switcher Dropdown */}
-          <div className="relative hidden md:block">
+          <div className="relative">
             <button
-              onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold cursor-pointer transition-all"
-              title="Cambiar organización activa"
+              onClick={() => {
+                setShowCompanyDropdown(!showCompanyDropdown);
+                setShowNotifMenu(false);
+                setShowUserMenu(false);
+              }}
+              className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/90 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-xs font-semibold cursor-pointer transition-all max-w-[170px] sm:max-w-[210px]"
+              title="Organización activa (clic para cambiar)"
             >
-              <i className="ri-building-2-line text-blue-500"></i>
-              <span className="truncate max-w-[130px] font-bold text-slate-800 dark:text-white">{activeCompany.name}</span>
-              <i className="ri-arrow-down-s-line text-slate-400 text-xs"></i>
+              <i className="ri-building-2-line text-blue-500 shrink-0 text-sm"></i>
+              <span className="truncate font-bold text-slate-800 dark:text-white text-xs">{activeCompany.name}</span>
+              <i className="ri-arrow-down-s-line text-slate-400 text-xs shrink-0"></i>
             </button>
 
             {showCompanyDropdown && (
-              <div className="absolute left-0 mt-2 w-72 rounded-2xl bg-white dark:bg-[#0d1424] border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-50 text-xs">
-                <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-slate-100 dark:border-white/10 font-bold text-slate-400 text-[10px] uppercase">
-                  <span>Organizaciones</span>
-                  <span>{state.companies.length}</span>
-                </div>
-                <div className="max-h-48 overflow-y-auto mt-1 space-y-1">
-                  {state.companies.map((co) => (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowCompanyDropdown(false)}
+                />
+                <div className="absolute left-0 mt-2 w-72 rounded-2xl bg-white dark:bg-[#0d1424] border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-50 text-xs animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-slate-100 dark:border-slate-800 font-bold text-slate-400 text-[10px] uppercase">
+                    <span>Organizaciones</span>
+                    <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-mono">{state.companies.length}</span>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto mt-1 space-y-1">
+                    {state.companies.map((co) => (
+                      <button
+                        key={co.id}
+                        onClick={() => {
+                          handleSwitchCompany(co.id);
+                          setShowCompanyDropdown(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
+                          co.id === activeCompany.id
+                            ? 'bg-blue-600 text-white font-bold'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className="truncate">
+                          <span className="block truncate font-semibold">{co.name}</span>
+                          <span className="text-[10px] font-mono opacity-70">NIT: {co.nit}</span>
+                        </div>
+                        {co.id === activeCompany.id && <i className="ri-check-line text-sm shrink-0"></i>}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="pt-2 mt-1 border-t border-slate-100 dark:border-slate-800">
                     <button
-                      key={co.id}
                       onClick={() => {
-                        handleSwitchCompany(co.id);
+                        handleCreateCompany();
                         setShowCompanyDropdown(false);
                       }}
-                      className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between transition-colors ${
-                        co.id === activeCompany.id
-                          ? 'bg-blue-600 text-white font-bold'
-                          : 'hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300'
-                      }`}
+                      className="w-full py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-cyan-400 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
                     >
-                      <div className="truncate">
-                        <span className="block truncate font-semibold">{co.name}</span>
-                        <span className="text-[10px] font-mono opacity-60">NIT: {co.nit}</span>
-                      </div>
-                      {co.id === activeCompany.id && <i className="ri-check-line text-sm"></i>}
+                      <i className="ri-add-line"></i> Crear Organización
                     </button>
-                  ))}
+                  </div>
                 </div>
-                <div className="pt-2 mt-1 border-t border-slate-100 dark:border-white/10">
-                  <button
-                    onClick={() => {
-                      handleCreateCompany();
-                      setShowCompanyDropdown(false);
-                    }}
-                    className="w-full py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-cyan-400 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-blue-100 transition-colors cursor-pointer"
-                  >
-                    <i className="ri-add-line"></i> Crear Organización
-                  </button>
-                </div>
-              </div>
+              </>
             )}
           </div>
         </div>
 
         {/* Center: Global Search Bar */}
-        <div className="flex-1 max-w-lg mx-2 relative">
-          <div className="relative">
-            <i className="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        <div className="flex-1 max-w-md mx-2 relative hidden md:block">
+          <div className="relative flex items-center">
+            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
             <input
+              ref={searchInputRef}
               type="text"
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
-              placeholder="Buscar módulo, cliente, producto, factura..."
-              className="w-full pl-10 pr-8 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all shadow-inner"
+              placeholder="Buscar módulos, clientes, facturas o cuentas..."
+              className="w-full pl-9 pr-14 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all shadow-inner"
             />
-            {globalSearch && (
+            {globalSearch ? (
               <button
                 onClick={() => setGlobalSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs cursor-pointer"
+                title="Limpiar búsqueda"
               >
-                <i className="ri-close-line"></i>
+                <i className="ri-close-line text-sm"></i>
               </button>
+            ) : (
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-200/60 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700/60 pointer-events-none">
+                ⌘K
+              </span>
             )}
           </div>
         </div>
 
-        {/* Right: Actions, User Profile & Live Time Widget */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          {/* Theme Quick Toggle */}
-          <button
-            onClick={() => {
-              const themes: Array<keyof typeof THEMES_MAP> = ['navy_dark', 'slate_gray', 'zinc_classic', 'steel_sage', 'light_gray'];
-              const nextIdx = (themes.indexOf(currentThemeId) + 1) % themes.length;
-              setState(prev => ({ ...prev, theme: themes[nextIdx] }));
-            }}
-            className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all cursor-pointer"
-            title={`Tema: ${activeThemeObj.label}. Clic para cambiar`}
-          >
-            <i className="ri-palette-line text-sm"></i>
-          </button>
-
-          {/* Notification Bell */}
-          <div className="relative">
-            <button 
-              onClick={() => setShowNotifMenu(!showNotifMenu)}
-              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center relative transition-all cursor-pointer"
-              title="Notificaciones del sistema"
+        {/* Right Section: System Status & User Actions */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          
+          {/* Sub-group: Utilities (Database, Theme, Notifications, Date) */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Cloud SQL / Postgres DB Status */}
+            <button
+              onClick={() => setState(prev => ({ ...prev, activeView: 'database' }))}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-[11px] font-medium text-slate-700 dark:text-slate-300 cursor-pointer transition-all active:scale-95"
+              title="Base de datos Cloud SQL PostgreSQL (clic para ver tablas e inspector)"
             >
-              <i className="ri-notification-3-line text-sm"></i>
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm">
-                3
+              <span className={`w-2 h-2 rounded-full shrink-0 ${isCloudSqlSyncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 shadow-[0_0_8px_#34d399]'}`}></span>
+              <i className="ri-database-2-line text-emerald-400 text-xs"></i>
+              <span className="font-bold text-[10.5px] text-emerald-400 hidden xl:inline">
+                {isCloudSqlSyncing ? 'Sincronizando' : 'Postgres DB'}
               </span>
             </button>
 
-            {/* Notification Popover */}
-            {showNotifMenu && (
-              <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-white dark:bg-[#0d1424] border border-slate-200 dark:border-slate-800 shadow-2xl p-3 z-50 text-xs">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/10 font-bold">
-                  <span>Notificaciones</span>
-                  <span className="text-[10px] text-blue-500 font-mono">3 nuevas</span>
-                </div>
-                <div className="mt-2 space-y-2">
-                  <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40">
-                    <p className="font-bold text-blue-900 dark:text-blue-300 text-[11px]">Factura DIAN Aprobada</p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">FE-1020 firmada con éxito.</p>
+            {/* Notification Bell */}
+            <div className="relative">
+              <button 
+                onClick={() => {
+                  setShowNotifMenu(!showNotifMenu);
+                  setShowCompanyDropdown(false);
+                  setShowUserMenu(false);
+                }}
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-900/80 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center relative transition-all cursor-pointer"
+                title="Notificaciones del sistema"
+              >
+                <i className="ri-notification-3-line text-sm"></i>
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shadow-sm">
+                  3
+                </span>
+              </button>
+
+              {/* Notification Popover */}
+              {showNotifMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowNotifMenu(false)} />
+                  <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-white dark:bg-[#0d1424] border border-slate-200 dark:border-slate-800 shadow-2xl p-3 z-50 text-xs animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 font-bold">
+                      <span>Notificaciones</span>
+                      <span className="text-[10px] text-blue-500 font-mono bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded">3 nuevas</span>
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      <div className="p-2.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40">
+                        <p className="font-bold text-blue-900 dark:text-blue-300 text-[11px] flex items-center gap-1.5">
+                          <i className="ri-checkbox-circle-fill text-blue-500"></i> Factura DIAN Aprobada
+                        </p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">FE-1020 firmada exitosamente vía Alanube.</p>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40">
+                        <p className="font-bold text-emerald-900 dark:text-emerald-300 text-[11px] flex items-center gap-1.5">
+                          <i className="ri-user-star-line text-emerald-500"></i> Nómina Electrónica
+                        </p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Periodo actual listo para liquidación.</p>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/40">
+                        <p className="font-bold text-amber-900 dark:text-amber-300 text-[11px] flex items-center gap-1.5">
+                          <i className="ri-alert-line text-amber-500"></i> Inventario Mínimo
+                        </p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Materia prima bajo stock de reorden.</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40">
-                    <p className="font-bold text-emerald-900 dark:text-emerald-300 text-[11px]">Nómina Electrónica</p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Periodo actual listo para liquidación.</p>
+                </>
+              )}
+            </div>
+
+            {/* Theme Quick Toggle */}
+            <button
+              onClick={() => {
+                const themes: Array<keyof typeof THEMES_MAP> = ['navy_dark', 'slate_gray', 'zinc_classic', 'steel_sage', 'light_gray'];
+                const nextIdx = (themes.indexOf(currentThemeId) + 1) % themes.length;
+                setState(prev => ({ ...prev, theme: themes[nextIdx] }));
+              }}
+              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-900/80 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all cursor-pointer"
+              title={`Tema: ${activeThemeObj.label}. Clic para cambiar`}
+            >
+              <i className="ri-palette-line text-sm"></i>
+            </button>
+
+            {/* Live Date / Time Widget */}
+            <div className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 text-slate-600 dark:text-slate-400 text-[11px] font-mono border border-slate-200 dark:border-slate-800">
+              <i className="ri-calendar-line text-blue-500 text-xs"></i>
+              <span>{liveDate}</span>
+            </div>
+          </div>
+
+          {/* Vertical Separator */}
+          <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-0.5 hidden sm:block"></div>
+
+          {/* Unified Professional User Profile Menu */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowUserMenu(!showUserMenu);
+                setShowCompanyDropdown(false);
+                setShowNotifMenu(false);
+              }}
+              className="flex items-center gap-2 p-1 sm:px-2 py-1 rounded-xl bg-slate-100 dark:bg-slate-900/90 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 transition-all cursor-pointer text-left group"
+              title="Perfil de Usuario y Configuración de Sesión"
+              id="header-user-menu-trigger"
+            >
+              {/* User Avatar with status dot */}
+              <div className="relative shrink-0">
+                {firebaseUser?.photoURL ? (
+                  <img src={firebaseUser.photoURL} alt={firebaseUser.displayName || 'User'} className="w-7 h-7 rounded-lg border border-cyan-400 shadow-sm" />
+                ) : (
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 text-white font-black flex items-center justify-center text-xs shadow-sm select-none">
+                    {(erpUser?.name || firebaseUser?.displayName || state.currentUser.name || 'W')[0].toUpperCase()}
                   </div>
-                  <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/40">
-                    <p className="font-bold text-amber-900 dark:text-amber-300 text-[11px]">Inventario Mínimo</p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Harina de Trigo bajo stock de reorden.</p>
-                  </div>
-                </div>
+                )}
+                <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-slate-950"></span>
               </div>
+
+              {/* Name & Role Badge (Visible on sm/md and above) */}
+              <div className="hidden sm:block leading-tight pr-1">
+                <span className="font-bold text-xs text-slate-800 dark:text-white block truncate max-w-[130px] group-hover:text-blue-500 dark:group-hover:text-cyan-400 transition-colors">
+                  {erpUser?.name || firebaseUser?.displayName || state.currentUser.name}
+                </span>
+                <span className="text-[10px] font-semibold text-blue-600 dark:text-cyan-400">
+                  {state.currentUser.role}
+                </span>
+              </div>
+
+              <i className="ri-arrow-down-s-line text-slate-400 text-xs shrink-0"></i>
+            </button>
+
+            {/* Premium User Menu Popover */}
+            {showUserMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-white dark:bg-[#0c1324] border border-slate-200 dark:border-slate-800 shadow-2xl p-4 z-50 text-xs space-y-3.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                  
+                  {/* User Profile Card Header */}
+                  <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 text-white font-black flex items-center justify-center text-sm shadow-md shrink-0">
+                      {(erpUser?.name || firebaseUser?.displayName || state.currentUser.name || 'W')[0].toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
+                        {erpUser?.name || firebaseUser?.displayName || state.currentUser.name}
+                      </p>
+                      <p className="text-[11px] text-slate-400 font-mono truncate">
+                        {erpUser?.email || firebaseUser?.email || state.currentUser.email}
+                      </p>
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-600 dark:text-cyan-400 border border-blue-500/20">
+                        {state.currentUser.role} · Activo
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Role Selector Section */}
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                      Cambiar Rol Activo:
+                    </span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(['Admin', 'Contador', 'Vendedor', 'Operario'] as const).map((r) => (
+                        <button
+                          key={r}
+                          onClick={() => {
+                            setState(prev => ({ ...prev, currentUser: { ...prev.currentUser, role: r } }));
+                          }}
+                          className={`px-2.5 py-1.5 rounded-xl text-left font-bold text-[11px] flex items-center justify-between transition-all cursor-pointer ${
+                            state.currentUser.role === r
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+                          }`}
+                        >
+                          <span>{r}</span>
+                          {state.currentUser.role === r && <i className="ri-check-line text-xs"></i>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quick Shortcuts */}
+                  <div className="space-y-1 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                    <button
+                      onClick={() => {
+                        setState(prev => ({ ...prev, activeView: 'users' }));
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <i className="ri-team-line text-blue-500"></i>
+                      <span>Gestión de Usuarios</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setState(prev => ({ ...prev, activeView: 'alanube' }));
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <i className="ri-cloud-line text-cyan-400"></i>
+                      <span>Configuración Alanube DIAN</span>
+                    </button>
+                  </div>
+
+                  {/* Sign Out Button */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        signOutUser();
+                      }}
+                      className="w-full py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white border border-rose-500/20 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+                      id="btn-header-signout"
+                    >
+                      <i className="ri-logout-box-r-line"></i>
+                      <span>Cerrar Sesión</span>
+                    </button>
+                  </div>
+
+                </div>
+              </>
             )}
           </div>
 
-          {/* Cloud SQL / Supabase Database Sync Status Badge */}
-          <button
-            onClick={() => setState(prev => ({ ...prev, activeView: 'database' }))}
-            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700/80 text-[11px] font-medium text-slate-700 dark:text-slate-300 shadow-xs cursor-pointer transition-all active:scale-95"
-            title="Ver base de datos y sincronización con Supabase (clic para abrir)"
-          >
-            <span className={`w-2 h-2 rounded-full ${isCloudSqlSyncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-500'}`}></span>
-            <i className="ri-database-2-line text-emerald-400 text-xs"></i>
-            <span className="font-mono text-[10px] text-slate-400 hidden xl:inline">Postgres DB:</span>
-            <span className="font-bold text-[10px] text-emerald-400">{isCloudSqlSyncing ? 'Sincronizando...' : 'Conectado'}</span>
-          </button>
-
-          {/* User Profile & Authentication Pill */}
-          <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              {firebaseUser?.photoURL ? (
-                <img src={firebaseUser.photoURL} alt={firebaseUser.displayName || 'User'} className="w-8 h-8 rounded-full border border-cyan-400 shadow-sm" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-500 text-white font-bold flex items-center justify-center text-xs shadow-sm select-none border border-cyan-400/40">
-                  {(erpUser?.name || firebaseUser?.displayName || state.currentUser.name || 'U')[0].toUpperCase()}
-                </div>
-              )}
-              <div className="hidden md:block leading-tight text-left">
-                <span className="font-bold text-xs block text-slate-800 dark:text-white truncate max-w-[140px]">
-                  {erpUser?.name || firebaseUser?.displayName || state.currentUser.name}
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-slate-400 font-mono truncate max-w-[120px]">
-                    {erpUser?.email || firebaseUser?.email || state.currentUser.email}
-                  </span>
-                  <button
-                    onClick={signOutUser}
-                    className="text-[9px] text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer"
-                    title="Cerrar sesión y volver al login"
-                    id="btn-header-signout"
-                  >
-                    Salir
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Role selector */}
-            <div className="hidden sm:block">
-              <select
-                value={state.currentUser.role}
-                onChange={(e) => setState(prev => ({ ...prev, currentUser: { ...prev.currentUser, role: e.target.value as any } }))}
-                className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold text-blue-600 dark:text-cyan-400 hover:text-blue-700 dark:hover:text-cyan-300 px-1.5 py-1 cursor-pointer uppercase tracking-wider block focus:ring-0"
-                aria-label="Rol de usuario"
-              >
-                <option value="Admin" className="bg-white dark:bg-[#0c1220] text-slate-800 dark:text-white">Admin</option>
-                <option value="Contador" className="bg-white dark:bg-[#0c1220] text-slate-800 dark:text-white">Contador</option>
-                <option value="Vendedor" className="bg-white dark:bg-[#0c1220] text-slate-800 dark:text-white">Vendedor</option>
-                <option value="Operario" className="bg-white dark:bg-[#0c1220] text-slate-800 dark:text-white">Operario</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Live Date / Time Widget */}
-          <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-[11px] font-mono border border-slate-800 shadow-inner">
-            <i className="ri-calendar-line text-blue-400"></i>
-            <span>{liveDate}</span>
-          </div>
         </div>
       </header>
 
