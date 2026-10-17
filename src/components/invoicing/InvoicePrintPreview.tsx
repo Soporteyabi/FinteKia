@@ -155,105 +155,98 @@ ${linesSummary}
 
   return (
     <div className="space-y-4">
-      {/* Action Toolbar on Screen (hidden when printed) */}
-      <div className="no-print bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 text-xs shadow-xl">
+      {/* Action Toolbar on Screen (Organized into 2 clear functional tiers) */}
+      <div className="no-print bg-slate-900/95 border border-slate-800 rounded-2xl p-3.5 space-y-3 text-xs shadow-2xl backdrop-blur-md">
         
-        {/* Top row: Format switcher + action buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-slate-400 font-semibold mr-1">Formato:</span>
-            <button
-              type="button"
-              onClick={() => setPrintFormat('carta')}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                printFormat === 'carta' 
-                  ? 'bg-blue-600 text-white shadow-md' 
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <i className="ri-file-text-line"></i> Formato Carta (DIAN)
-            </button>
-            <button
-              type="button"
-              onClick={() => setPrintFormat('pos')}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                printFormat === 'pos' 
-                  ? 'bg-indigo-600 text-white shadow-md' 
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <i className="ri-receipt-line"></i> Tirilla Térmica POS (80mm)
-            </button>
-
-            {/* Density Mode: 1-Page Compact vs Expanded */}
-            {printFormat === 'carta' && (
-              <div className="inline-flex rounded-xl bg-slate-800 p-0.5 border border-slate-700 ml-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCompactMode(true)}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                    isCompactMode ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
-                  }`}
-                  title="Ajuste ultra-compacto para que hasta 15 artículos quepan en una sola hoja sin generar páginas en blanco innecesarias"
-                >
-                  <i className="ri-file-reduce-line text-xs"></i> 1 Hoja (≤15 ítems)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsCompactMode(false)}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                    !isCompactMode ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-white'
-                  }`}
-                  title="Espaciado estándar expandido"
-                >
-                  <i className="ri-file-list-line text-xs"></i> Estándar
-                </button>
+        {/* Tier 1: Document Info, Output Format & Primary Actions */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+          
+          {/* Left: Document details & Format switcher */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 pr-2 border-r border-slate-800">
+              <div className="w-8 h-8 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold">
+                <i className="ri-file-text-line text-base"></i>
               </div>
-            )}
+              <div>
+                <h4 className="font-bold text-white text-xs leading-none">
+                  Factura {invoice.number}
+                </h4>
+                <p className="text-[10.5px] text-slate-400 truncate max-w-[180px] leading-tight mt-0.5">
+                  {client?.name || 'Cliente Mostrador'}
+                </p>
+              </div>
+            </div>
+
+            {/* Segmented Format Selector */}
+            <div className="inline-flex rounded-xl bg-slate-950 p-1 border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setPrintFormat('carta')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer text-xs ${
+                  printFormat === 'carta' 
+                    ? 'bg-blue-600 text-white shadow-sm' 
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <i className="ri-article-line"></i> Formato Carta (DIAN)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrintFormat('pos')}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer text-xs ${
+                  printFormat === 'pos' 
+                    ? 'bg-blue-600 text-white shadow-sm' 
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <i className="ri-receipt-line"></i> Tirilla POS (80mm)
+              </button>
+            </div>
           </div>
 
+          {/* Right: Output Actions (Copy, WhatsApp, Designer, Print, Close) */}
           <div className="flex items-center gap-2">
             {copyFeedback && (
-              <span className="text-emerald-400 font-semibold text-[11px] animate-fade-in mr-2">
+              <span className="text-emerald-400 font-semibold text-[11px] animate-fade-in mr-1">
                 ✓ {copyFeedback}
               </span>
             )}
             <button
               type="button"
               onClick={handleCopySummary}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition-all flex items-center gap-1 cursor-pointer"
-              title="Copiar texto resumen de la factura al portapapeles"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition-all flex items-center gap-1 cursor-pointer border border-slate-700/60"
+              title="Copiar texto resumen al portapapeles"
             >
               <i className="ri-file-copy-line text-indigo-400"></i> Copiar
             </button>
             <button
               type="button"
               onClick={handleShareWhatsApp}
-              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-all flex items-center gap-1 cursor-pointer shadow-md"
-              title="Compartir enlace y datos de factura por WhatsApp"
+              className="px-2.5 py-1.5 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 text-white font-semibold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+              title="Compartir por WhatsApp"
             >
               <i className="ri-whatsapp-line"></i> WhatsApp
             </button>
             <button
               type="button"
               onClick={() => setShowDesignModal(true)}
-              className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
-              title="Abre el configurador visual de factura y logo"
+              className="px-2.5 py-1.5 rounded-xl bg-purple-600/80 hover:bg-purple-500 text-white font-semibold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+              title="Abrir Diseñador Completo"
             >
-              <i className="ri-palette-line"></i> Diseñador de Factura
+              <i className="ri-palette-line"></i> Diseñador
             </button>
             <button
               type="button"
               onClick={() => window.print()}
               className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
-              title="Imprimir documento o guardar como PDF"
+              title="Imprimir o guardar en PDF"
             >
               <i className="ri-printer-line"></i> Imprimir / PDF
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-white transition-all cursor-pointer"
+              className="w-7 h-7 rounded-xl bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer border border-slate-700/60 ml-1"
               title="Cerrar vista previa"
             >
               <i className="ri-close-line text-base"></i>
@@ -261,110 +254,150 @@ ${linesSummary}
           </div>
         </div>
 
-        {/* Second row: Quick In-Preview Logo Position and Size Controls + Status Pill */}
+        {/* Tier 2: Print Settings Strip (Segmented Groups for Logo, Page Density, Signatures, and Status) */}
         {printFormat === 'carta' && (
-          <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-[11px]">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-[11px]">
+            
+            {/* Functional Group 1: Logo Placement & Size */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-slate-400 font-bold flex items-center gap-1">
-                <i className="ri-image-line text-blue-400"></i> Ubicación del Logo:
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <i className="ri-image-line text-blue-400"></i> Logo:
               </span>
-              <div className="inline-flex rounded-xl bg-slate-800 p-0.5 border border-slate-700">
+              
+              {/* Position Segmented Pill */}
+              <div className="inline-flex rounded-xl bg-slate-950 p-0.5 border border-slate-800">
                 <button
                   type="button"
                   onClick={() => setLocalLogoPosition('left')}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                    localLogoPosition === 'left' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                  className={`px-2 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    localLogoPosition === 'left' ? 'bg-slate-800 text-white shadow-xs' : 'text-slate-400 hover:text-white'
                   }`}
+                  title="Alinear logo a la izquierda"
                 >
-                  ⬅️ Izquierda
+                  Izquierda
                 </button>
                 <button
                   type="button"
                   onClick={() => setLocalLogoPosition('center')}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                    localLogoPosition === 'center' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                  className={`px-2 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    localLogoPosition === 'center' ? 'bg-slate-800 text-white shadow-xs' : 'text-slate-400 hover:text-white'
                   }`}
+                  title="Centrar logo en el encabezado"
                 >
-                  ⏺️ Centro
+                  Centro
                 </button>
                 <button
                   type="button"
                   onClick={() => setLocalLogoPosition('right')}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                    localLogoPosition === 'right' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                  className={`px-2 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    localLogoPosition === 'right' ? 'bg-slate-800 text-white shadow-xs' : 'text-slate-400 hover:text-white'
                   }`}
+                  title="Alinear logo a la derecha"
                 >
-                  ➡️ Derecha
+                  Derecha
                 </button>
                 <button
                   type="button"
                   onClick={() => setLocalLogoPosition('banner')}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                    localLogoPosition === 'banner' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                  className={`px-2 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    localLogoPosition === 'banner' ? 'bg-slate-800 text-white shadow-xs' : 'text-slate-400 hover:text-white'
                   }`}
+                  title="Fondo tipo banner de marca"
                 >
-                  🏷️ Banda Superior
+                  Banda
                 </button>
               </div>
 
-              {/* Size toggles */}
-              <div className="inline-flex rounded-xl bg-slate-800 p-0.5 border border-slate-700 ml-1">
+              {/* Size Segmented Pill */}
+              <div className="inline-flex rounded-xl bg-slate-950 p-0.5 border border-slate-800">
                 {(['sm', 'md', 'lg', 'xl'] as const).map(sz => (
                   <button
                     key={sz}
                     type="button"
                     onClick={() => setLocalLogoSize(sz)}
                     className={`px-2 py-1 rounded-lg font-bold uppercase text-[10px] transition-all cursor-pointer ${
-                      localLogoSize === sz ? 'bg-indigo-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                      localLogoSize === sz ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
                     }`}
-                    title={`Tamaño ${sz}`}
+                    title={`Tamaño ${sz.toUpperCase()}`}
                   >
                     {sz}
                   </button>
                 ))}
               </div>
+            </div>
 
-              {/* Firmas Toggle Button */}
+            {/* Functional Group 2: Page Density & Signatures */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <i className="ri-settings-4-line text-indigo-400"></i> Opciones:
+              </span>
+
+              {/* Density Toggle */}
+              <div className="inline-flex rounded-xl bg-slate-950 p-0.5 border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsCompactMode(true)}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 cursor-pointer text-[10.5px] ${
+                    isCompactMode ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Ajuste optimizado para caber en una sola página (hasta 15 ítems)"
+                >
+                  <i className="ri-file-reduce-line"></i> 1 Hoja
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCompactMode(false)}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 cursor-pointer text-[10.5px] ${
+                    !isCompactMode ? 'bg-slate-800 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Espaciado estándar"
+                >
+                  Estándar
+                </button>
+              </div>
+
+              {/* Signatures Toggle */}
               <button
                 type="button"
                 onClick={() => setLocalShowSignatures(!localShowSignatures)}
-                className={`px-2.5 py-1 rounded-lg font-bold text-[10px] transition-all flex items-center gap-1.5 cursor-pointer ml-1 border ${
+                className={`px-2.5 py-1 rounded-xl font-bold text-[10.5px] transition-all flex items-center gap-1.5 cursor-pointer border ${
                   localShowSignatures 
-                    ? 'bg-purple-600/30 text-purple-200 border-purple-500/40' 
-                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+                    ? 'bg-purple-600/20 text-purple-300 border-purple-500/40' 
+                    : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-300'
                 }`}
-                title="Mostrar u ocultar casillas de Firma Autorizada y Recibí Conforme"
+                title="Mostrar u ocultar casillas de firma del emisor y recibí conforme"
               >
-                <i className="ri-quill-pen-line"></i> Firmas: {localShowSignatures ? 'Activadas' : 'Ocultas'}
+                <i className="ri-quill-pen-line"></i> Firmas: {localShowSignatures ? 'Sí' : 'No'}
               </button>
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* Dynamic Page count estimate badge */}
-              <div className={`px-2.5 py-1 rounded-lg font-bold text-[10.5px] flex items-center gap-1.5 border ${
+            {/* Functional Group 3: Status Badge & Save Default */}
+            <div className="flex items-center gap-2.5">
+              <div className={`px-2.5 py-1 rounded-xl font-bold text-[10px] flex items-center gap-1.5 border ${
                 fitsOnSinglePage
-                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                  : 'bg-amber-500/10 text-amber-300 border-amber-500/25'
               }`}>
-                <i className={fitsOnSinglePage ? 'ri-checkbox-circle-fill' : 'ri-file-copy-2-line'}></i>
+                <span className={`w-1.5 h-1.5 rounded-full ${fitsOnSinglePage ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
                 <span>
                   {fitsOnSinglePage 
-                    ? `✓ 1 Hoja de Impresión (${itemCount} artículo${itemCount > 1 ? 's' : ''} ≤ 15)`
-                    : `Multi-hoja (${itemCount} artículos > 15)`}
+                    ? `1 Hoja (${itemCount} art.)`
+                    : `Multi-hoja (${itemCount} art.)`}
                 </span>
               </div>
 
-              {/* Quick save button */}
               {onUpdateCompany && (
                 <button
                   type="button"
                   onClick={handleSaveAsDefault}
-                  className="text-amber-400 hover:text-amber-300 font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20"
+                  className="text-amber-400 hover:text-amber-300 font-bold text-[10.5px] flex items-center gap-1 transition-all cursor-pointer bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded-xl border border-amber-500/30"
+                  title="Guardar la configuración actual de logo, tamaño y firmas para esta empresa"
                 >
-                  <i className="ri-save-line"></i> Guardar como predeterminado
+                  <i className="ri-save-line"></i> Guardar Predeterminado
                 </button>
               )}
             </div>
+
           </div>
         )}
 
