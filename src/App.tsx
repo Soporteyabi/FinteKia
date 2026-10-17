@@ -1611,6 +1611,7 @@ export default function App() {
                   updateCompany={handleUpdateCompany}
                   onOpenAlanubeConfig={() => setState((prev) => ({ ...prev, activeView: 'alanube_config' }))}
                   addTercero={handleAddTercero}
+                  currentUser={state.currentUser}
                 />
               )}
 
