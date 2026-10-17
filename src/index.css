@@ -15,6 +15,11 @@ body {
 }
 
 /* Print Invoice Styles nicely aligned to mimic official DIAN representations */
+@page {
+  size: letter portrait;
+  margin: 6mm 8mm 6mm 8mm; /* Clean compact margins for browser print (eliminates trailing blank page) */
+}
+
 @media print {
   /* Hide sidebar, headers, footers, buttons, inputs and selects */
   .no-print,
@@ -31,7 +36,33 @@ body {
     display: none !important;
   }
 
-  /* Make sure everything else is visible, but the printable section is focused */
+  /* Reset html & body layout to prevent viewport overflow */
+  html, body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Ensure root container doesn't force extra page height */
+  #root, main {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Make sure background colors and borders print faithfully */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Make sure everything else is hidden, only the target printable container is visible */
   body * {
     visibility: hidden;
   }
@@ -56,16 +87,55 @@ body {
     min-height: auto !important;
     background-color: white !important;
     color: black !important;
-    padding: 3mm !important;
+    padding: 2mm !important;
     font-size: 10px !important;
-    line-height: 1.25 !important;
+    line-height: 1.2 !important;
     box-sizing: border-box !important;
     box-shadow: none !important;
     border: none !important;
   }
 
-  /* Format printable containers to fit clean standard A4 pages */
-  #print-section,
+  /* Format printable invoice container - ULTRA COMPACT SINGLE SHEET UP TO 15 ITEMS */
+  #print-section {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    background-color: white !important;
+    color: #0f172a !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    box-sizing: border-box !important;
+    font-size: 10.5px !important;
+    line-height: 1.25 !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  /* Never break inside the header, client box, totals, or footer */
+  .print-avoid-break,
+  #print-section-header,
+  #print-section-client,
+  #print-section-totals,
+  #print-section-footer {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Ensure table rows do not break halfway through a row */
+  #print-section table tr {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* General reports (Payroll, Taxes) with natural multi-page flow */
   #payroll-payslip-print,
   #taxes-report-iva,
   #taxes-report-rtf,
@@ -74,13 +144,13 @@ body {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
-    width: 21cm !important;
-    min-height: 29.7cm !important;
+    width: 100% !important;
+    min-height: auto !important;
     background-color: white !important;
     color: black !important;
-    padding: 1.5cm !important;
+    padding: 8mm !important;
     font-size: 11px !important;
-    line-height: 1.4 !important;
+    line-height: 1.35 !important;
     box-sizing: border-box !important;
     box-shadow: none !important;
     border: none !important;

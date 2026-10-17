@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
-import { Voucher, Tercero, Product, ElectronicBillingConfig } from '../../types';
+import { Voucher, Tercero, Product, ElectronicBillingConfig, Company, InvoiceDesignConfig } from '../../types';
 import { buildWhatsAppInvoiceShareText } from '../../lib/dianUtils';
 import { toast } from '../../context/ToastContext';
+import InvoiceDesignModal, { DEFAULT_INVOICE_DESIGN } from './InvoiceDesignModal';
 
 interface InvoicePrintPreviewProps {
   invoice: Voucher;
   onClose: () => void;
-  currentCompany: any;
+  currentCompany: Company;
   terceros: Tercero[];
   products: Product[];
   activeBillingConfig: ElectronicBillingConfig;
   getCUFESample: (invoiceNumber: string) => string;
   formatCOP: (val: number) => string;
+  onUpdateCompany?: (co: Company) => void;
 }
 
 export default function InvoicePrintPreview({
@@ -22,12 +24,50 @@ export default function InvoicePrintPreview({
   products,
   activeBillingConfig,
   getCUFESample,
-  formatCOP
+  formatCOP,
+  onUpdateCompany
 }: InvoicePrintPreviewProps) {
   const [printFormat, setPrintFormat] = useState<'carta' | 'pos'>('carta');
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [showDesignModal, setShowDesignModal] = useState(false);
+
+  // Density mode: True by default ensures up to 15 items fit strictly within a single page
+  const [isCompactMode, setIsCompactMode] = useState<boolean>(true);
+
+  // Number of items in invoice
+  const itemCount = invoice.items && invoice.items.length > 0 ? invoice.items.length : 1;
+  const fitsOnSinglePage = itemCount <= 15;
+
+  // Read design settings from company or fallback
+  const companyDesign: InvoiceDesignConfig = {
+    ...DEFAULT_INVOICE_DESIGN,
+    ...(currentCompany.invoiceDesign || {})
+  };
+
+  // Local interactive overrides for fast instant testing
+  const [localLogoPosition, setLocalLogoPosition] = useState<InvoiceDesignConfig['logoPosition']>(companyDesign.logoPosition);
+  const [localLogoSize, setLocalLogoSize] = useState<InvoiceDesignConfig['logoSize']>(companyDesign.logoSize);
+  const [localLogoStyle, setLocalLogoStyle] = useState<InvoiceDesignConfig['logoStyle']>(companyDesign.logoStyle);
+  const [localAccentColor, setLocalAccentColor] = useState<string>(companyDesign.accentColor);
 
   const client = terceros.find((t) => t.id === invoice.thirdPartyId);
+
+  // Quick save current in-preview tweaks as the permanent company default
+  const handleSaveAsDefault = () => {
+    if (!onUpdateCompany) return;
+    const updatedCompany: Company = {
+      ...currentCompany,
+      invoiceDesign: {
+        ...companyDesign,
+        logoPosition: localLogoPosition,
+        logoSize: localLogoSize,
+        logoStyle: localLogoStyle,
+        accentColor: localAccentColor
+      }
+    };
+    onUpdateCompany(updatedCompany);
+    toast.success('Posición del logo y diseño guardados como predeterminados para esta empresa.', 'Diseño Guardado');
+  };
 
   const handleCopySummary = () => {
     const linesSummary = invoice.items && invoice.items.length > 0
@@ -81,123 +121,456 @@ ${linesSummary}
     toast.info('Abriendo ventana para compartir por WhatsApp.', 'WhatsApp');
   };
 
+  // Helper size classes optimized for printing without spilling to page 2
+  const getLogoSizeClass = (sz: InvoiceDesignConfig['logoSize']) => {
+    if (isCompactMode) {
+      switch (sz) {
+        case 'sm': return 'h-10 w-10 max-h-10';
+        case 'lg': return 'h-16 w-16 max-h-16';
+        case 'xl': return 'h-20 w-20 max-h-20';
+        case 'md':
+        default: return 'h-12 w-12 max-h-12';
+      }
+    }
+    switch (sz) {
+      case 'sm': return 'h-12 w-12 max-h-12';
+      case 'lg': return 'h-20 w-20 max-h-20';
+      case 'xl': return 'h-24 w-24 max-h-24';
+      case 'md':
+      default: return 'h-16 w-16 max-h-16';
+    }
+  };
+
+  const getLogoStyleClass = (st: InvoiceDesignConfig['logoStyle']) => {
+    switch (st) {
+      case 'circle': return 'rounded-full border border-slate-200 shadow-xs';
+      case 'card': return 'rounded-xl border border-slate-200 bg-white p-1.5 shadow-xs';
+      case 'rounded': return 'rounded-xl border border-slate-200';
+      case 'none':
+      default: return 'rounded-none';
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Action Toolbar on Screen (hidden when printed) */}
-      <div className="no-print bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs shadow-xl">
-        <div className="flex items-center gap-2">
-          <span className="text-slate-400 font-semibold mr-1">Formato de Impresión:</span>
-          <button
-            type="button"
-            onClick={() => setPrintFormat('carta')}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              printFormat === 'carta' 
-                ? 'bg-blue-600 text-white shadow-md' 
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-            }`}
-          >
-            <i className="ri-file-text-line"></i> Formato Carta (DIAN)
-          </button>
-          <button
-            type="button"
-            onClick={() => setPrintFormat('pos')}
-            className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-              printFormat === 'pos' 
-                ? 'bg-indigo-600 text-white shadow-md' 
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-            }`}
-          >
-            <i className="ri-receipt-line"></i> Tirilla Térmica POS (80mm)
-          </button>
+      <div className="no-print bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 text-xs shadow-xl">
+        
+        {/* Top row: Format switcher + action buttons */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-slate-400 font-semibold mr-1">Formato:</span>
+            <button
+              type="button"
+              onClick={() => setPrintFormat('carta')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                printFormat === 'carta' 
+                  ? 'bg-blue-600 text-white shadow-md' 
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              <i className="ri-file-text-line"></i> Formato Carta (DIAN)
+            </button>
+            <button
+              type="button"
+              onClick={() => setPrintFormat('pos')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                printFormat === 'pos' 
+                  ? 'bg-indigo-600 text-white shadow-md' 
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              <i className="ri-receipt-line"></i> Tirilla Térmica POS (80mm)
+            </button>
+
+            {/* Density Mode: 1-Page Compact vs Expanded */}
+            {printFormat === 'carta' && (
+              <div className="inline-flex rounded-xl bg-slate-800 p-0.5 border border-slate-700 ml-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCompactMode(true)}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                    isCompactMode ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                  }`}
+                  title="Ajuste ultra-compacto para que hasta 15 artículos quepan en una sola hoja sin generar páginas en blanco innecesarias"
+                >
+                  <i className="ri-file-reduce-line text-xs"></i> 1 Hoja (≤15 ítems)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCompactMode(false)}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                    !isCompactMode ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Espaciado estándar expandido"
+                >
+                  <i className="ri-file-list-line text-xs"></i> Estándar
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {copyFeedback && (
+              <span className="text-emerald-400 font-semibold text-[11px] animate-fade-in mr-2">
+                ✓ {copyFeedback}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleCopySummary}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition-all flex items-center gap-1 cursor-pointer"
+              title="Copiar texto resumen de la factura al portapapeles"
+            >
+              <i className="ri-file-copy-line text-indigo-400"></i> Copiar
+            </button>
+            <button
+              type="button"
+              onClick={handleShareWhatsApp}
+              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-all flex items-center gap-1 cursor-pointer shadow-md"
+              title="Compartir enlace y datos de factura por WhatsApp"
+            >
+              <i className="ri-whatsapp-line"></i> WhatsApp
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowDesignModal(true)}
+              className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+              title="Abre el configurador visual de factura y logo"
+            >
+              <i className="ri-palette-line"></i> Diseñador de Factura
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+              title="Imprimir documento o guardar como PDF"
+            >
+              <i className="ri-printer-line"></i> Imprimir / PDF
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-white transition-all cursor-pointer"
+              title="Cerrar vista previa"
+            >
+              <i className="ri-close-line text-base"></i>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {copyFeedback && (
-            <span className="text-emerald-400 font-semibold text-[11px] animate-fade-in mr-2">
-              ✓ {copyFeedback}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={handleCopySummary}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition-all flex items-center gap-1 cursor-pointer"
-            title="Copiar texto resumen de la factura al portapapeles"
-          >
-            <i className="ri-file-copy-line text-indigo-400"></i> Copiar Resumen
-          </button>
-          <button
-            type="button"
-            onClick={handleShareWhatsApp}
-            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-all flex items-center gap-1 cursor-pointer shadow-md"
-            title="Compartir enlace y datos de factura por WhatsApp"
-          >
-            <i className="ri-whatsapp-line"></i> Enviar por WhatsApp
-          </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
-          >
-            <i className="ri-printer-line"></i> Imprimir / PDF
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-white transition-all cursor-pointer"
-            title="Cerrar vista previa"
-          >
-            <i className="ri-close-line text-base"></i>
-          </button>
-        </div>
-      </div>
+        {/* Second row: Quick In-Preview Logo Position and Size Controls + Status Pill */}
+        {printFormat === 'carta' && (
+          <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-[11px]">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-slate-400 font-bold flex items-center gap-1">
+                <i className="ri-image-line text-blue-400"></i> Ubicación del Logo:
+              </span>
+              <div className="inline-flex rounded-xl bg-slate-800 p-0.5 border border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setLocalLogoPosition('left')}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    localLogoPosition === 'left' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  ⬅️ Izquierda
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLocalLogoPosition('center')}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    localLogoPosition === 'center' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  ⏺️ Centro
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLocalLogoPosition('right')}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    localLogoPosition === 'right' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  ➡️ Derecha
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLocalLogoPosition('banner')}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                    localLogoPosition === 'banner' ? 'bg-blue-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  🏷️ Banda Superior
+                </button>
+              </div>
 
-      {/* Render Formato Carta */}
-      {printFormat === 'carta' && (
-        <div id="print-section" className="bg-white p-8 rounded-2xl border border-slate-100 shadow-lg text-slate-800 max-w-3xl mx-auto space-y-6">
-          <div className="flex justify-between items-start border-b pb-6">
-            <div className="flex items-start gap-4">
-              {currentCompany.logoUrl && (
-                <img 
-                  src={currentCompany.logoUrl} 
-                  alt="Logo" 
-                  className="w-16 h-16 object-contain rounded-lg border border-slate-200 shrink-0" 
-                  referrerPolicy="no-referrer"
-                />
-              )}
-              <div>
-                <h1 className="font-display font-bold text-2xl text-slate-900 tracking-tight">{currentCompany.name}</h1>
-                <p className="text-xs text-slate-500 mt-1">NIT: {currentCompany.nit}</p>
-                <p className="text-xs text-slate-500">{currentCompany.address}</p>
-                <div className="mt-2 text-[10px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-200 space-y-0.5">
-                  <p>Resolución DIAN No. <strong>{activeBillingConfig.resolutionNumber}</strong> del {activeBillingConfig.resolutionDate}</p>
-                  <p>Prefijo <strong>{activeBillingConfig.prefix}</strong> ({activeBillingConfig.authorizedRangeFrom || 101} al {activeBillingConfig.authorizedRangeTo || 10000})</p>
-                  <p className="text-emerald-700 font-semibold">Validación Automática DIAN vía {invoice.billingProviderData?.providerName || activeBillingConfig.providerName}</p>
-                </div>
+              {/* Size toggles */}
+              <div className="inline-flex rounded-xl bg-slate-800 p-0.5 border border-slate-700 ml-1">
+                {(['sm', 'md', 'lg', 'xl'] as const).map(sz => (
+                  <button
+                    key={sz}
+                    type="button"
+                    onClick={() => setLocalLogoSize(sz)}
+                    className={`px-2 py-1 rounded-lg font-bold uppercase text-[10px] transition-all cursor-pointer ${
+                      localLogoSize === sz ? 'bg-indigo-600 text-white shadow' : 'text-slate-300 hover:text-white'
+                    }`}
+                    title={`Tamaño ${sz}`}
+                  >
+                    {sz}
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="text-right">
-              <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-bold font-mono tracking-wider mb-2">
-                FACTURA ELECTRÓNICA DE VENTA
-              </span>
-              <h2 className="text-xl font-bold font-mono text-slate-900">{invoice.number}</h2>
-              <p className="text-xs text-slate-500 mt-1">Fecha Emisión: {invoice.date}</p>
-              {invoice.dueDate && (
-                <p className="text-xs font-semibold text-amber-700">Vence: {invoice.dueDate}</p>
+
+            <div className="flex items-center gap-3">
+              {/* Dynamic Page count estimate badge */}
+              <div className={`px-2.5 py-1 rounded-lg font-bold text-[10.5px] flex items-center gap-1.5 border ${
+                fitsOnSinglePage
+                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+              }`}>
+                <i className={fitsOnSinglePage ? 'ri-checkbox-circle-fill' : 'ri-file-copy-2-line'}></i>
+                <span>
+                  {fitsOnSinglePage 
+                    ? `✓ 1 Hoja de Impresión (${itemCount} artículo${itemCount > 1 ? 's' : ''} ≤ 15)`
+                    : `Multi-hoja (${itemCount} artículos > 15)`}
+                </span>
+              </div>
+
+              {/* Quick save button */}
+              {onUpdateCompany && (
+                <button
+                  type="button"
+                  onClick={handleSaveAsDefault}
+                  className="text-amber-400 hover:text-amber-300 font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20"
+                >
+                  <i className="ri-save-line"></i> Guardar como predeterminado
+                </button>
               )}
             </div>
           </div>
+        )}
 
-          {/* Client Details */}
-          <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+      </div>
+
+      {/* Render Formato Carta (DIAN) */}
+      {printFormat === 'carta' && (
+        <div 
+          id="print-section" 
+          className={`bg-white rounded-2xl border border-slate-200 shadow-xl text-slate-800 max-w-4xl mx-auto transition-all ${
+            isCompactMode 
+              ? 'p-5 sm:p-7 space-y-2.5 print:p-0 print:border-none print:shadow-none print:space-y-2' 
+              : 'p-7 sm:p-9 space-y-4 print:p-0 print:border-none print:shadow-none print:space-y-3'
+          }`}
+        >
+          
+          {/* 1. HEADER SECTION (with avoid-break class) */}
+          <div id="print-section-header" className="print-avoid-break">
+            {/* BANNER LAYOUT */}
+            {localLogoPosition === 'banner' && (
+              <div 
+                className={`${isCompactMode ? '-mx-5 sm:-mx-7 -mt-5 sm:-mt-7 p-4 sm:p-5' : '-mx-7 sm:-mx-9 -mt-7 sm:-mt-9 p-5 sm:p-6'} rounded-t-2xl text-white shadow-inner flex flex-wrap items-center justify-between gap-3`}
+                style={{ backgroundColor: localAccentColor }}
+              >
+                <div className="flex items-center gap-3">
+                  {currentCompany.logoUrl ? (
+                    <img 
+                      src={currentCompany.logoUrl} 
+                      alt="Logo Empresa" 
+                      className={`${getLogoSizeClass(localLogoSize)} object-contain bg-white/95 p-1 rounded-lg shadow-sm shrink-0`} 
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-white/20 border border-white/30 flex items-center justify-center font-black text-xl">
+                      FK
+                    </div>
+                  )}
+                  <div className="space-y-0.5">
+                    <h1 className="font-display font-black text-xl sm:text-2xl tracking-tight leading-tight">{currentCompany.name}</h1>
+                    <p className="text-[11px] text-white/90 font-mono">NIT: {currentCompany.nit} · {currentCompany.address}</p>
+                    {companyDesign.showSlogan && currentCompany.slogan && (
+                      <p className="text-[10px] text-white/80 italic font-medium leading-none">{currentCompany.slogan}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="inline-block px-2.5 py-0.5 bg-white/20 border border-white/30 rounded-full text-[10px] font-black tracking-wider mb-0.5">
+                    FACTURA ELECTRÓNICA DE VENTA
+                  </span>
+                  <h2 className="text-xl font-mono font-black text-white leading-tight">{invoice.number}</h2>
+                  <p className="text-[10.5px] text-white/90">Emisión: {invoice.date}</p>
+                  {invoice.dueDate && (
+                    <p className="text-[10.5px] font-bold text-amber-200">Vence: {invoice.dueDate}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* LEFT LAYOUT (Clásico) */}
+            {localLogoPosition === 'left' && (
+              <div className={`flex justify-between items-start border-b border-slate-200 ${isCompactMode ? 'pb-2.5' : 'pb-4'}`}>
+                <div className="flex items-start gap-3">
+                  {currentCompany.logoUrl ? (
+                    <img 
+                      src={currentCompany.logoUrl} 
+                      alt="Logo Empresa" 
+                      className={`${getLogoSizeClass(localLogoSize)} ${getLogoStyleClass(localLogoStyle)} object-contain shrink-0`} 
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold shrink-0">
+                      <i className="ri-building-2-line text-xl"></i>
+                    </div>
+                  )}
+                  <div>
+                    <h1 className="font-display font-bold text-lg sm:text-xl text-slate-900 tracking-tight leading-tight">{currentCompany.name}</h1>
+                    <p className="text-[11px] text-slate-600 font-mono">NIT: {currentCompany.nit} · {currentCompany.address}</p>
+                    {companyDesign.showSlogan && currentCompany.slogan && (
+                      <p className="text-[10px] text-slate-500 italic">{currentCompany.slogan}</p>
+                    )}
+                    
+                    {companyDesign.showResolutionBox && (
+                      <div className="mt-1 text-[9px] text-slate-600 bg-slate-50 py-1 px-2 rounded-md border border-slate-200 leading-tight inline-block">
+                        <span>Res. DIAN <strong>{activeBillingConfig.resolutionNumber}</strong> ({activeBillingConfig.resolutionDate}) · Prefijo <strong>{activeBillingConfig.prefix}</strong> ({activeBillingConfig.authorizedRangeFrom || 101}-{activeBillingConfig.authorizedRangeTo || 10000}) · {invoice.billingProviderData?.providerName || activeBillingConfig.providerName}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span 
+                    className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono tracking-wider mb-1"
+                    style={{ color: localAccentColor, backgroundColor: `${localAccentColor}18`, border: `1px solid ${localAccentColor}40` }}
+                  >
+                    FACTURA ELECTRÓNICA DE VENTA
+                  </span>
+                  <h2 className="text-xl font-bold font-mono text-slate-900 leading-tight">{invoice.number}</h2>
+                  <p className="text-[10.5px] text-slate-500">Fecha: {invoice.date}</p>
+                  {invoice.dueDate && (
+                    <p className="text-[10.5px] font-semibold text-amber-700">Vence: {invoice.dueDate}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* CENTER LAYOUT (Moderno Centrado) */}
+            {localLogoPosition === 'center' && (
+              <div className={`border-b border-slate-200 text-center space-y-1.5 ${isCompactMode ? 'pb-2.5' : 'pb-4'}`}>
+                {currentCompany.logoUrl ? (
+                  <img 
+                    src={currentCompany.logoUrl} 
+                    alt="Logo Empresa" 
+                    className={`${getLogoSizeClass(localLogoSize)} ${getLogoStyleClass(localLogoStyle)} object-contain mx-auto shadow-xs`} 
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold mx-auto">
+                    <i className="ri-building-2-line text-xl"></i>
+                  </div>
+                )}
+                <div>
+                  <h1 className="font-display font-black text-xl text-slate-900 tracking-tight leading-tight">{currentCompany.name}</h1>
+                  <p className="text-[11px] text-slate-600 font-mono">NIT: {currentCompany.nit} · {currentCompany.address}</p>
+                  {companyDesign.showSlogan && currentCompany.slogan && (
+                    <p className="text-[10px] text-slate-500 italic">{currentCompany.slogan}</p>
+                  )}
+                </div>
+
+                {/* Centered meta strip */}
+                <div className="flex flex-wrap items-center justify-between py-1 px-3 rounded-lg bg-slate-50 border border-slate-200 text-[10.5px]">
+                  <div>
+                    <span className="font-bold uppercase text-[9px] text-slate-400 mr-1.5">DOCUMENTO:</span>
+                    <span className="font-bold text-slate-900">FACTURA ELECTRÓNICA DE VENTA</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <span className="font-bold uppercase text-[9px] text-slate-400 mr-1">No.:</span>
+                      <span className="font-mono font-bold text-sm" style={{ color: localAccentColor }}>{invoice.number}</span>
+                    </div>
+                    <div>
+                      <span className="font-bold uppercase text-[9px] text-slate-400 mr-1">FECHA:</span>
+                      <span className="font-mono font-semibold text-slate-700">{invoice.date}</span>
+                    </div>
+                    {invoice.dueDate && (
+                      <div>
+                        <span className="font-bold uppercase text-[9px] text-amber-600 mr-1">VENCE:</span>
+                        <span className="font-mono font-bold text-amber-700">{invoice.dueDate}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {companyDesign.showResolutionBox && (
+                  <div className="text-[9px] text-slate-500 text-center leading-tight">
+                    Resolución DIAN No. <strong>{activeBillingConfig.resolutionNumber}</strong> ({activeBillingConfig.resolutionDate}) · Prefijo <strong>{activeBillingConfig.prefix}</strong> ({activeBillingConfig.authorizedRangeFrom || 101} al {activeBillingConfig.authorizedRangeTo || 10000}) · Validación {invoice.billingProviderData?.providerName || activeBillingConfig.providerName}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* RIGHT LAYOUT (Ejecutivo Derecha) */}
+            {localLogoPosition === 'right' && (
+              <div className={`flex justify-between items-start border-b border-slate-200 ${isCompactMode ? 'pb-2.5' : 'pb-4'}`}>
+                <div className="space-y-0.5 max-w-lg">
+                  <span 
+                    className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold font-mono tracking-wider mb-0.5"
+                    style={{ color: localAccentColor, backgroundColor: `${localAccentColor}18`, border: `1px solid ${localAccentColor}40` }}
+                  >
+                    FACTURA ELECTRÓNICA DE VENTA
+                  </span>
+                  <h1 className="font-display font-black text-lg sm:text-xl text-slate-900 tracking-tight leading-tight">{currentCompany.name}</h1>
+                  <p className="text-[11px] text-slate-600 font-mono">NIT: {currentCompany.nit} · {currentCompany.address}</p>
+                  {companyDesign.showSlogan && currentCompany.slogan && (
+                    <p className="text-[10px] text-slate-500 italic">{currentCompany.slogan}</p>
+                  )}
+                  <div className="pt-0.5 flex items-center gap-2 text-[10.5px]">
+                    <span className="font-mono font-bold text-base" style={{ color: localAccentColor }}>{invoice.number}</span>
+                    <span className="text-slate-400">|</span>
+                    <span className="text-slate-600">Fecha: {invoice.date}</span>
+                    {invoice.dueDate && (
+                      <>
+                        <span className="text-slate-400">|</span>
+                        <span className="text-amber-700 font-semibold">Vence: {invoice.dueDate}</span>
+                      </>
+                    )}
+                  </div>
+                  {companyDesign.showResolutionBox && (
+                    <p className="text-[9px] text-slate-400 leading-tight">
+                      Res. DIAN {activeBillingConfig.resolutionNumber} · Prefijo {activeBillingConfig.prefix} ({activeBillingConfig.authorizedRangeFrom || 101}-{activeBillingConfig.authorizedRangeTo || 10000})
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  {currentCompany.logoUrl ? (
+                    <img 
+                      src={currentCompany.logoUrl} 
+                      alt="Logo Empresa" 
+                      className={`${getLogoSizeClass(localLogoSize)} ${getLogoStyleClass(localLogoStyle)} object-contain shrink-0`} 
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold shrink-0">
+                      <i className="ri-building-2-line text-xl"></i>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 2. CLIENT & FISCAL DETAILS (Compact 2-col with avoid-break) */}
+          <div id="print-section-client" className="print-avoid-break grid grid-cols-2 gap-3 bg-slate-50 py-2 px-3 rounded-xl border border-slate-200 text-[10px] leading-snug">
             <div>
-              <p className="font-bold text-slate-400 uppercase text-[9px] tracking-wider mb-1">Adquiriente / Cliente</p>
-              <p className="font-bold text-slate-800 text-sm">{client?.name || 'Consumidor Final'}</p>
-              <p className="text-slate-600">NIT / C.C.: {client?.nit || '222222222222'}</p>
-              <p className="text-slate-600">Dirección: {client?.address || 'No registrada'}</p>
+              <p className="font-bold text-slate-400 uppercase text-[8.5px] tracking-wider mb-0.5">Adquiriente / Cliente</p>
+              <p className="font-bold text-slate-800 text-xs truncate">{client?.name || 'Consumidor Final'}</p>
+              <p className="text-slate-600">NIT / C.C.: <strong className="font-mono">{client?.nit || '222222222222'}</strong></p>
+              <p className="text-slate-600 truncate">Dirección: {client?.address || 'No registrada'}</p>
               <p className="text-slate-600">Tel: {client?.phone || 'N/A'}</p>
             </div>
-            <div className="space-y-1">
-              <p className="font-bold text-slate-400 uppercase text-[9px] tracking-wider mb-1">Detalles de Operación Fiscal</p>
+            <div className="space-y-0.5">
+              <p className="font-bold text-slate-400 uppercase text-[8.5px] tracking-wider mb-0.5">Detalles de Operación Fiscal</p>
               <p className="text-slate-600">Forma de Pago: <strong className="uppercase">{invoice.paymentTerm === 'credito' ? 'Crédito' : 'Contado'}</strong></p>
               <p className="text-slate-600">Medio de Pago: <strong className="uppercase">Transferencia Bancaria / Efectivo</strong></p>
               <p className="text-slate-600">Moneda: <strong>COP - Peso Colombiano</strong></p>
@@ -205,43 +578,46 @@ ${linesSummary}
             </div>
           </div>
 
-          {/* Items Table */}
-          <div className="overflow-hidden border border-slate-200 rounded-xl">
-            <table className="w-full text-left text-xs text-slate-600 border-collapse">
+          {/* 3. ITEMS TABLE (Ultra-Compact: each row is tight, 15 items take ~330px) */}
+          <div id="print-section-table" className="overflow-hidden border border-slate-200 rounded-lg">
+            <table className="w-full text-left text-slate-700 border-collapse">
               <thead>
-                <tr className="bg-slate-100/75 border-b border-slate-200 text-slate-800 font-bold uppercase text-[9.5px] tracking-wider">
-                  <th className="py-2.5 px-3">Código/SKU</th>
-                  <th className="py-2.5 px-3">Descripción</th>
-                  <th className="py-2.5 px-3">Lote/Vence</th>
-                  <th className="py-2.5 px-3 text-center">Cant.</th>
-                  <th className="py-2.5 px-3 text-right">Precio Unit.</th>
-                  <th className="py-2.5 px-3 text-center">IVA</th>
-                  <th className="py-2.5 px-3 text-right">Subtotal</th>
+                <tr 
+                  className="border-b text-white font-bold uppercase text-[9px] tracking-wider"
+                  style={{ backgroundColor: localAccentColor }}
+                >
+                  <th className="py-1 px-2.5">Código/SKU</th>
+                  <th className="py-1 px-2">Descripción</th>
+                  <th className="py-1 px-2">Lote/Vence</th>
+                  <th className="py-1 px-2 text-center">Cant.</th>
+                  <th className="py-1 px-2 text-right">Precio Unit.</th>
+                  <th className="py-1 px-2 text-center">IVA</th>
+                  <th className="py-1 px-2.5 text-right">Subtotal</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 text-[10px]">
                 {invoice.items && invoice.items.length > 0 ? (
                   invoice.items.map((item, index) => {
                     const prod = products.find((p) => p.id === item.productId);
                     const lineSubtotal = item.qty * item.unitPrice;
                     return (
                       <tr key={index} className="hover:bg-slate-50/50">
-                        <td className="py-2.5 px-3 font-mono text-[11px] text-slate-500">{prod?.sku || `ITEM-${index + 1}`}</td>
-                        <td className="py-2.5 px-3 font-semibold text-slate-800">{prod?.name || 'Mercancía General'}</td>
-                        <td className="py-2.5 px-3 font-mono text-[10px] text-slate-500">
-                          {item.lotNumber ? `${item.lotNumber} (${item.expirationDate || 'N/A'})` : 'S/L'}
+                        <td className="py-1 px-2.5 font-mono text-[9.5px] text-slate-500 whitespace-nowrap">{prod?.sku || `IT-${index + 1}`}</td>
+                        <td className="py-1 px-2 font-semibold text-slate-800 leading-tight">{prod?.name || 'Mercancía General'}</td>
+                        <td className="py-1 px-2 font-mono text-[9px] text-slate-500 whitespace-nowrap">
+                          {item.lotNumber ? `${item.lotNumber}` : 'S/L'}
                         </td>
-                        <td className="py-2.5 px-3 text-center font-bold text-slate-900">{item.qty}</td>
-                        <td className="py-2.5 px-3 text-right font-mono">{formatCOP(item.unitPrice)}</td>
-                        <td className="py-2.5 px-3 text-center font-mono text-[10px]">{prod?.tax || 19}%</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{formatCOP(lineSubtotal)}</td>
+                        <td className="py-1 px-2 text-center font-bold text-slate-900">{item.qty}</td>
+                        <td className="py-1 px-2 text-right font-mono">{formatCOP(item.unitPrice)}</td>
+                        <td className="py-1 px-2 text-center font-mono text-[9.5px]">{prod?.tax ?? 19}%</td>
+                        <td className="py-1 px-2.5 text-right font-mono font-bold text-slate-900">{formatCOP(lineSubtotal)}</td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan={7} className="py-3 px-3 text-center text-slate-400">
-                      Concepto: {invoice.concept}
+                    <td colSpan={7} className="py-2.5 px-3 text-center text-slate-500 italic">
+                      Concepto: {invoice.concept || 'Venta de productos y servicios'}
                     </td>
                   </tr>
                 )}
@@ -249,9 +625,28 @@ ${linesSummary}
             </table>
           </div>
 
-          {/* Subtotals & Taxes */}
-          <div className="flex justify-end pt-2">
-            <div className="w-72 space-y-1.5 text-xs text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-200">
+          {/* 4. TOTALS & BANK PAYMENT INFO (Compact Side-by-Side block with avoid-break) */}
+          <div id="print-section-totals" className="print-avoid-break flex flex-col sm:flex-row justify-between items-start gap-3 pt-0.5">
+            
+            {/* Left: Bank Account Payment Info and Legal Terms */}
+            <div className="space-y-1.5 flex-1 max-w-sm">
+              {companyDesign.showBankAccounts && companyDesign.bankAccountDetails && (
+                <div className="bg-slate-50 py-1.5 px-2.5 rounded-lg border border-slate-200 text-[9.5px]">
+                  <p className="font-bold text-slate-700 text-[9px] uppercase flex items-center gap-1 mb-0.5">
+                    <i className="ri-bank-card-line text-blue-600"></i> Información Bancaria para Pagos:
+                  </p>
+                  <p className="font-semibold text-slate-800 leading-tight">{companyDesign.bankAccountDetails}</p>
+                </div>
+              )}
+              {companyDesign.termsAndNotes && (
+                <p className="text-[8px] text-slate-500 leading-tight italic">
+                  {companyDesign.termsAndNotes}
+                </p>
+              )}
+            </div>
+
+            {/* Right: Calculations Summary Box */}
+            <div className="w-full sm:w-72 space-y-0.5 text-[10px] text-slate-600 bg-slate-50 py-2 px-3 rounded-lg border border-slate-200 shrink-0">
               <div className="flex justify-between">
                 <span>Subtotal Gravable:</span>
                 <span className="font-mono">
@@ -284,24 +679,27 @@ ${linesSummary}
                   <span className="font-mono">-{formatCOP(invoice.retenciones.retefuente)}</span>
                 </div>
               ) : null}
-              <div className="flex justify-between pt-1.5 font-bold text-sm text-blue-600 border-t border-slate-300">
+              <div 
+                className="flex justify-between pt-1 mt-0.5 font-black text-sm border-t border-slate-300"
+                style={{ color: localAccentColor }}
+              >
                 <span>TOTAL A PAGAR:</span>
                 <span className="font-mono">{formatCOP(invoice.total)}</span>
               </div>
             </div>
           </div>
 
-          {/* CUFE & QR Validation Footer */}
-          <div className="border-t pt-4 flex items-center justify-between gap-4 text-[10px] text-slate-500">
-            <div className="space-y-1 flex-1">
-              <p className="font-mono break-all font-semibold text-slate-700">
+          {/* 5. CUFE & QR VALIDATION FOOTER (Compact strip with avoid-break) */}
+          <div id="print-section-footer" className="print-avoid-break border-t border-slate-200 pt-2 flex items-center justify-between gap-3 text-[9px] text-slate-500">
+            <div className="space-y-0.5 flex-1 pr-2">
+              <p className="font-mono break-all font-semibold text-slate-700 text-[8px] leading-tight">
                 <span className="text-slate-400 font-bold">CUFE:</span> {invoice.billingProviderData?.cufe || getCUFESample(invoice.number)}
               </p>
-              <p>Representación gráfica de Factura Electrónica de Venta según resoluciones vigentes de la DIAN.</p>
-              <p className="text-[9px] text-slate-400">Software FinteKia Cloud ERP · Validado por Proveedor Tecnológico Autorizado</p>
+              <p className="text-[8.5px] leading-tight text-slate-600">Representación gráfica de Factura Electrónica de Venta según resoluciones vigentes de la DIAN.</p>
+              <p className="text-[8px] text-slate-400 leading-none">Software FinteKia Cloud ERP · Validado por Proveedor Tecnológico Autorizado</p>
             </div>
-            <div className="w-20 h-20 bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200 text-slate-800 shrink-0">
-              <i className="ri-qr-code-line text-5xl"></i>
+            <div className="w-14 h-14 bg-slate-100 rounded flex items-center justify-center border border-slate-200 text-slate-800 shrink-0">
+              <i className="ri-qr-code-line text-3xl"></i>
             </div>
           </div>
         </div>
@@ -348,105 +746,63 @@ ${linesSummary}
               <span>NIT/CC:</span>
               <span>{client?.nit || 'N/A'}</span>
             </div>
-            <div className="flex justify-between">
-              <span>CONDICIÓN:</span>
-              <span className="uppercase font-bold">{invoice.paymentTerm === 'credito' ? 'Crédito' : 'Contado'}</span>
-            </div>
-            {invoice.dueDate && invoice.paymentTerm === 'credito' && (
-              <div className="flex justify-between text-amber-800 font-bold">
-                <span>VENCE:</span>
-                <span>{invoice.dueDate}</span>
-              </div>
+          </div>
+
+          {/* POS Items list */}
+          <div className="space-y-1 pb-2 border-b border-dashed border-slate-400">
+            {invoice.items && invoice.items.length > 0 ? (
+              invoice.items.map((it, idx) => {
+                const prod = products.find((p) => p.id === it.productId);
+                return (
+                  <div key={idx} className="space-y-0.5">
+                    <p className="font-bold truncate">{prod?.name || 'Ítem'}</p>
+                    <div className="flex justify-between text-slate-700">
+                      <span>{it.qty} x {formatCOP(it.unitPrice)}</span>
+                      <span className="font-bold">{formatCOP(it.qty * it.unitPrice)}</span>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p>{invoice.concept}</p>
             )}
           </div>
 
-          {/* POS Items */}
-          <div className="space-y-1.5 pb-2 border-b border-dashed border-slate-400">
-            <div className="font-bold text-[10px] text-slate-500 flex justify-between uppercase">
-              <span>Cant. / Detalle</span>
-              <span>Total</span>
-            </div>
-            <div className="space-y-1">
-              {invoice.items && invoice.items.length > 0 ? (
-                invoice.items.map((item, idx) => {
-                  const prod = products.find((p) => p.id === item.productId);
-                  return (
-                    <div key={idx} className="space-y-0.5">
-                      <div className="flex justify-between">
-                        <span className="truncate max-w-[210px]">{item.qty}x {prod?.name || 'Ítem'}</span>
-                        <span className="font-semibold">{formatCOP(item.qty * item.unitPrice)}</span>
-                      </div>
-                      <div className="text-[9px] text-slate-500 pl-4">
-                        Unit: {formatCOP(item.unitPrice)} {item.lotNumber && item.lotNumber !== 'S/L' ? `· Lt: ${item.lotNumber}` : ''}
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="flex justify-between">
-                  <span>1x Venta de mercancías</span>
-                  <span>{formatCOP(invoice.total)}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Totals */}
-          <div className="space-y-1 pb-2 border-b border-dashed border-slate-400 text-right">
-            <div className="flex justify-between">
-              <span>SUBTOTAL:</span>
-              <span>
-                {invoice.items && invoice.items.length > 0
-                  ? formatCOP(invoice.items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0))
-                  : formatCOP(invoice.total / 1.19)}
-              </span>
-            </div>
-            {invoice.discountTotal && invoice.discountTotal > 0 ? (
-              <div className="flex justify-between text-emerald-800 font-semibold">
-                <span>DESCUENTO:</span>
-                <span>-{formatCOP(invoice.discountTotal)}</span>
-              </div>
-            ) : null}
-            <div className="flex justify-between">
-              <span>IVA ESTIMADO:</span>
-              <span>
-                {invoice.items && invoice.items.length > 0
-                  ? formatCOP(invoice.items.reduce((acc, item) => {
-                      const prod = products.find((p) => p.id === item.productId);
-                      const taxFactor = prod ? prod.tax / 100 : 0.19;
-                      return acc + item.qty * item.unitPrice * taxFactor;
-                    }, 0))
-                  : formatCOP(invoice.total - (invoice.total / 1.19))}
-              </span>
-            </div>
-            {invoice.retenciones?.retefuente && invoice.retenciones.retefuente > 0 ? (
-              <div className="flex justify-between text-rose-800 font-semibold">
-                <span>RETEFUENTE:</span>
-                <span>-{formatCOP(invoice.retenciones.retefuente)}</span>
-              </div>
-            ) : null}
-            <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-300">
+          <div className="space-y-1 text-right font-bold text-xs">
+            <div className="flex justify-between text-sm pt-1 border-t border-slate-800">
               <span>TOTAL A PAGAR:</span>
               <span>{formatCOP(invoice.total)}</span>
             </div>
           </div>
 
-          {/* CUFE & QR */}
-          <div className="text-center space-y-1.5 pt-1 text-[9px] text-slate-600">
-            <div className="p-1 bg-slate-50 border border-slate-200 rounded break-all font-mono text-[8px] leading-tight">
-              <span className="font-bold block text-slate-800">CUFE:</span>
-              {invoice.billingProviderData?.cufe || getCUFESample(invoice.number)}
+          {/* CUFE on ticket */}
+          <div className="pt-2 text-center text-[8.5px] text-slate-500 space-y-1">
+            <p className="break-all font-mono">CUFE: {invoice.billingProviderData?.cufe || getCUFESample(invoice.number).slice(0, 32)}...</p>
+            <div className="w-14 h-14 mx-auto bg-slate-100 flex items-center justify-center border border-slate-300">
+              <i className="ri-qr-code-line text-3xl"></i>
             </div>
-            <div className="flex items-center justify-center gap-2 pt-1">
-              <i className="ri-qr-code-line text-3xl text-slate-800"></i>
-              <span className="text-[8.5px] text-left text-slate-500 max-w-[190px]">
-                Documento validado por la DIAN a través del Proveedor Tecnológico {invoice.billingProviderData?.providerName || activeBillingConfig.providerName}
-              </span>
-            </div>
-            <p className="font-bold pt-2 text-[10.5px] text-slate-900">¡GRACIAS POR SU COMPRA!</p>
-            <p className="text-[8px] text-slate-400">Software FinteKia Cloud ERP</p>
+            <p className="pt-1">¡Gracias por su compra!</p>
           </div>
         </div>
+      )}
+
+      {/* Invoice Design Full Modal */}
+      {showDesignModal && (
+        <InvoiceDesignModal
+          company={currentCompany}
+          isOpen={showDesignModal}
+          onClose={() => setShowDesignModal(false)}
+          onSave={(updated) => {
+            if (onUpdateCompany) onUpdateCompany(updated);
+            if (updated.invoiceDesign) {
+              setLocalLogoPosition(updated.invoiceDesign.logoPosition);
+              setLocalLogoSize(updated.invoiceDesign.logoSize);
+              setLocalLogoStyle(updated.invoiceDesign.logoStyle);
+              setLocalAccentColor(updated.invoiceDesign.accentColor);
+            }
+          }}
+          formatCOP={formatCOP}
+        />
       )}
     </div>
   );

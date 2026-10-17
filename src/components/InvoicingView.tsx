@@ -11,7 +11,8 @@ import {
   InvoicePrintPreview,
   JsonPayloadModal,
   QuickClientModal,
-  DianHabilitationAssistant
+  DianHabilitationAssistant,
+  InvoiceDesignModal
 } from './invoicing';
 
 interface InvoicingViewProps {
@@ -28,11 +29,13 @@ interface InvoicingViewProps {
     total: number; 
     lines: any[]; 
     items?: any[]; 
+    companyId?: string;
     paymentTerm?: 'contado' | 'credito';
     dueDate?: string;
     discountTotal?: number;
     retenciones?: { retefuente?: number; reteiva?: number; reteica?: number };
-    billingProviderData?: any 
+    billingProviderData?: any;
+    notes?: string;
   }) => void;
   updateInventory: (prodId: string, lotNum: string | undefined, diffQty: number) => void;
   puc: PucAccount[];
@@ -90,6 +93,8 @@ export default function InvoicingView({
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPayloadModal, setShowPayloadModal] = useState(false);
   const [selectedPayloadInvoice, setSelectedPayloadInvoice] = useState<Voucher | null>(null);
+  const [showDesignModal, setShowDesignModal] = useState(false);
+  const [salesCompanyFilter, setSalesCompanyFilter] = useState<'current' | 'all'>('current');
 
   // Active Billing Config
   const activeBillingConfig = currentCompany?.billingConfig || {
@@ -748,6 +753,7 @@ export default function InvoicingView({
       addVoucher({
         number: nextNumber,
         type: 'venta',
+        companyId: currentCompany.id,
         concept: `Factura Electrónica No. ${nextNumber} (${paymentTerm === 'credito' ? `Crédito ${creditDays}d` : 'Contado'} - Vía ${activeBillingConfig.providerName})`,
         thirdPartyId: selectedClient,
         total: Math.round(finalTotal),
@@ -819,6 +825,11 @@ export default function InvoicingView({
     return vouchers
       .filter((v) => v.type === 'venta' || (v.type === 'ingreso' && v.number.startsWith('FE')))
       .filter((v) => {
+        // 0. Multi-Company Isolation: show current active company or all
+        if (salesCompanyFilter === 'current') {
+          if (v.companyId && v.companyId !== currentCompany?.id) return false;
+        }
+
         // 1. Date Range
         if (salesStartDate && v.date < salesStartDate) return false;
         if (salesEndDate && v.date > salesEndDate) return false;
@@ -846,7 +857,7 @@ export default function InvoicingView({
 
         return true;
       });
-  }, [vouchers, salesStartDate, salesEndDate, salesStatusFilter, salesClientFilter, salesSearchQuery, terceros]);
+  }, [vouchers, salesCompanyFilter, currentCompany?.id, salesStartDate, salesEndDate, salesStatusFilter, salesClientFilter, salesSearchQuery, terceros]);
 
   const hasActiveSalesFilters = Boolean(
     salesStartDate || salesEndDate || salesStatusFilter !== 'todos' || salesClientFilter || salesSearchQuery.trim()
@@ -881,6 +892,7 @@ export default function InvoicingView({
           activeBillingConfig={activeBillingConfig}
           getCUFESample={getCUFESample}
           formatCOP={formatCOP}
+          onUpdateCompany={updateCompany}
         />
       )}
 
@@ -928,7 +940,17 @@ export default function InvoicingView({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDesignModal(true)}
+                className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+                title="Configurar ubicación del logo, tamaño, membrete institucional y diseño de factura"
+                id="open-invoice-designer-btn"
+              >
+                <i className="ri-palette-line text-purple-200"></i>
+                <span>Diseño & Logo Factura</span>
+              </button>
               {onOpenAlanubeConfig && (
                 <button
                   type="button"
@@ -1799,20 +1821,59 @@ export default function InvoicingView({
 
             {/* Sales invoices logs scroll */}
             <div className="mt-8 border-t border-slate-800 pt-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Comprobantes Transmitidos ({salesHistory.length})</h4>
+              <div className="flex flex-wrap items-center justify-between mb-3 gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <i className="ri-receipt-line text-indigo-400"></i> Comprobantes Transmitidos ({salesHistory.length})
+                  </h4>
+                  {/* Multi-Company Scope Filter */}
+                  <div className="inline-flex rounded-xl bg-slate-900 border border-slate-800 p-0.5 text-[10.5px]">
+                    <button
+                      type="button"
+                      onClick={() => { setSalesCompanyFilter('current'); setSalesPage(1); }}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        salesCompanyFilter === 'current'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                      title={`Filtrar únicamente las facturas de ${currentCompany.name}`}
+                    >
+                      <i className="ri-building-line text-xs"></i>
+                      <span>{currentCompany.name.split(' ')[0]} (Activa)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setSalesCompanyFilter('all'); setSalesPage(1); }}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        salesCompanyFilter === 'all'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                      title="Ver facturas emitidas por todas las empresas registradas"
+                    >
+                      <i className="ri-global-line text-xs"></i>
+                      <span>Todas las Empresas</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={() => setShowDesignModal(true)}
+                    className="text-[10px] font-bold text-purple-300 hover:text-white bg-purple-500/15 hover:bg-purple-500/25 px-2.5 py-1 rounded-lg border border-purple-500/30 flex items-center gap-1 cursor-pointer transition-all"
+                    title="Diseñar factura y cambiar posición del logotipo"
+                  >
+                    <i className="ri-palette-line text-xs"></i> Diseño de Factura
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => exportInvoicesToExcel(vouchers, terceros, products, currentCompany?.name)}
-                    className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 px-2 py-0.5 rounded-lg border border-emerald-500/30 flex items-center gap-1 cursor-pointer transition-all"
+                    className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25 px-2 py-1 rounded-lg border border-emerald-500/30 flex items-center gap-1 cursor-pointer transition-all"
                     title="Exportar facturas transmitidas a Excel"
                   >
                     <i className="ri-file-excel-2-line"></i> Excel (.xlsx)
                   </button>
-                  <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                    Vía Proveedor
-                  </span>
                 </div>
               </div>
 
@@ -1973,6 +2034,11 @@ export default function InvoicingView({
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 font-semibold border border-indigo-500/30">
                               {provName}
                             </span>
+                            {salesCompanyFilter === 'all' && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-semibold">
+                                {v.companyId === 'co-2' ? '🏢 Alimentos del Norte' : '🏢 FinteKia Tech'}
+                              </span>
+                            )}
                           </div>
                           <span className="font-bold text-white text-xs">{formatCOP(v.total)}</span>
                         </div>
@@ -2091,6 +2157,19 @@ export default function InvoicingView({
             />
           </div>
         </div>
+      )}
+
+      {/* Modal: Diseñador de Factura y Posición de Logotipo */}
+      {showDesignModal && (
+        <InvoiceDesignModal
+          company={currentCompany}
+          isOpen={showDesignModal}
+          onClose={() => setShowDesignModal(false)}
+          onSave={(updatedCo) => {
+            if (updateCompany) updateCompany(updatedCo);
+          }}
+          formatCOP={formatCOP}
+        />
       )}
     </div>
   );

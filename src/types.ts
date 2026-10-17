@@ -27,6 +27,20 @@ export interface ElectronicBillingConfig {
   dianTestInvoicesCount?: number;
 }
 
+export interface InvoiceDesignConfig {
+  logoPosition: 'left' | 'center' | 'right' | 'banner';
+  logoSize: 'sm' | 'md' | 'lg' | 'xl'; // sm: 48px, md: 64px, lg: 84px, xl: 110px
+  logoStyle: 'none' | 'rounded' | 'card' | 'circle';
+  accentColor: string; // e.g. '#2563eb', '#059669', '#4f46e5', '#0f172a', '#d97706', '#7c3aed'
+  showSlogan: boolean;
+  showResolutionBox: boolean;
+  showBankAccounts: boolean;
+  bankAccountDetails?: string;
+  termsAndNotes?: string;
+  watermarkText?: string;
+  headerLayout?: 'classic' | 'modern' | 'minimal' | 'executive';
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -45,6 +59,7 @@ export interface Company {
   enableProduction?: boolean; // Toggle production MRP on/off dynamically
   enableTechServices?: boolean;
   billingConfig?: ElectronicBillingConfig; // Configuración de Facturación Electrónica vía Tercero
+  invoiceDesign?: InvoiceDesignConfig; // Configuración visual personalizada de Factura y Logotipo
   payrollParameters: {
     smmlv: number;
     auxTransporte: number;
@@ -235,6 +250,7 @@ export interface Voucher {
   lines: VoucherLine[];
   status: 'borrador' | 'aprobado' | 'procesado';
   total: number;
+  companyId?: string; // ID de la empresa a la que pertenece el comprobante/factura
   items?: VoucherItem[];
   paymentTerm?: 'contado' | 'credito';
   dueDate?: string;

@@ -31,6 +31,7 @@ export const INITIAL_COMPANIES: Company[] = [
     businessType: 'tecnologia_servicios',
     enableProduction: false, // Production module starts DEACTIVATED by default for the tech enterprise!
     enableTechServices: true,
+    logoUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%232563eb"/><stop offset="100%" stop-color="%234f46e5"/></linearGradient></defs><rect width="200" height="200" rx="44" fill="url(%23g1)"/><path d="M60 55 L140 55 L140 80 L95 80 L95 95 L130 95 L130 120 L95 120 L95 145 L60 145 Z" fill="%23ffffff"/><circle cx="150" cy="140" r="14" fill="%2338bdf8"/></svg>',
     billingConfig: {
       providerType: 'tercero_proveedor',
       providerName: 'Alanube',
@@ -55,6 +56,17 @@ export const INITIAL_COMPANIES: Company[] = [
       lastTestMessage: 'Conexión DIAN validada exitosamente vía Alanube Cloud API. Certificado y folios activos.',
       availableCredits: 4850
     },
+    invoiceDesign: {
+      logoPosition: 'left',
+      logoSize: 'md',
+      logoStyle: 'rounded',
+      accentColor: '#2563eb',
+      showSlogan: true,
+      showResolutionBox: true,
+      showBankAccounts: true,
+      bankAccountDetails: 'Bancolombia Cta Corriente No. 245-098712-88 (NIT 901.455.120-3)',
+      termsAndNotes: 'Esta factura de venta se asimila en sus efectos legales a una letra de cambio según la Ley 1231 de 2008. Autorizo el tratamiento de datos personales para fines contables y comerciales.'
+    },
     payrollParameters: { smmlv: 1423500, auxTransporte: 172000 },
   },
   {
@@ -69,6 +81,7 @@ export const INITIAL_COMPANIES: Company[] = [
     businessType: 'produccion',
     enableProduction: true, // Production module activated for manufacturing
     enableTechServices: false,
+    logoUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><defs><linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23d97706"/><stop offset="100%" stop-color="%23b45309"/></linearGradient></defs><rect width="200" height="200" rx="44" fill="url(%23g2)"/><path d="M100 40 C75 70 70 110 100 150 C130 110 125 70 100 40 Z" fill="%23fef3c7"/><path d="M100 65 C85 85 85 110 100 135 C115 110 115 85 100 65 Z" fill="%23d97706"/><circle cx="100" cy="98" r="8" fill="%23fef3c7"/></svg>',
     billingConfig: {
       providerType: 'tercero_proveedor',
       providerName: 'Factus',
@@ -80,6 +93,17 @@ export const INITIAL_COMPANIES: Company[] = [
       authorizedRangeFrom: 1,
       authorizedRangeTo: 5000,
       autoSendEmail: true
+    },
+    invoiceDesign: {
+      logoPosition: 'banner',
+      logoSize: 'md',
+      logoStyle: 'rounded',
+      accentColor: '#d97706',
+      showSlogan: true,
+      showResolutionBox: true,
+      showBankAccounts: true,
+      bankAccountDetails: 'Banco de Bogotá Cta Ahorros No. 034-771290-12 (NIT 800.224.990-1)',
+      termsAndNotes: 'Esta factura de venta se asimila en sus efectos legales a una letra de cambio según la Ley 1231 de 2008. Alimentos del Norte Ltda.'
     },
     payrollParameters: { smmlv: 1423500, auxTransporte: 172000 },
   }
@@ -370,6 +394,7 @@ export const INITIAL_VOUCHERS: Voucher[] = [
     thirdPartyId: 'ter-4',
     status: 'procesado',
     total: 30000000,
+    companyId: 'co-1',
     lines: [
       { accountCode: '110505', description: 'Caja - Capital de Aporte', debit: 30000000, credit: 0 },
       { accountCode: '311505', description: 'Capital Social Registrado', debit: 0, credit: 30000000 }
@@ -384,6 +409,7 @@ export const INITIAL_VOUCHERS: Voucher[] = [
     thirdPartyId: 'ter-2',
     status: 'procesado',
     total: 2475000,
+    companyId: 'co-1',
     lines: [
       { accountCode: '130505', description: 'Clientes Nal - Éxito venta FE-101', debit: 2475000, credit: 0 },
       { accountCode: '240805', description: 'IVA Generado del 19%', debit: 0, credit: 395126 },
@@ -408,6 +434,7 @@ export const INITIAL_VOUCHERS: Voucher[] = [
     thirdPartyId: 'ter-1',
     status: 'procesado',
     total: 1600000,
+    companyId: 'co-2',
     lines: [
       { accountCode: '140501', description: 'Compra 500Kg Trigo industrial', debit: 1600000, credit: 0 },
       { accountCode: '220505', description: 'Proveedores - Harineras del Valle', debit: 0, credit: 1600000 }
@@ -508,7 +535,39 @@ export const getInitialState = (): AppState => {
                 if (!co.billingConfig.lastTestStatus) co.billingConfig.lastTestStatus = 'success';
               }
             }
+
+            // Ensure company logo and invoice design exist
+            if (!co.logoUrl) {
+              co.logoUrl = co.id === 'co-2' 
+                ? 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><defs><linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%23d97706"/><stop offset="100%" stop-color="%23b45309"/></linearGradient></defs><rect width="200" height="200" rx="44" fill="url(%23g2)"/><path d="M100 40 C75 70 70 110 100 150 C130 110 125 70 100 40 Z" fill="%23fef3c7"/><path d="M100 65 C85 85 85 110 100 135 C115 110 115 85 100 65 Z" fill="%23d97706"/><circle cx="100" cy="98" r="8" fill="%23fef3c7"/></svg>'
+                : 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%232563eb"/><stop offset="100%" stop-color="%234f46e5"/></linearGradient></defs><rect width="200" height="200" rx="44" fill="url(%23g1)"/><path d="M60 55 L140 55 L140 80 L95 80 L95 95 L130 95 L130 120 L95 120 L95 145 L60 145 Z" fill="%23ffffff"/><circle cx="150" cy="140" r="14" fill="%2338bdf8"/></svg>';
+            }
+            if (!co.invoiceDesign) {
+              co.invoiceDesign = {
+                logoPosition: co.id === 'co-2' ? 'banner' : 'left',
+                logoSize: 'md',
+                logoStyle: 'rounded',
+                accentColor: co.id === 'co-2' ? '#d97706' : '#2563eb',
+                showSlogan: true,
+                showResolutionBox: true,
+                showBankAccounts: true,
+                bankAccountDetails: co.id === 'co-2' 
+                  ? 'Banco de Bogotá Cta Ahorros No. 034-771290-12 (NIT 800.224.990-1)' 
+                  : 'Bancolombia Cta Corriente No. 245-098712-88 (NIT 901.455.120-3)',
+                termsAndNotes: 'Esta factura de venta se asimila en sus efectos legales a una letra de cambio según la Ley 1231 de 2008.'
+              };
+            }
           });
+
+          // Ensure vouchers have companyId
+          if (parsed.vouchers) {
+            parsed.vouchers.forEach((v: any) => {
+              if (!v.companyId) {
+                v.companyId = v.number === 'CE-555' ? 'co-2' : 'co-1';
+              }
+            });
+          }
+
           if (!parsed.users) {
             parsed.users = [
               { id: 'usr-1', name: 'Washington Quiñones', email: 'quinoneswash70@gmail.com', role: 'Admin', cargo: 'Gerente General', active: true, dateCreated: '2026-01-10' },

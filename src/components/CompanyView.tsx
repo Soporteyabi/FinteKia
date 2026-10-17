@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from "../context/ToastContext";
-import { Company } from '../types';
+import { Company, InvoiceDesignConfig } from '../types';
 import { THEMES_MAP } from './Sidebar';
+import { DEFAULT_INVOICE_DESIGN } from './invoicing/InvoiceDesignModal';
 import { 
   Building2, 
   Upload, 
@@ -31,7 +32,8 @@ import {
   Cloud,
   ShieldCheck,
   CheckCheck,
-  Key
+  Key,
+  Palette
 } from 'lucide-react';
 
 interface CompanyViewProps {
@@ -54,11 +56,22 @@ export default function CompanyView({
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
   const isDark = theme === 'slate_gray' || theme === 'navy_dark' || theme === 'light_gray';
 
-  // Toggle between "directory" (list/activate/deactivate) and "edit" (form/attributes/logo) tabs
-  const [activeTab, setActiveTab] = useState<'directory' | 'form'>('directory');
+  // Toggle between "directory", "form" and "invoice_design" tabs
+  const [activeTab, setActiveTab] = useState<'directory' | 'form' | 'invoice_design'>('directory');
 
   // Track which company we are currently editing
   const [editingCompanyId, setEditingCompanyId] = useState<string>(currentCompany.id);
+
+  // Invoice Design customizer state
+  const [designLogoPosition, setDesignLogoPosition] = useState<InvoiceDesignConfig['logoPosition']>('left');
+  const [designLogoSize, setDesignLogoSize] = useState<InvoiceDesignConfig['logoSize']>('md');
+  const [designLogoStyle, setDesignLogoStyle] = useState<InvoiceDesignConfig['logoStyle']>('rounded');
+  const [designAccentColor, setDesignAccentColor] = useState<string>('#2563eb');
+  const [designShowSlogan, setDesignShowSlogan] = useState<boolean>(true);
+  const [designShowResolutionBox, setDesignShowResolutionBox] = useState<boolean>(true);
+  const [designShowBankAccounts, setDesignShowBankAccounts] = useState<boolean>(true);
+  const [designBankAccountDetails, setDesignBankAccountDetails] = useState<string>('');
+  const [designTermsAndNotes, setDesignTermsAndNotes] = useState<string>('');
 
   // Form local state fields
   const [name, setName] = useState('');
@@ -120,6 +133,18 @@ export default function CompanyView({
         setBillingApiToken(co.billingConfig.apiToken || 'ala_live_sec_98f7e2a4d3_auth_key');
         setBillingAutoSendEmail(co.billingConfig.autoSendEmail !== false);
       }
+
+      // Invoice Design sync
+      const des = co.invoiceDesign || DEFAULT_INVOICE_DESIGN;
+      setDesignLogoPosition(des.logoPosition || 'left');
+      setDesignLogoSize(des.logoSize || 'md');
+      setDesignLogoStyle(des.logoStyle || 'rounded');
+      setDesignAccentColor(des.accentColor || (co.id === 'co-2' ? '#d97706' : '#2563eb'));
+      setDesignShowSlogan(des.showSlogan !== false);
+      setDesignShowResolutionBox(des.showResolutionBox !== false);
+      setDesignShowBankAccounts(des.showBankAccounts !== false);
+      setDesignBankAccountDetails(des.bankAccountDetails || (co.id === 'co-2' ? 'Banco de Bogotá Cta Ahorros No. 034-771290-12 (NIT 800.224.990-1)' : 'Bancolombia Cta Corriente No. 245-098712-88 (NIT 901.455.120-3)'));
+      setDesignTermsAndNotes(des.termsAndNotes || DEFAULT_INVOICE_DESIGN.termsAndNotes || '');
     }
   }, [editingCompanyId, currentCompany, companies]);
 
@@ -394,6 +419,20 @@ export default function CompanyView({
           <FileText className="w-4 h-4" />
           Editar Detalles y Logotipo
         </button>
+        <button
+          onClick={() => {
+            setEditingCompanyId(currentCompany.id);
+            setActiveTab('invoice_design');
+          }}
+          className={`pb-3 text-xs font-bold uppercase transition-all border-b-2 flex items-center gap-2 px-1 cursor-pointer ${
+            activeTab === 'invoice_design' 
+              ? 'border-purple-500 text-purple-600 dark:text-purple-400' 
+              : 'border-transparent text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+          }`}
+        >
+          <Palette className="w-4 h-4" />
+          Diseño de Factura & Ubicación del Logo
+        </button>
       </div>
 
       {/* TAB 1: Directory List with Activate/Deactivate Toggle */}
@@ -609,10 +648,23 @@ export default function CompanyView({
                             setEditingCompanyId(co.id);
                             setActiveTab('form');
                           }}
-                          className="border border-slate-250 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-600 dark:text-slate-350 p-2 rounded-xl transition-all hover:scale-105"
+                          className="border border-slate-250 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-600 dark:text-slate-350 p-2 rounded-xl transition-all hover:scale-105 cursor-pointer"
                           title="Editar detalles y logotipo comercial"
                         >
                           <FileText className="w-4 h-4" />
+                        </button>
+
+                        {/* Invoice & Logo Designer button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCompanyId(co.id);
+                            setActiveTab('invoice_design');
+                          }}
+                          className="border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 p-2 rounded-xl transition-all hover:scale-105 cursor-pointer"
+                          title="Diseñar factura y cambiar posición del logotipo para esta empresa"
+                        >
+                          <Palette className="w-4 h-4" />
                         </button>
 
                       </div>
@@ -1424,6 +1476,645 @@ export default function CompanyView({
 
         </div>
       )}
+
+      {/* TAB 3: Invoice Design & Logo Placement Customizer */}
+      {activeTab === 'invoice_design' && (() => {
+        const targetCo = companies.find(c => c.id === editingCompanyId) || currentCompany;
+
+        const handleSaveInvoiceDesign = (e: React.FormEvent) => {
+          e.preventDefault();
+          const updated: Company = {
+            ...targetCo,
+            logoUrl: logoUrl,
+            invoiceDesign: {
+              logoPosition: designLogoPosition,
+              logoSize: designLogoSize,
+              logoStyle: designLogoStyle,
+              accentColor: designAccentColor,
+              showSlogan: designShowSlogan,
+              showResolutionBox: designShowResolutionBox,
+              showBankAccounts: designShowBankAccounts,
+              bankAccountDetails: designBankAccountDetails,
+              termsAndNotes: designTermsAndNotes
+            }
+          };
+          updateCompany(updated);
+          showToast(
+            '¡Diseño de factura guardado!',
+            `Posición de logo (${designLogoPosition}) y estilo guardados para "${targetCo.name}".`
+          );
+        };
+
+        const getLogoSizeClass = (sz: InvoiceDesignConfig['logoSize']) => {
+          switch (sz) {
+            case 'sm': return 'h-12 w-12 max-h-12';
+            case 'lg': return 'h-20 w-20 max-h-20';
+            case 'xl': return 'h-24 w-24 max-h-24';
+            case 'md':
+            default: return 'h-16 w-16 max-h-16';
+          }
+        };
+
+        const getLogoStyleClass = (st: InvoiceDesignConfig['logoStyle']) => {
+          switch (st) {
+            case 'circle': return 'rounded-full border border-slate-200 shadow-sm';
+            case 'card': return 'rounded-xl border border-slate-200 bg-white p-2 shadow-md';
+            case 'rounded': return 'rounded-xl border border-slate-200';
+            case 'none':
+            default: return 'rounded-none';
+          }
+        };
+
+        return (
+          <div className="space-y-6 animate-fade-in">
+            {/* Header / Company Selector Strip */}
+            <div className="bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 rounded-2xl p-5 border border-purple-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h3 className="font-display font-extrabold text-sm text-slate-800 dark:text-slate-100 uppercase tracking-tight flex items-center gap-2">
+                  <Palette className="w-5 h-5 text-purple-500" />
+                  Personalización Visual de Factura & Ubicación del Logotipo
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
+                  Configura exactamente dónde se ubica el logotipo en el encabezado oficial DIAN (izquierda, centro, derecha o banda de marca), su tamaño de impresión, contorno, membrete y color corporativo.
+                </p>
+              </div>
+
+              {/* Company Picker */}
+              <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shrink-0">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-1">Organización:</span>
+                <div className="flex gap-1">
+                  {companies.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setEditingCompanyId(c.id)}
+                      className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                        editingCompanyId === c.id
+                          ? 'bg-purple-600 text-white shadow-md'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span className="truncate max-w-[130px]">{c.name.split(' ')[0]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Main Interactive Configurator (2 columns: Controls + Live Preview) */}
+            <form onSubmit={handleSaveInvoiceDesign}>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                {/* Left Controls Column (7 cols) */}
+                <div className={`lg:col-span-7 p-6 rounded-3xl space-y-6 ${activeTheme.cardStyles} border border-slate-200 dark:border-slate-800`}>
+                  
+                  {/* 1. Logotipo Management */}
+                  <div className="space-y-3 bg-slate-50 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold uppercase text-[11px] tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-purple-500" /> 1. Logotipo de la Empresa ({targetCo.name.split(' ')[0]})
+                      </span>
+                      {logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setLogoUrl(undefined)}
+                          className="text-rose-500 hover:text-rose-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Quitar Logo
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="w-20 h-20 rounded-2xl bg-white dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                        {logoUrl ? (
+                          <img
+                            src={logoUrl}
+                            alt="Logo Empresa"
+                            className="w-full h-full object-contain p-1.5"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="text-center p-2 text-slate-400">
+                            <Building2 className="w-7 h-7 mx-auto mb-1 text-slate-300" />
+                            <p className="text-[8px] font-bold">Sin Logo</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-2 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileInput}
+                            accept="image/*"
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                          >
+                            <Upload className="w-3.5 h-3.5" /> Subir Logotipo
+                          </button>
+                          <span className="text-[10px] text-slate-400">Archivos PNG, JPG o SVG recomendados</span>
+                        </div>
+
+                        {/* Presets */}
+                        <div>
+                          <p className="text-[9.5px] text-slate-400 font-semibold mb-1">O selecciona un logotipo corporativo:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {PRESET_LOGOS.map((pr, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setLogoUrl(pr.url)}
+                                className="px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-purple-400 text-[10px] text-slate-600 dark:text-slate-300 font-medium cursor-pointer transition-all"
+                              >
+                                {pr.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Posición / Ubicación del Logotipo */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold uppercase text-[11px] tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <Layers className="w-4 h-4 text-indigo-500" /> 2. Ubicación del Logotipo en la Factura
+                      </span>
+                      <span className="text-[10px] text-slate-400">Selecciona el diseño del membrete</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      {/* Left */}
+                      <button
+                        type="button"
+                        onClick={() => setDesignLogoPosition('left')}
+                        className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                          designLogoPosition === 'left'
+                            ? 'border-purple-500 bg-purple-50/70 dark:bg-purple-950/40 ring-2 ring-purple-500/20'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <div className="w-5 h-5 rounded bg-blue-500 text-white flex items-center justify-center font-bold text-[9px]">L</div>
+                          <div className="flex-1 space-y-0.5">
+                            <div className="h-1.5 bg-slate-300 dark:bg-slate-600 rounded w-full"></div>
+                            <div className="h-1 bg-slate-200 dark:bg-slate-700 rounded w-2/3"></div>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="font-bold text-[11px] text-slate-800 dark:text-slate-200">Izquierda Clásica</p>
+                          <p className="text-[9px] text-slate-400">Estándar DIAN tradicional</p>
+                        </div>
+                      </button>
+
+                      {/* Center */}
+                      <button
+                        type="button"
+                        onClick={() => setDesignLogoPosition('center')}
+                        className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                          designLogoPosition === 'center'
+                            ? 'border-purple-500 bg-purple-50/70 dark:bg-purple-950/40 ring-2 ring-purple-500/20'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center mb-2">
+                          <div className="w-5 h-5 rounded bg-indigo-500 text-white flex items-center justify-center font-bold text-[9px] mb-1">C</div>
+                          <div className="h-1.5 bg-slate-300 dark:bg-slate-600 rounded w-3/4"></div>
+                        </div>
+                        <div>
+                          <p className="font-bold text-[11px] text-slate-800 dark:text-slate-200">Centro Moderno</p>
+                          <p className="text-[9px] text-slate-400">Membrete centrado elegante</p>
+                        </div>
+                      </button>
+
+                      {/* Right */}
+                      <button
+                        type="button"
+                        onClick={() => setDesignLogoPosition('right')}
+                        className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                          designLogoPosition === 'right'
+                            ? 'border-purple-500 bg-purple-50/70 dark:bg-purple-950/40 ring-2 ring-purple-500/20'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <div className="flex-1 space-y-0.5">
+                            <div className="h-1.5 bg-slate-300 dark:bg-slate-600 rounded w-full"></div>
+                            <div className="h-1 bg-slate-200 dark:bg-slate-700 rounded w-2/3"></div>
+                          </div>
+                          <div className="w-5 h-5 rounded bg-emerald-500 text-white flex items-center justify-center font-bold text-[9px]">R</div>
+                        </div>
+                        <div>
+                          <p className="font-bold text-[11px] text-slate-800 dark:text-slate-200">Ejecutivo Derecha</p>
+                          <p className="text-[9px] text-slate-400">Logo al lado del folio</p>
+                        </div>
+                      </button>
+
+                      {/* Banner */}
+                      <button
+                        type="button"
+                        onClick={() => setDesignLogoPosition('banner')}
+                        className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                          designLogoPosition === 'banner'
+                            ? 'border-purple-500 bg-purple-50/70 dark:bg-purple-950/40 ring-2 ring-purple-500/20'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
+                        }`}
+                      >
+                        <div className="mb-2">
+                          <div 
+                            className="h-4 rounded flex items-center px-1 text-white text-[8px] font-bold"
+                            style={{ backgroundColor: designAccentColor }}
+                          >
+                            Banda de Marca
+                          </div>
+                        </div>
+                        <div>
+                          <p className="font-bold text-[11px] text-slate-800 dark:text-slate-200">Banda Superior</p>
+                          <p className="text-[9px] text-slate-400">Franja corporativa llena</p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3. Tamaño y Estilo del Marco */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Tamaño */}
+                    <div className="space-y-2">
+                      <span className="font-extrabold uppercase text-[10.5px] tracking-wider text-slate-700 dark:text-slate-300">
+                        Tamaño del Logotipo
+                      </span>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {(['sm', 'md', 'lg', 'xl'] as const).map((sz) => (
+                          <button
+                            key={sz}
+                            type="button"
+                            onClick={() => setDesignLogoSize(sz)}
+                            className={`py-1.5 rounded-xl border text-center font-bold text-[11px] cursor-pointer transition-all ${
+                              designLogoSize === sz
+                                ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                                : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                            }`}
+                          >
+                            {sz === 'sm' ? 'Pequeño' : sz === 'md' ? 'Mediano' : sz === 'lg' ? 'Grande' : 'Extra'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Estilo de Marco */}
+                    <div className="space-y-2">
+                      <span className="font-extrabold uppercase text-[10.5px] tracking-wider text-slate-700 dark:text-slate-300">
+                        Estilo de Contorno
+                      </span>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {(['none', 'rounded', 'card', 'circle'] as const).map((st) => (
+                          <button
+                            key={st}
+                            type="button"
+                            onClick={() => setDesignLogoStyle(st)}
+                            className={`py-1.5 rounded-xl border text-center font-bold text-[11px] cursor-pointer transition-all ${
+                              designLogoStyle === st
+                                ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                                : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                            }`}
+                          >
+                            {st === 'none' ? 'Plano' : st === 'rounded' ? 'Redondo' : st === 'card' ? 'Tarjeta' : 'Circular'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. Color de Acento Institucional */}
+                  <div className="space-y-2">
+                    <span className="font-extrabold uppercase text-[10.5px] tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Palette className="w-4 h-4 text-amber-500" /> 3. Color de Acento de la Factura
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {[
+                        { name: 'Azul FinteKia', hex: '#2563eb' },
+                        { name: 'Índigo DIAN', hex: '#4f46e5' },
+                        { name: 'Verde Esmeralda', hex: '#059669' },
+                        { name: 'Slate Ejecutivo', hex: '#0f172a' },
+                        { name: 'Ámbar Industrial', hex: '#d97706' },
+                        { name: 'Púrpura Tech', hex: '#7c3aed' },
+                        { name: 'Rojo Carmesí', hex: '#dc2626' }
+                      ].map((c) => (
+                        <button
+                          key={c.hex}
+                          type="button"
+                          onClick={() => setDesignAccentColor(c.hex)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer text-[10.5px] font-semibold ${
+                            designAccentColor === c.hex
+                              ? 'border-slate-900 dark:border-white shadow-sm ring-2 ring-slate-400/30'
+                              : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: c.hex }}></span>
+                          <span>{c.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 5. Opciones Complementarias */}
+                  <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <span className="font-extrabold uppercase text-[10.5px] tracking-wider text-slate-700 dark:text-slate-300">
+                      4. Contenido & Datos de Pago
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={designShowSlogan}
+                          onChange={(e) => setDesignShowSlogan(e.target.checked)}
+                          className="rounded text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-[11px] font-semibold">Mostrar Eslogan</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={designShowResolutionBox}
+                          onChange={(e) => setDesignShowResolutionBox(e.target.checked)}
+                          className="rounded text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-[11px] font-semibold">Resolución DIAN</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={designShowBankAccounts}
+                          onChange={(e) => setDesignShowBankAccounts(e.target.checked)}
+                          className="rounded text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-[11px] font-semibold">Cuentas de Pago</span>
+                      </label>
+                    </div>
+
+                    {designShowBankAccounts && (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">
+                          Cuentas Bancarias de Recaudo:
+                        </label>
+                        <input
+                          type="text"
+                          value={designBankAccountDetails}
+                          onChange={(e) => setDesignBankAccountDetails(e.target.value)}
+                          placeholder="ej: Bancolombia Cta Ahorros No. 123-456789-01 a nombre de la empresa"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-100"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">
+                        Leyenda Legal de Título Valor (Ley 1231 de 2008):
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={designTermsAndNotes}
+                        onChange={(e) => setDesignTermsAndNotes(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-100"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Save button */}
+                  <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('directory')}
+                      className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                    >
+                      Volver al Directorio
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2.5 rounded-xl text-white font-extrabold text-xs shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                      style={{ backgroundColor: designAccentColor }}
+                    >
+                      <Save className="w-4 h-4" /> Guardar Diseño de Factura de {targetCo.name.split(' ')[0]}
+                    </button>
+                  </div>
+
+                </div>
+
+                {/* Right Column: Real-time Live Preview of the Invoice (5 cols) */}
+                <div className="lg:col-span-5 space-y-3 sticky top-4">
+                  <div className="flex items-center justify-between pb-1">
+                    <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Vista Previa de Impresión A4
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">{targetCo.name.split(' ')[0]}</span>
+                  </div>
+
+                  {/* Simulated Paper Invoice */}
+                  <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-5 text-slate-800 text-[10px] space-y-3 overflow-hidden select-none">
+                    
+                    {/* Banner Layout */}
+                    {designLogoPosition === 'banner' && (
+                      <div 
+                        className="p-3.5 -mx-5 -mt-5 text-white rounded-t-2xl flex items-center justify-between"
+                        style={{ backgroundColor: designAccentColor }}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          {logoUrl ? (
+                            <img 
+                              src={logoUrl} 
+                              alt="Logo" 
+                              className={`${getLogoSizeClass(designLogoSize)} object-contain bg-white/95 p-1 rounded-lg shrink-0`} 
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center font-bold">FK</div>
+                          )}
+                          <div>
+                            <h4 className="font-extrabold text-xs uppercase leading-tight">{targetCo.name}</h4>
+                            <p className="text-[9px] text-white/80">NIT: {targetCo.nit}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="px-2 py-0.5 rounded bg-white/20 text-[8px] font-bold">FACTURA ELECTRÓNICA</span>
+                          <p className="font-mono font-bold text-xs mt-0.5">{targetCo.billingConfig?.prefix || 'FE'}-101</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Left Layout */}
+                    {designLogoPosition === 'left' && (
+                      <div className="flex items-start justify-between border-b pb-3 border-slate-100">
+                        <div className="flex items-start gap-2.5">
+                          {logoUrl ? (
+                            <img 
+                              src={logoUrl} 
+                              alt="Logo" 
+                              className={`${getLogoSizeClass(designLogoSize)} ${getLogoStyleClass(designLogoStyle)} object-contain shrink-0`} 
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold shrink-0">Logo</div>
+                          )}
+                          <div className="space-y-0.5">
+                            <h4 className="font-extrabold text-xs text-slate-900 uppercase leading-tight">{targetCo.name}</h4>
+                            <p className="text-slate-500 text-[9px]">NIT: {targetCo.nit}</p>
+                            {designShowSlogan && targetCo.slogan && (
+                              <p className="text-slate-400 text-[8px] italic">{targetCo.slogan}</p>
+                            )}
+                            <p className="text-slate-500 text-[8px]">{targetCo.address}</p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span 
+                            className="inline-block px-2 py-0.5 rounded font-bold text-[8px] uppercase tracking-wider mb-1"
+                            style={{ color: designAccentColor, backgroundColor: `${designAccentColor}18` }}
+                          >
+                            Factura Electrónica
+                          </span>
+                          <p className="font-mono font-bold text-xs text-slate-900">{targetCo.billingConfig?.prefix || 'FE'}-101</p>
+                          <p className="text-slate-400 text-[8px]">Fecha: 2026-10-16</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Center Layout */}
+                    {designLogoPosition === 'center' && (
+                      <div className="text-center border-b pb-3 border-slate-100 space-y-1">
+                        <div className="flex justify-center">
+                          {logoUrl ? (
+                            <img 
+                              src={logoUrl} 
+                              alt="Logo" 
+                              className={`${getLogoSizeClass(designLogoSize)} ${getLogoStyleClass(designLogoStyle)} object-contain mx-auto`} 
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold mx-auto">Logo</div>
+                          )}
+                        </div>
+                        <h4 className="font-extrabold text-xs text-slate-900 uppercase leading-tight">{targetCo.name}</h4>
+                        <p className="text-slate-500 text-[9px]">NIT: {targetCo.nit} · {targetCo.address}</p>
+                        {designShowSlogan && targetCo.slogan && (
+                          <p className="text-slate-400 text-[8px] italic">{targetCo.slogan}</p>
+                        )}
+                        <div className="pt-1 flex items-center justify-center gap-3 text-[9px]">
+                          <span className="font-mono font-bold" style={{ color: designAccentColor }}>{targetCo.billingConfig?.prefix || 'FE'}-101</span>
+                          <span className="text-slate-400">|</span>
+                          <span>Fecha: 2026-10-16</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Right Layout */}
+                    {designLogoPosition === 'right' && (
+                      <div className="flex items-start justify-between border-b pb-3 border-slate-100">
+                        <div className="space-y-0.5">
+                          <h4 className="font-extrabold text-xs text-slate-900 uppercase leading-tight">{targetCo.name}</h4>
+                          <p className="text-slate-500 text-[9px]">NIT: {targetCo.nit}</p>
+                          {designShowSlogan && targetCo.slogan && (
+                            <p className="text-slate-400 text-[8px] italic">{targetCo.slogan}</p>
+                          )}
+                          <p className="text-slate-500 text-[8px]">{targetCo.address}</p>
+                          <p className="font-mono font-bold text-xs pt-1" style={{ color: designAccentColor }}>{targetCo.billingConfig?.prefix || 'FE'}-101</p>
+                        </div>
+                        <div>
+                          {logoUrl ? (
+                            <img 
+                              src={logoUrl} 
+                              alt="Logo" 
+                              className={`${getLogoSizeClass(designLogoSize)} ${getLogoStyleClass(designLogoStyle)} object-contain shrink-0`} 
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold">Logo</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Resolution snippet */}
+                    {designShowResolutionBox && (
+                      <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 text-[8px] text-slate-500 leading-snug">
+                        Resolución DIAN No. {targetCo.billingConfig?.resolutionNumber || '187640000099'} del {targetCo.billingConfig?.resolutionDate || '2026-01-15'} · Prefijo {targetCo.billingConfig?.prefix || 'FE'} ({targetCo.billingConfig?.authorizedRangeFrom || 101} al {targetCo.billingConfig?.authorizedRangeTo || 10000}) · Validación Vía {targetCo.billingConfig?.providerName || 'Alanube'}
+                      </div>
+                    )}
+
+                    {/* Table with custom accent color header */}
+                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                      <table className="w-full text-left text-[8px]">
+                        <thead style={{ backgroundColor: `${designAccentColor}18`, color: designAccentColor }}>
+                          <tr className="font-bold">
+                            <th className="p-1.5">Ítem</th>
+                            <th className="p-1.5 text-center">Cant</th>
+                            <th className="p-1.5 text-right">Precio</th>
+                            <th className="p-1.5 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          <tr>
+                            <td className="p-1.5 font-medium">Servicios Empresariales Especializados</td>
+                            <td className="p-1.5 text-center">2</td>
+                            <td className="p-1.5 text-right font-mono">$ 1.500.000</td>
+                            <td className="p-1.5 text-right font-mono font-bold">$ 3.000.000</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Totals */}
+                    <div className="flex justify-end text-[8.5px]">
+                      <div className="w-40 space-y-0.5">
+                        <div className="flex justify-between text-slate-500">
+                          <span>Subtotal:</span>
+                          <span className="font-mono">$ 3.000.000</span>
+                        </div>
+                        <div className="flex justify-between text-slate-500">
+                          <span>IVA (19%):</span>
+                          <span className="font-mono">$ 570.000</span>
+                        </div>
+                        <div 
+                          className="flex justify-between font-bold text-[10px] pt-1 border-t border-slate-200"
+                          style={{ color: designAccentColor }}
+                        >
+                          <span>TOTAL:</span>
+                          <span className="font-mono">$ 3.570.000</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bank Account snippet */}
+                    {designShowBankAccounts && designBankAccountDetails && (
+                      <div className="p-2 rounded bg-blue-50/60 border border-blue-100 text-[8px] text-blue-800">
+                        <span className="font-bold">Información de Pago:</span> {designBankAccountDetails}
+                      </div>
+                    )}
+
+                    {/* CUFE */}
+                    <div className="border-t pt-2 flex items-center justify-between text-[7px] text-slate-400">
+                      <div className="truncate max-w-[200px]">
+                        <span className="font-bold">CUFE:</span> fe2026dian77a0129bc489...
+                      </div>
+                      <div className="w-6 h-6 bg-slate-100 border border-slate-200 rounded flex items-center justify-center text-slate-600">
+                        <i className="ri-qr-code-line text-sm"></i>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+              </div>
+            </form>
+          </div>
+        );
+      })()}
 
     </div>
   );

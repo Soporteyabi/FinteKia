@@ -196,10 +196,14 @@ export default function App() {
 
   // State manipulation triggers (actions)
   const handleSwitchCompany = (id: string) => {
+    const target = state.companies.find((co) => co.id === id);
     setState((prev) => ({
       ...prev,
       currentCompanyId: id
     }));
+    if (target) {
+      toast.info(`Entorno cambiado a "${target.name}". Prefijo DIAN: ${target.billingConfig?.prefix || 'FE'}`, 'Empresa Activa');
+    }
   };
 
   const handleCreateCompany = () => {
@@ -232,6 +236,35 @@ export default function App() {
       regimen: newCompRegimen,
       currency: newCompCurrency,
       period: newCompPeriod,
+      businessType: 'comercial',
+      enableProduction: false,
+      enableTechServices: true,
+      billingConfig: {
+        providerType: 'tercero_proveedor',
+        providerName: 'Alanube',
+        providerNit: '901.464.305-6',
+        environment: 'produccion',
+        prefix: 'FE',
+        resolutionNumber: '187640000099',
+        resolutionDate: '2026-01-15',
+        authorizedRangeFrom: 1,
+        authorizedRangeTo: 5000,
+        clientId: 'ala_cli_live_98a72b4c8102',
+        clientSecret: 'ala_sec_f9823be800e2194ad9b3c4f',
+        apiToken: 'ala_live_sec_98f7e2a4d3_auth_key',
+        autoSendEmail: true
+      },
+      invoiceDesign: {
+        logoPosition: 'left',
+        logoSize: 'md',
+        logoStyle: 'rounded',
+        accentColor: '#2563eb',
+        showSlogan: true,
+        showResolutionBox: true,
+        showBankAccounts: true,
+        bankAccountDetails: `Bancolombia Cta Ahorros (NIT ${newCompNit.trim()})`,
+        termsAndNotes: 'Esta factura de venta se asimila en sus efectos legales a una letra de cambio según la ley 1231 de 2008.'
+      },
       payrollParameters: {
         smmlv: Number(newCompSmmlv) || 1423500,
         auxTransporte: Number(newCompAuxTransporte) || 172000
@@ -245,6 +278,7 @@ export default function App() {
       activeView: 'dashboard'
     }));
 
+    toast.success(`Organización "${newCompany.name}" creada y activada.`, 'Empresa Creada');
     setShowCreateCompanyModal(false);
   };
 
@@ -263,6 +297,13 @@ export default function App() {
     total: number; 
     lines: any[]; 
     items?: any[];
+    companyId?: string;
+    paymentTerm?: 'contado' | 'credito';
+    dueDate?: string;
+    discountTotal?: number;
+    retenciones?: { retefuente?: number; reteiva?: number; reteica?: number };
+    billingProviderData?: any;
+    notes?: string;
   }) => {
     const newVoucher: Voucher = {
       id: `v-${Date.now()}`,
@@ -274,7 +315,14 @@ export default function App() {
       status: 'procesado',
       total: p.total,
       lines: p.lines,
-      items: p.items
+      items: p.items,
+      companyId: p.companyId || state.currentCompanyId,
+      paymentTerm: p.paymentTerm,
+      dueDate: p.dueDate,
+      discountTotal: p.discountTotal,
+      retenciones: p.retenciones,
+      billingProviderData: p.billingProviderData,
+      notes: p.notes
     };
 
     setState((prev) => ({
@@ -1088,10 +1136,19 @@ export default function App() {
                 setShowNotifMenu(false);
                 setShowUserMenu(false);
               }}
-              className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/90 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-xs font-semibold cursor-pointer transition-all max-w-[170px] sm:max-w-[210px]"
-              title="Organización activa (clic para cambiar)"
+              className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/90 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-xs font-semibold cursor-pointer transition-all max-w-[180px] sm:max-w-[230px]"
+              title="Organización activa (clic para cambiar o configurar)"
             >
-              <i className="ri-building-2-line text-blue-500 shrink-0 text-sm"></i>
+              {activeCompany.logoUrl ? (
+                <img 
+                  src={activeCompany.logoUrl} 
+                  alt="Logo" 
+                  className="w-4 h-4 object-contain rounded shrink-0 bg-white dark:bg-slate-800 p-0.5" 
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <i className="ri-building-2-line text-blue-500 shrink-0 text-sm"></i>
+              )}
               <span className="truncate font-bold text-slate-800 dark:text-white text-xs">{activeCompany.name}</span>
               <i className="ri-arrow-down-s-line text-slate-400 text-xs shrink-0"></i>
             </button>
@@ -1102,12 +1159,12 @@ export default function App() {
                   className="fixed inset-0 z-40" 
                   onClick={() => setShowCompanyDropdown(false)}
                 />
-                <div className="absolute left-0 mt-2 w-72 rounded-2xl bg-white dark:bg-[#0d1424] border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-50 text-xs animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="absolute left-0 mt-2 w-80 rounded-2xl bg-white dark:bg-[#0d1424] border border-slate-200 dark:border-slate-800 shadow-2xl p-2.5 z-50 text-xs animate-in fade-in slide-in-from-top-1 duration-150">
                   <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-slate-100 dark:border-slate-800 font-bold text-slate-400 text-[10px] uppercase">
-                    <span>Organizaciones</span>
+                    <span>Organizaciones Multiempresa</span>
                     <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-mono">{state.companies.length}</span>
                   </div>
-                  <div className="max-h-48 overflow-y-auto mt-1 space-y-1">
+                  <div className="max-h-56 overflow-y-auto mt-1 space-y-1">
                     {state.companies.map((co) => (
                       <button
                         key={co.id}
@@ -1115,21 +1172,32 @@ export default function App() {
                           handleSwitchCompany(co.id);
                           setShowCompanyDropdown(false);
                         }}
-                        className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
+                        className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
                           co.id === activeCompany.id
-                            ? 'bg-blue-600 text-white font-bold'
+                            ? 'bg-blue-600 text-white font-bold shadow-sm'
                             : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
                         }`}
                       >
-                        <div className="truncate">
-                          <span className="block truncate font-semibold">{co.name}</span>
-                          <span className="text-[10px] font-mono opacity-70">NIT: {co.nit}</span>
+                        <div className="flex items-center gap-2 truncate">
+                          <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
+                            {co.logoUrl ? (
+                              <img src={co.logoUrl} alt={co.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                            ) : (
+                              <span className="text-[10px] font-black text-slate-600 dark:text-slate-300">
+                                {co.name.substring(0, 2).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <div className="truncate">
+                            <span className="block truncate font-semibold leading-tight">{co.name}</span>
+                            <span className="text-[9.5px] font-mono opacity-70">NIT: {co.nit}</span>
+                          </div>
                         </div>
-                        {co.id === activeCompany.id && <i className="ri-check-line text-sm shrink-0"></i>}
+                        {co.id === activeCompany.id && <i className="ri-check-line text-base shrink-0"></i>}
                       </button>
                     ))}
                   </div>
-                  <div className="pt-2 mt-1 border-t border-slate-100 dark:border-slate-800">
+                  <div className="pt-2 mt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1">
                     <button
                       onClick={() => {
                         handleCreateCompany();
@@ -1137,7 +1205,16 @@ export default function App() {
                       }}
                       className="w-full py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-cyan-400 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
                     >
-                      <i className="ri-add-line"></i> Crear Organización
+                      <i className="ri-add-line"></i> Crear Nueva Organización
+                    </button>
+                    <button
+                      onClick={() => {
+                        setState(prev => ({ ...prev, activeView: 'empresa' }));
+                        setShowCompanyDropdown(false);
+                      }}
+                      className="w-full py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors cursor-pointer"
+                    >
+                      <i className="ri-palette-line"></i> Diseñar Factura & Logotipo
                     </button>
                   </div>
                 </div>
