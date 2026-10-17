@@ -49,6 +49,7 @@ export default function InvoicePrintPreview({
   const [localLogoSize, setLocalLogoSize] = useState<InvoiceDesignConfig['logoSize']>(companyDesign.logoSize);
   const [localLogoStyle, setLocalLogoStyle] = useState<InvoiceDesignConfig['logoStyle']>(companyDesign.logoStyle);
   const [localAccentColor, setLocalAccentColor] = useState<string>(companyDesign.accentColor);
+  const [localShowSignatures, setLocalShowSignatures] = useState<boolean>(companyDesign.showSignatures !== false);
 
   const client = terceros.find((t) => t.id === invoice.thirdPartyId);
 
@@ -62,11 +63,12 @@ export default function InvoicePrintPreview({
         logoPosition: localLogoPosition,
         logoSize: localLogoSize,
         logoStyle: localLogoStyle,
-        accentColor: localAccentColor
+        accentColor: localAccentColor,
+        showSignatures: localShowSignatures
       }
     };
     onUpdateCompany(updatedCompany);
-    toast.success('Posición del logo y diseño guardados como predeterminados para esta empresa.', 'Diseño Guardado');
+    toast.success('Posición del logo, firmas y diseño guardados como predeterminados para esta empresa.', 'Diseño Guardado');
   };
 
   const handleCopySummary = () => {
@@ -321,6 +323,20 @@ ${linesSummary}
                   </button>
                 ))}
               </div>
+
+              {/* Firmas Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setLocalShowSignatures(!localShowSignatures)}
+                className={`px-2.5 py-1 rounded-lg font-bold text-[10px] transition-all flex items-center gap-1.5 cursor-pointer ml-1 border ${
+                  localShowSignatures 
+                    ? 'bg-purple-600/30 text-purple-200 border-purple-500/40' 
+                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+                }`}
+                title="Mostrar u ocultar casillas de Firma Autorizada y Recibí Conforme"
+              >
+                <i className="ri-quill-pen-line"></i> Firmas: {localShowSignatures ? 'Activadas' : 'Ocultas'}
+              </button>
             </div>
 
             <div className="flex items-center gap-3">
@@ -625,8 +641,17 @@ ${linesSummary}
             </table>
           </div>
 
-          {/* 4. TOTALS & BANK PAYMENT INFO (Compact Side-by-Side block with avoid-break) */}
-          <div id="print-section-totals" className="print-avoid-break flex flex-col sm:flex-row justify-between items-start gap-3 pt-0.5">
+          {/* 4. TOTALS & BANK PAYMENT INFO (With 2cm space after table requested by user) */}
+          <div 
+            id="print-section-totals" 
+            className={`print-avoid-break flex flex-col sm:flex-row justify-between items-start gap-3 ${
+              itemCount <= 8 
+                ? 'mt-8 sm:mt-9 print:mt-[20mm]' 
+                : itemCount <= 12 
+                  ? 'mt-5 sm:mt-6 print:mt-[14mm]' 
+                  : 'mt-3 sm:mt-4 print:mt-[8mm]'
+            }`}
+          >
             
             {/* Left: Bank Account Payment Info and Legal Terms */}
             <div className="space-y-1.5 flex-1 max-w-sm">
@@ -689,7 +714,62 @@ ${linesSummary}
             </div>
           </div>
 
-          {/* 5. CUFE & QR VALIDATION FOOTER (Compact strip with avoid-break) */}
+          {/* 5. SIGNATURES SECTION (Ubicadas más abajo con espacio amplio de 2cm para firmar) */}
+          {localShowSignatures && (
+            <div 
+              id="print-section-signatures" 
+              className={`print-avoid-break border-t border-slate-200 ${
+                itemCount <= 8
+                  ? 'mt-7 sm:mt-9 print:mt-[18mm] pt-3'
+                  : itemCount <= 12
+                    ? 'mt-5 sm:mt-6 print:mt-[12mm] pt-2.5'
+                    : 'mt-3 sm:mt-4 print:mt-[8mm] pt-2'
+              }`}
+            >
+              <div className="grid grid-cols-2 gap-8 text-[9px] text-slate-700">
+                
+                {/* Firma Autorizada Emisor */}
+                <div className="flex flex-col justify-end pt-9 sm:pt-11 print:pt-9">
+                  <div className="border-t-2 border-slate-400 pt-1.5 space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold uppercase tracking-wider text-slate-900 text-[8.5px]">
+                        Firma Autorizada / Emisor
+                      </span>
+                      <span className="text-[7.5px] text-slate-400 font-mono">Sello de Despacho</span>
+                    </div>
+                    <p className="font-semibold text-slate-700 text-[8px] truncate leading-tight">
+                      {currentCompany.name}
+                    </p>
+                    <p className="text-[7.5px] text-slate-500 font-mono leading-none">
+                      NIT: {currentCompany.nit}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Recibí Conforme (Aceptación del Comprador) */}
+                <div className="flex flex-col justify-end pt-9 sm:pt-11 print:pt-9">
+                  <div className="border-t-2 border-slate-400 pt-1.5 space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold uppercase tracking-wider text-slate-900 text-[8.5px]">
+                        Recibí Conforme (Aceptación)
+                      </span>
+                      <span className="text-[7.5px] text-slate-400 font-mono">Fecha: ___/___/2026</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-[7.5px] text-slate-600 leading-tight">
+                      <p className="truncate">Nombre: ____________________</p>
+                      <p className="truncate">C.C. / NIT: ________________</p>
+                    </div>
+                    <p className="text-[7px] text-slate-400 italic leading-none pt-0.5">
+                      Constancia de recibo a satisfacción y entrega real y material de mercancías o servicios prestados (Art. 773 C.Co. / Ley 1231 de 2008).
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* 6. CUFE & QR VALIDATION FOOTER (Compact strip with avoid-break) */}
           <div id="print-section-footer" className="print-avoid-break border-t border-slate-200 pt-2 flex items-center justify-between gap-3 text-[9px] text-slate-500">
             <div className="space-y-0.5 flex-1 pr-2">
               <p className="font-mono break-all font-semibold text-slate-700 text-[8px] leading-tight">

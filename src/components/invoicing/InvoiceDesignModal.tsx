@@ -21,7 +21,8 @@ export const DEFAULT_INVOICE_DESIGN: InvoiceDesignConfig = {
   bankAccountDetails: 'Bancolombia Cta Corriente No. 245-098712-88 (NIT 901.455.120-3)',
   termsAndNotes: 'Esta factura de venta se asimila en sus efectos legales a una letra de cambio según la Ley 1231 de 2008. Autorizo el tratamiento de datos personales para fines contables y comerciales.',
   watermarkText: '',
-  headerLayout: 'classic'
+  headerLayout: 'classic',
+  showSignatures: true
 };
 
 const PRESET_LOGOS = [
@@ -79,6 +80,7 @@ export default function InvoiceDesignModal({
   const [showSlogan, setShowSlogan] = useState<boolean>(currentDesign.showSlogan);
   const [showResolutionBox, setShowResolutionBox] = useState<boolean>(currentDesign.showResolutionBox);
   const [showBankAccounts, setShowBankAccounts] = useState<boolean>(currentDesign.showBankAccounts);
+  const [showSignatures, setShowSignatures] = useState<boolean>(currentDesign.showSignatures !== false);
   const [bankAccountDetails, setBankAccountDetails] = useState<string>(currentDesign.bankAccountDetails || '');
   const [termsAndNotes, setTermsAndNotes] = useState<string>(currentDesign.termsAndNotes || '');
 
@@ -113,6 +115,7 @@ export default function InvoiceDesignModal({
         showSlogan,
         showResolutionBox,
         showBankAccounts,
+        showSignatures,
         bankAccountDetails,
         termsAndNotes
       }
@@ -442,7 +445,7 @@ export default function InvoiceDesignModal({
                 4. Opciones de Contenido en la Factura
               </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                 <label className="flex items-center gap-2 p-2 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">
                   <input
                     type="checkbox"
@@ -471,6 +474,16 @@ export default function InvoiceDesignModal({
                     className="rounded text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-[11px] font-semibold">Datos Cta Bancaria</span>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">
+                  <input
+                    type="checkbox"
+                    checked={showSignatures}
+                    onChange={(e) => setShowSignatures(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-[11px] font-semibold">Firmas al Pie (Emisor / Recibí)</span>
                 </label>
               </div>
 
@@ -708,6 +721,20 @@ export default function InvoiceDesignModal({
                 {showBankAccounts && bankAccountDetails && (
                   <div className="p-2 rounded bg-blue-50/60 border border-blue-100 text-[8px] text-blue-800">
                     <span className="font-bold">Información de Pago:</span> {bankAccountDetails}
+                  </div>
+                )}
+
+                {/* Signatures Simulation */}
+                {showSignatures && (
+                  <div className="border-t border-slate-200 pt-1.5 grid grid-cols-2 gap-3 text-[7.5px] text-slate-600">
+                    <div className="border-t border-slate-300 pt-0.5">
+                      <p className="font-bold text-slate-800 uppercase text-[7px]">Firma Emisor</p>
+                      <p className="truncate text-slate-500 text-[6.5px]">{company.name}</p>
+                    </div>
+                    <div className="border-t border-slate-300 pt-0.5">
+                      <p className="font-bold text-slate-800 uppercase text-[7px]">Recibí Conforme</p>
+                      <p className="text-slate-500 text-[6.5px]">Nombre, C.C. / Sello</p>
+                    </div>
                   </div>
                 )}
 

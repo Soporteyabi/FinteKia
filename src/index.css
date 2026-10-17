@@ -119,11 +119,12 @@ body {
     break-inside: auto !important;
   }
 
-  /* Never break inside the header, client box, totals, or footer */
+  /* Never break inside the header, client box, totals, signatures or footer */
   .print-avoid-break,
   #print-section-header,
   #print-section-client,
   #print-section-totals,
+  #print-section-signatures,
   #print-section-footer {
     break-inside: avoid !important;
     page-break-inside: avoid !important;

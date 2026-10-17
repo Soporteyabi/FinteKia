@@ -39,6 +39,7 @@ export interface InvoiceDesignConfig {
   termsAndNotes?: string;
   watermarkText?: string;
   headerLayout?: 'classic' | 'modern' | 'minimal' | 'executive';
+  showSignatures?: boolean; // Firmas al pie: Emisor (Firma autorizada) y Aceptación (Recibí conforme)
 }
 
 export interface Company {

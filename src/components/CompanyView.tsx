@@ -70,6 +70,7 @@ export default function CompanyView({
   const [designShowSlogan, setDesignShowSlogan] = useState<boolean>(true);
   const [designShowResolutionBox, setDesignShowResolutionBox] = useState<boolean>(true);
   const [designShowBankAccounts, setDesignShowBankAccounts] = useState<boolean>(true);
+  const [designShowSignatures, setDesignShowSignatures] = useState<boolean>(true);
   const [designBankAccountDetails, setDesignBankAccountDetails] = useState<string>('');
   const [designTermsAndNotes, setDesignTermsAndNotes] = useState<string>('');
 
@@ -143,6 +144,7 @@ export default function CompanyView({
       setDesignShowSlogan(des.showSlogan !== false);
       setDesignShowResolutionBox(des.showResolutionBox !== false);
       setDesignShowBankAccounts(des.showBankAccounts !== false);
+      setDesignShowSignatures(des.showSignatures !== false);
       setDesignBankAccountDetails(des.bankAccountDetails || (co.id === 'co-2' ? 'Banco de Bogotá Cta Ahorros No. 034-771290-12 (NIT 800.224.990-1)' : 'Bancolombia Cta Corriente No. 245-098712-88 (NIT 901.455.120-3)'));
       setDesignTermsAndNotes(des.termsAndNotes || DEFAULT_INVOICE_DESIGN.termsAndNotes || '');
     }
@@ -1494,6 +1496,7 @@ export default function CompanyView({
               showSlogan: designShowSlogan,
               showResolutionBox: designShowResolutionBox,
               showBankAccounts: designShowBankAccounts,
+              showSignatures: designShowSignatures,
               bankAccountDetails: designBankAccountDetails,
               termsAndNotes: designTermsAndNotes
             }
@@ -1831,7 +1834,7 @@ export default function CompanyView({
                       4. Contenido & Datos de Pago
                     </span>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                       <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">
                         <input
                           type="checkbox"
@@ -1860,6 +1863,16 @@ export default function CompanyView({
                           className="rounded text-purple-600 focus:ring-purple-500"
                         />
                         <span className="text-[11px] font-semibold">Cuentas de Pago</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={designShowSignatures}
+                          onChange={(e) => setDesignShowSignatures(e.target.checked)}
+                          className="rounded text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-[11px] font-semibold">Firmas al Pie (Emisor / Recibí)</span>
                       </label>
                     </div>
 
@@ -2094,6 +2107,20 @@ export default function CompanyView({
                     {designShowBankAccounts && designBankAccountDetails && (
                       <div className="p-2 rounded bg-blue-50/60 border border-blue-100 text-[8px] text-blue-800">
                         <span className="font-bold">Información de Pago:</span> {designBankAccountDetails}
+                      </div>
+                    )}
+
+                    {/* Signatures Simulation */}
+                    {designShowSignatures && (
+                      <div className="border-t border-slate-200 pt-1.5 grid grid-cols-2 gap-3 text-[7.5px] text-slate-600">
+                        <div className="border-t border-slate-300 pt-0.5">
+                          <p className="font-bold text-slate-800 uppercase text-[7px]">Firma Emisor</p>
+                          <p className="truncate text-slate-500 text-[6.5px]">{targetCo.name}</p>
+                        </div>
+                        <div className="border-t border-slate-300 pt-0.5">
+                          <p className="font-bold text-slate-800 uppercase text-[7px]">Recibí Conforme</p>
+                          <p className="text-slate-500 text-[6.5px]">Nombre, C.C. / Sello</p>
+                        </div>
                       </div>
                     )}
 
