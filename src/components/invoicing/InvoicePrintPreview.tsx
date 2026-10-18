@@ -155,6 +155,57 @@ ${linesSummary}
 
   return (
     <div className="space-y-4">
+      {/* Top Header & Navigation Bar: Return to Main Menu / Invoicing */}
+      <div className="no-print bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 cursor-pointer shadow-lg hover:shadow-indigo-500/25 transition-all transform active:scale-95 shrink-0"
+            id="btn-return-to-menu-top"
+          >
+            <i className="ri-arrow-left-line text-base"></i>
+            <span>Volver a Facturación / Menú</span>
+          </button>
+          
+          <div className="border-l border-slate-700/80 pl-3">
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-300 font-medium">
+              <span>Menú Principal</span>
+              <span className="text-slate-500">/</span>
+              <span className="text-slate-200">Facturación Electrónica</span>
+              <span className="text-slate-500">/</span>
+              <span className="text-indigo-400 font-bold font-mono">Factura {invoice.number}</span>
+            </div>
+            <h3 className="font-extrabold text-sm sm:text-base text-white flex items-center gap-2 mt-0.5">
+              <span>Vista Previa & Impresión Fiscal: {invoice.number}</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                ✓ Validada DIAN
+              </span>
+            </h3>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
+          >
+            <i className="ri-printer-line"></i>
+            <span>Imprimir / PDF</span>
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors border border-slate-700"
+            title="Cerrar vista previa y regresar al formulario"
+          >
+            <i className="ri-close-line text-sm"></i>
+            <span>Cerrar</span>
+          </button>
+        </div>
+      </div>
+
       {/* Action Toolbar on Screen (Organized into 2 clear functional tiers) */}
       <div className="no-print bg-slate-900/95 border border-slate-800 rounded-2xl p-3.5 space-y-3 text-xs shadow-2xl backdrop-blur-md">
         
@@ -898,6 +949,38 @@ ${linesSummary}
           </div>
         </div>
       )}
+
+      {/* Bottom Navigation Footer (no-print) */}
+      <div className="no-print pt-6 pb-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-800 text-xs text-slate-300">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center gap-2 cursor-pointer shadow-md transition-all active:scale-95 border border-slate-700"
+          id="btn-return-to-menu-bottom"
+        >
+          <i className="ri-arrow-left-line text-sm"></i>
+          <span>Volver al Menú de Facturación</span>
+        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleShareWhatsApp}
+            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
+          >
+            <i className="ri-whatsapp-line"></i>
+            <span>Compartir WhatsApp</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black flex items-center gap-2 cursor-pointer shadow-xl transition-all"
+          >
+            <i className="ri-printer-line text-sm"></i>
+            <span>Imprimir / PDF</span>
+          </button>
+        </div>
+      </div>
 
       {/* Invoice Design Full Modal */}
       {showDesignModal && (

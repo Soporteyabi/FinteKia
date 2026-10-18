@@ -8,6 +8,7 @@ interface AlanubeConfigViewProps {
   updateCompany: (updated: Company) => void;
   theme?: string;
   onNavigateToInvoicing?: () => void;
+  onReturnToMenu?: () => void;
 }
 
 interface TestStep {
@@ -32,7 +33,8 @@ export default function AlanubeConfigView({
   currentCompany,
   updateCompany,
   theme = 'slate_gray',
-  onNavigateToInvoicing
+  onNavigateToInvoicing,
+  onReturnToMenu
 }: AlanubeConfigViewProps) {
   // Current active billing config or default template
   const currentConfig: ElectronicBillingConfig = currentCompany.billingConfig || {
@@ -397,6 +399,26 @@ export default function AlanubeConfigView({
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3 max-w-3xl">
             <div className="flex flex-wrap items-center gap-2">
+              {onReturnToMenu && (
+                <button
+                  type="button"
+                  onClick={onReturnToMenu}
+                  className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all mr-1"
+                >
+                  <i className="ri-arrow-left-line"></i>
+                  <span>Volver al Menú Principal</span>
+                </button>
+              )}
+              {onNavigateToInvoicing && (
+                <button
+                  type="button"
+                  onClick={onNavigateToInvoicing}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs flex items-center gap-1.5 cursor-pointer border border-slate-700 transition-all mr-2"
+                >
+                  <i className="ri-receipt-line text-indigo-400"></i>
+                  <span>Ir a Facturación</span>
+                </button>
+              )}
               <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 flex items-center gap-1.5">
                 <i className="ri-cloud-line text-indigo-400"></i> Proveedor Tecnológico DIAN
               </span>

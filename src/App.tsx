@@ -1612,6 +1612,8 @@ export default function App() {
                   onOpenAlanubeConfig={() => setState((prev) => ({ ...prev, activeView: 'alanube_config' }))}
                   addTercero={handleAddTercero}
                   currentUser={state.currentUser}
+                  onReturnToMenu={() => setState((prev) => ({ ...prev, activeView: 'dashboard' }))}
+                  setActiveView={(v) => setState((prev) => ({ ...prev, activeView: v }))}
                 />
               )}
 
@@ -1873,6 +1875,7 @@ export default function App() {
                   updateCompany={handleUpdateCompany}
                   theme={currentThemeId}
                   onNavigateToInvoicing={() => setState((prev) => ({ ...prev, activeView: 'facturacion' }))}
+                  onReturnToMenu={() => setState((prev) => ({ ...prev, activeView: 'dashboard' }))}
                 />
               )}
 
