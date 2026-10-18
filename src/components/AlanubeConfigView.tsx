@@ -7,6 +7,7 @@ interface AlanubeConfigViewProps {
   currentCompany: Company;
   updateCompany: (updated: Company) => void;
   theme?: string;
+  initialTab?: 'credentials' | 'dian_params' | 'test_suite' | 'habilitation' | 'docs';
   onNavigateToInvoicing?: () => void;
   onReturnToMenu?: () => void;
 }
@@ -33,6 +34,7 @@ export default function AlanubeConfigView({
   currentCompany,
   updateCompany,
   theme = 'slate_gray',
+  initialTab,
   onNavigateToInvoicing,
   onReturnToMenu
 }: AlanubeConfigViewProps) {
@@ -81,7 +83,7 @@ export default function AlanubeConfigView({
   const [showSecret, setShowSecret] = useState(false);
   const [saveToast, setSaveToast] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'credentials' | 'dian_params' | 'test_suite' | 'habilitation' | 'docs'>('credentials');
+  const [activeTab, setActiveTab] = useState<'credentials' | 'dian_params' | 'test_suite' | 'habilitation' | 'docs'>(initialTab || 'credentials');
   const [autoRunHabilitation, setAutoRunHabilitation] = useState(false);
   const [isTestingPagination, setIsTestingPagination] = useState(false);
   const [paginationResult, setPaginationResult] = useState<any | null>(null);
@@ -1545,6 +1547,8 @@ export default function AlanubeConfigView({
           currentCompany={currentCompany}
           activeBillingConfig={currentConfig}
           autoStartValidation={autoRunHabilitation}
+          onReturnToMenu={onReturnToMenu}
+          onClose={() => setActiveTab('keys')}
           onUpdateBillingConfig={(updated) => {
             updateCompany({
               ...currentCompany,

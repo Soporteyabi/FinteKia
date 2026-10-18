@@ -2244,12 +2244,69 @@ export default function InvoicingView({
 
       {/* Modal: Asistente de Habilitación DIAN (8 Facturas de Prueba) */}
       {showHabilitationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto animate-fade-in">
-          <div className="max-w-4xl w-full my-8">
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6 md:p-8 pt-4 sm:pt-8 pb-16 bg-slate-950/90 backdrop-blur-md overflow-y-auto animate-fade-in">
+          <div className="max-w-5xl w-full my-auto space-y-3">
+            {/* Top Modal Navigation Header Bar */}
+            <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-2xl p-3.5 px-4 shadow-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                {onReturnToMenu && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowHabilitationModal(false);
+                      setAutoRunHabilitationModal(false);
+                      onReturnToMenu();
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer hover:scale-[1.02] active:scale-95"
+                    title="Regresar al Menú Principal del ERP"
+                  >
+                    <i className="ri-arrow-left-line font-bold"></i>
+                    <span>Volver al Menú Principal</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowHabilitationModal(false);
+                    setAutoRunHabilitationModal(false);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Cerrar modal y volver a Facturación"
+                >
+                  <i className="ri-receipt-line text-indigo-400"></i>
+                  <span>Volver a Facturación</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold text-[11px] flex items-center gap-1">
+                  <i className="ri-shield-check-line text-indigo-400"></i>
+                  <span>Ambiente Habilitación DIAN</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowHabilitationModal(false);
+                    setAutoRunHabilitationModal(false);
+                  }}
+                  className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 flex items-center justify-center transition-colors cursor-pointer"
+                  title="Cerrar asistente"
+                >
+                  <i className="ri-close-line text-base"></i>
+                </button>
+              </div>
+            </div>
+
             <DianHabilitationAssistant
               currentCompany={currentCompany}
               activeBillingConfig={activeBillingConfig}
               autoStartValidation={autoRunHabilitationModal}
+              onReturnToMenu={() => {
+                setShowHabilitationModal(false);
+                setAutoRunHabilitationModal(false);
+                onReturnToMenu?.();
+              }}
               onClose={() => {
                 setShowHabilitationModal(false);
                 setAutoRunHabilitationModal(false);

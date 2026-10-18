@@ -14,7 +14,9 @@ import {
   Copy,
   ChevronDown,
   ChevronUp,
-  Zap
+  Zap,
+  ArrowLeft,
+  Building2
 } from 'lucide-react';
 
 export interface DianTestInvoiceScenario {
@@ -143,6 +145,7 @@ interface DianHabilitationAssistantProps {
   activeBillingConfig: ElectronicBillingConfig;
   onUpdateBillingConfig: (updated: ElectronicBillingConfig) => void;
   onClose?: () => void;
+  onReturnToMenu?: () => void;
   autoStartValidation?: boolean;
 }
 
@@ -151,6 +154,7 @@ export default function DianHabilitationAssistant({
   activeBillingConfig,
   onUpdateBillingConfig,
   onClose,
+  onReturnToMenu,
   autoStartValidation = false
 }: DianHabilitationAssistantProps) {
   const [testSetId, setTestSetId] = useState(
@@ -307,31 +311,40 @@ export default function DianHabilitationAssistant({
   return (
     <div className="space-y-6 text-slate-100">
       
-      {/* Top Banner & Official Links */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold">
-                <ShieldCheck className="w-5 h-5 text-indigo-400" />
-              </div>
-              <div>
-                <h3 className="font-display font-bold text-lg text-white flex items-center gap-2">
-                  Asistente de Habilitación DIAN
-                  {isFullyHabilitated ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                      ✓ EMISOR HABILITADO DIAN
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                      MODO HABILITACIÓN ({completedCount}/8)
-                    </span>
-                  )}
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Transmisión y certificación del Set de 8 Facturas Electrónicas de Prueba exigidas por la DIAN vía Alanube API
-                </p>
-              </div>
+      {/* Top Prominent Encabezado Visible & Retorno al Menú Principal */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
+        {/* Navigation & Breadcrumb Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-500/20 pb-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {onReturnToMenu && (
+              <button
+                type="button"
+                onClick={onReturnToMenu}
+                className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md transition-all hover:scale-[1.02] active:scale-95"
+                title="Regresar a la pantalla de menú principal"
+              >
+                <ArrowLeft className="w-4 h-4 text-white" />
+                <span>Volver al Menú Principal</span>
+              </button>
+            )}
+
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Regresar a la pantalla anterior"
+              >
+                <span>Cerrar / Volver</span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-1.5 text-xs text-slate-400 pl-1">
+              <span>Menú Principal</span>
+              <span>/</span>
+              <span className="text-indigo-400 font-medium">Facturación DIAN</span>
+              <span>/</span>
+              <span className="text-white font-semibold">Habilitación Oficial</span>
             </div>
           </div>
 
@@ -349,36 +362,65 @@ export default function DianHabilitationAssistant({
             </a>
 
             <a
+              href="https://catalogo-vpfe-hab.dian.gov.co/User/PersonValidate"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold transition-all flex items-center gap-1.5"
+              title="Portal de Habilitación DIAN Muisca"
+            >
+              <span>Portal DIAN Muisca</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+
+            <a
               href="https://sandbox-app.alanube.co"
               target="_blank"
               rel="noopener noreferrer"
               className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-semibold transition-all flex items-center gap-1.5"
               title="Portal Alanube Sandbox para desarrolladores"
             >
-              <span>Alanube Sandbox</span>
+              <span>Sandbox</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
+          </div>
+        </div>
 
-            <a
-              href="https://docs.alanube.co"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 font-semibold transition-all flex items-center gap-1.5"
-              title="Documentación técnica de la API Alanube Colombia"
-            >
-              <span>Docs API</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+        {/* Title and Company Subheader */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center font-bold shadow-lg shadow-indigo-500/20">
+                <ShieldCheck className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="font-display font-black text-xl sm:text-2xl text-white tracking-tight">
+                    Asistente de Habilitación DIAN
+                  </h2>
+                  {isFullyHabilitated ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                      ✓ EMISOR HABILITADO DIAN
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      MODO HABILITACIÓN ({completedCount}/8 FACTURAS)
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  Transmisión y certificación del Set de 8 Facturas Electrónicas de Prueba exigidas por la DIAN vía Proveedor Tecnológico <strong>Alanube</strong>
+                </p>
+              </div>
+            </div>
+          </div>
 
-            {onClose && (
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-3 py-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-              >
-                Volver
-              </button>
-            )}
+          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 bg-slate-900/60 border border-slate-800 rounded-xl px-3.5 py-2">
+            <span className="flex items-center gap-1.5 text-slate-300 font-medium">
+              <Building2 className="w-4 h-4 text-indigo-400" />
+              Empresa: <strong className="text-white font-bold">{currentCompany?.name}</strong>
+            </span>
+            <span className="text-slate-500">·</span>
+            <span className="font-mono text-slate-400">NIT: {currentCompany?.nit}</span>
           </div>
         </div>
 

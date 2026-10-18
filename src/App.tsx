@@ -1869,11 +1869,12 @@ export default function App() {
                 />
               )}
 
-              {(state.activeView === 'alanube_config' || state.activeView === 'alanube') && (
+              {(state.activeView === 'alanube_config' || state.activeView === 'alanube' || state.activeView === 'dian_habilitacion' || state.activeView === 'habilitacion') && (
                 <AlanubeConfigView
                   currentCompany={activeCompany}
                   updateCompany={handleUpdateCompany}
                   theme={currentThemeId}
+                  initialTab={(state.activeView === 'dian_habilitacion' || state.activeView === 'habilitacion') ? 'habilitation' : 'credentials'}
                   onNavigateToInvoicing={() => setState((prev) => ({ ...prev, activeView: 'facturacion' }))}
                   onReturnToMenu={() => setState((prev) => ({ ...prev, activeView: 'dashboard' }))}
                 />
