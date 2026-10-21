@@ -596,21 +596,23 @@ export default function Sidebar({
                     );
                   })}
                 </div>
-                <div className={`mt-1.5 pt-1.5 border-t ${isLight ? 'border-slate-200' : 'border-white/5'}`}>
-                  <button
-                    onClick={() => {
-                      onCreateCompany();
-                      setShowCompanyDropdown(false);
-                    }}
-                    className={`w-full py-1.5 rounded-lg transition-all text-xs font-bold flex items-center justify-center gap-1.5 ${
-                      isLight 
-                        ? 'bg-blue-50 text-blue-800 hover:bg-blue-100' 
-                        : 'text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10'
-                    }`}
-                  >
-                    <i className="ri-add-circle-line"></i> Crear Organización
-                  </button>
-                </div>
+                {currentUser.role === 'Admin' && (
+                  <div className={`mt-1.5 pt-1.5 border-t ${isLight ? 'border-slate-200' : 'border-white/5'}`}>
+                    <button
+                      onClick={() => {
+                        onCreateCompany();
+                        setShowCompanyDropdown(false);
+                      }}
+                      className={`w-full py-1.5 rounded-lg transition-all text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer ${
+                        isLight 
+                          ? 'bg-blue-50 text-blue-800 hover:bg-blue-100' 
+                          : 'text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10'
+                      }`}
+                    >
+                      <i className="ri-add-circle-line"></i> Crear Organización
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

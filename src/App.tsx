@@ -255,6 +255,10 @@ export default function App() {
   };
 
   const handleCreateCompany = () => {
+    if (state.currentUser.role !== 'Admin') {
+      toast.error('Solo los usuarios con rol de Administrador pueden crear nuevas organizaciones.', 'Acceso Restringido');
+      return;
+    }
     setNewCompName('');
     setNewCompNit('');
     setNewCompSlogan('Línea o Sucursal Industrial Nueva');
@@ -1430,34 +1434,36 @@ export default function App() {
                     ))}
                   </div>
 
-                  <div className={`pt-2 mt-1.5 border-t space-y-1 ${isLight ? 'border-slate-200' : 'border-slate-100 dark:border-slate-800'}`}>
-                    <button
-                      onClick={() => {
-                        handleCreateCompany();
-                        setShowCompanyDropdown(false);
-                      }}
-                      className={`w-full py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                        isLight 
-                          ? 'bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200' 
-                          : 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-cyan-400 hover:bg-blue-100 dark:hover:bg-blue-900/60'
-                      }`}
-                    >
-                      <i className="ri-add-line"></i> Crear Nueva Organización (Desde Cero)
-                    </button>
-                    <button
-                      onClick={() => {
-                        setState(prev => ({ ...prev, activeView: 'empresa' }));
-                        setShowCompanyDropdown(false);
-                      }}
-                      className={`w-full py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                        isLight 
-                          ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200' 
-                          : 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60'
-                      }`}
-                    >
-                      <i className="ri-palette-line"></i> Diseñar Factura & Logotipo
-                    </button>
-                  </div>
+                  {state.currentUser.role === 'Admin' && (
+                    <div className={`pt-2 mt-1.5 border-t space-y-1 ${isLight ? 'border-slate-200' : 'border-slate-100 dark:border-slate-800'}`}>
+                      <button
+                        onClick={() => {
+                          handleCreateCompany();
+                          setShowCompanyDropdown(false);
+                        }}
+                        className={`w-full py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                          isLight 
+                            ? 'bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200' 
+                            : 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-cyan-400 hover:bg-blue-100 dark:hover:bg-blue-900/60'
+                        }`}
+                      >
+                        <i className="ri-add-line"></i> Crear Nueva Organización (Desde Cero)
+                      </button>
+                      <button
+                        onClick={() => {
+                          setState(prev => ({ ...prev, activeView: 'empresa' }));
+                          setShowCompanyDropdown(false);
+                        }}
+                        className={`w-full py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                          isLight 
+                            ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200' 
+                            : 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60'
+                        }`}
+                      >
+                        <i className="ri-palette-line"></i> Diseñar Factura & Logotipo
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             )}
