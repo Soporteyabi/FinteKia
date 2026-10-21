@@ -56,7 +56,7 @@ export default function BudgetsView({
 }: BudgetsViewProps) {
   
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
-  const isDark = theme === 'navy_dark' || theme === 'light_gray';
+  const isDark = theme !== 'light_gray';
 
   // State Management
   const [targetTypeFilter, setTargetTypeFilter] = useState<'all' | 'account' | 'costcenter'>('all');

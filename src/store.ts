@@ -120,7 +120,8 @@ export const INITIAL_TERCEROS: Tercero[] = [
     address: 'Vía Panorama Km 2',
     phone: '3157001222',
     email: 'contacto@harineras.com',
-    regimen: 'responsable'
+    regimen: 'responsable',
+    companyId: 'co-2'
   },
   {
     id: 'ter-2',
@@ -132,7 +133,8 @@ export const INITIAL_TERCEROS: Tercero[] = [
     address: 'Cra 48 # 32-10',
     phone: '6013445000',
     email: 'facturacion@exito.com.co',
-    regimen: 'responsable'
+    regimen: 'responsable',
+    companyId: 'co-1'
   },
   {
     id: 'ter-3',
@@ -146,7 +148,8 @@ export const INITIAL_TERCEROS: Tercero[] = [
     email: 'carlos.mario@outlook.com',
     employeeCargo: 'Panadero Jefe de Turno',
     employeeSalary: 1800000,
-    employeeEmergencyContact: 'Nohora Salazar (Esposa) 3125004030'
+    employeeEmergencyContact: 'Nohora Salazar (Esposa) 3125004030',
+    companyId: 'co-2'
   },
   {
     id: 'ter-4',
@@ -158,7 +161,8 @@ export const INITIAL_TERCEROS: Tercero[] = [
     address: 'Cl. 10 Sur # 50-20',
     phone: '3203004050',
     email: 'ventas@granelco.com',
-    regimen: 'responsable'
+    regimen: 'responsable',
+    companyId: 'co-1'
   },
   {
     id: 'ter-5',
@@ -172,32 +176,33 @@ export const INITIAL_TERCEROS: Tercero[] = [
     email: 'diana.gomez@fintekia.com',
     employeeCargo: 'Auxiliar Operario de Empaque',
     employeeSalary: 1423500, // 1 SMMLV
-    employeeEmergencyContact: 'Alberto Gomez (Padre) 3004005060'
+    employeeEmergencyContact: 'Alberto Gomez (Padre) 3004005060',
+    companyId: 'co-1'
   }
 ];
 
 export const INITIAL_PRODUCTS: Product[] = [
-  // Tecnología & Hardware
-  { id: 'p-t1', name: 'Laptop Corporativo Lenovo ThinkPad T14 Core i7 16GB SSD 512GB', sku: 'TECH-LAP-T14', barcode: '7709001000012', cost: 2450000, price: 3450000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Lenovo', model: 'ThinkPad T14 Gen 3', warrantyMonths: 12, minStock: 3, category: 'Laptops & Cómputo', unitOfMeasure: 'UND' },
-  { id: 'p-t2', name: 'Router Gigabit Wi-Fi 6 Mikrotik hEX S Dual-Band RouterBOARD', sku: 'TECH-ROU-MIK', barcode: '7709001000029', cost: 195000, price: 295000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'MikroTik', model: 'hEX S', warrantyMonths: 12, minStock: 5, category: 'Redes & Conectividad', unitOfMeasure: 'UND' },
-  { id: 'p-t3', name: 'Disco Estado Sólido SSD NVMe 1TB Kingston KC3000 PCIe 4.0', sku: 'TECH-SSD-1TB', barcode: '7709001000036', cost: 230000, price: 360000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Kingston', model: 'KC3000', warrantyMonths: 24, minStock: 6, category: 'Almacenamiento & Repuestos', unitOfMeasure: 'UND' },
-  { id: 'p-t4', name: 'Monitor Profesional Dell 27" UltraSharp IPS FHD HDMI/DP', sku: 'TECH-MON-27', barcode: '7709001000043', cost: 580000, price: 840000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Dell', model: 'P2722H', warrantyMonths: 36, minStock: 2, category: 'Monitores & Pantallas', unitOfMeasure: 'UND' },
-  { id: 'p-t5', name: 'Memoria RAM DDR4 16GB 3200MHz Corsair Vengeance para Laptop', sku: 'TECH-RAM-16', barcode: '7709001000050', cost: 110000, price: 175000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Corsair', model: 'Vengeance SO-DIMM', warrantyMonths: 12, minStock: 5, category: 'Memorias & Repuestos', unitOfMeasure: 'UND' },
-  // Servicios Profesionales & Soporte TI
-  { id: 'p-s1', name: 'Servicio de Mantenimiento Preventivo y Limpieza de Cómputo', sku: 'SRV-MANT-PC', barcode: '7709002000019', cost: 0, price: 120000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 3, category: 'Servicios TI', unitOfMeasure: 'SRV' },
-  { id: 'p-s2', name: 'Diagnóstico, Reparación y Actualización de Hardware (Por Equipo)', sku: 'SRV-REP-HW', barcode: '7709002000026', cost: 0, price: 160000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 3, category: 'Servicios TI', unitOfMeasure: 'SRV' },
-  { id: 'p-s3', name: 'Instalación y Configuración de Redes Wi-Fi / Cableado Estructurado (Punto)', sku: 'SRV-RED-PT', barcode: '7709002000033', cost: 0, price: 95000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 6, category: 'Servicios TI', unitOfMeasure: 'SRV' },
-  { id: 'p-s4', name: 'Póliza Mensual de Soporte Técnico Remoto y Presencial para Empresas', sku: 'SRV-POL-SOP', barcode: '7709002000040', cost: 0, price: 850000, tax: 19, type: 'servicio', lotTracking: false, category: 'Pólizas & Contratos', unitOfMeasure: 'MES' },
-  { id: 'p-s5', name: 'Licencia Anual y Parametrización Software Contable FinteKia Cloud', sku: 'SRV-LIC-FIN', barcode: '7709002000057', cost: 0, price: 680000, tax: 19, type: 'servicio', lotTracking: false, category: 'Software & Licencias', unitOfMeasure: 'LIC' },
-  // Materias Primas & Panadería (Disponibles cuando producción está activa)
-  { id: 'p-1', name: 'Harina de Trigo Industrial (Kg)', sku: 'MP-HAR-01', barcode: '7701001000018', cost: 3200, price: 0, tax: 0, type: 'materia_prima', lotTracking: true, minStock: 100, category: 'Materias Primas', unitOfMeasure: 'KG' },
-  { id: 'p-2', name: 'Azúcar Blanca Refinada (Kg)', sku: 'MP-AZU-01', barcode: '7701001000025', cost: 2800, price: 0, tax: 0, type: 'materia_prima', lotTracking: true, minStock: 80, category: 'Materias Primas', unitOfMeasure: 'KG' },
-  { id: 'p-3', name: 'Mantequilla Premium (Kg)', sku: 'MP-MAN-01', barcode: '7701001000032', cost: 12000, price: 0, tax: 19, type: 'materia_prima', lotTracking: true, minStock: 25, category: 'Materias Primas', unitOfMeasure: 'KG' },
-  { id: 'p-4', name: 'Esencia de Vainilla (L/Botella)', sku: 'MP-VAI-01', barcode: '7701001000049', cost: 15000, price: 0, tax: 0, type: 'materia_prima', lotTracking: false, minStock: 5, category: 'Insumos Líquidos', unitOfMeasure: 'L' },
-  { id: 'p-5', name: 'Cajas de Cartón Galletas (Unidades)', sku: 'MP-CAJ-01', barcode: '7701001000056', cost: 450, price: 0, tax: 19, type: 'materia_prima', lotTracking: false, minStock: 200, category: 'Empaques', unitOfMeasure: 'UND' },
-  // Productos Terminados
-  { id: 'p-6', name: 'Caja Galletas de Vainilla x 12', sku: 'PT-GAL-VAI', barcode: '7702001000062', cost: 6500, price: 16500, tax: 19, type: 'terminado', lotTracking: true, shelfLifeDays: 90, minStock: 30, category: 'Productos Terminados', unitOfMeasure: 'CAJA' },
-  { id: 'p-7', name: 'Pan de Avena Familiar 500g', sku: 'PT-PAN-AVE', barcode: '7702001000079', cost: 3200, price: 7800, tax: 5, type: 'terminado', lotTracking: true, shelfLifeDays: 12, minStock: 15, category: 'Productos Terminados', unitOfMeasure: 'UND' }
+  // Tecnología & Hardware (FinteKia co-1)
+  { id: 'p-t1', name: 'Laptop Corporativo Lenovo ThinkPad T14 Core i7 16GB SSD 512GB', sku: 'TECH-LAP-T14', barcode: '7709001000012', cost: 2450000, price: 3450000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Lenovo', model: 'ThinkPad T14 Gen 3', warrantyMonths: 12, minStock: 3, category: 'Laptops & Cómputo', unitOfMeasure: 'UND', companyId: 'co-1' },
+  { id: 'p-t2', name: 'Router Gigabit Wi-Fi 6 Mikrotik hEX S Dual-Band RouterBOARD', sku: 'TECH-ROU-MIK', barcode: '7709001000029', cost: 195000, price: 295000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'MikroTik', model: 'hEX S', warrantyMonths: 12, minStock: 5, category: 'Redes & Conectividad', unitOfMeasure: 'UND', companyId: 'co-1' },
+  { id: 'p-t3', name: 'Disco Estado Sólido SSD NVMe 1TB Kingston KC3000 PCIe 4.0', sku: 'TECH-SSD-1TB', barcode: '7709001000036', cost: 230000, price: 360000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Kingston', model: 'KC3000', warrantyMonths: 24, minStock: 6, category: 'Almacenamiento & Repuestos', unitOfMeasure: 'UND', companyId: 'co-1' },
+  { id: 'p-t4', name: 'Monitor Profesional Dell 27" UltraSharp IPS FHD HDMI/DP', sku: 'TECH-MON-27', barcode: '7709001000043', cost: 580000, price: 840000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Dell', model: 'P2722H', warrantyMonths: 36, minStock: 2, category: 'Monitores & Pantallas', unitOfMeasure: 'UND', companyId: 'co-1' },
+  { id: 'p-t5', name: 'Memoria RAM DDR4 16GB 3200MHz Corsair Vengeance para Laptop', sku: 'TECH-RAM-16', barcode: '7709001000050', cost: 110000, price: 175000, tax: 19, type: 'tecnologia', lotTracking: false, brand: 'Corsair', model: 'Vengeance SO-DIMM', warrantyMonths: 12, minStock: 5, category: 'Memorias & Repuestos', unitOfMeasure: 'UND', companyId: 'co-1' },
+  // Servicios Profesionales & Soporte TI (FinteKia co-1)
+  { id: 'p-s1', name: 'Servicio de Mantenimiento Preventivo y Limpieza de Cómputo', sku: 'SRV-MANT-PC', barcode: '7709002000019', cost: 0, price: 120000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 3, category: 'Servicios TI', unitOfMeasure: 'SRV', companyId: 'co-1' },
+  { id: 'p-s2', name: 'Diagnóstico, Reparación y Actualización de Hardware (Por Equipo)', sku: 'SRV-REP-HW', barcode: '7709002000026', cost: 0, price: 160000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 3, category: 'Servicios TI', unitOfMeasure: 'SRV', companyId: 'co-1' },
+  { id: 'p-s3', name: 'Instalación y Configuración de Redes Wi-Fi / Cableado Estructurado (Punto)', sku: 'SRV-RED-PT', barcode: '7709002000033', cost: 0, price: 95000, tax: 19, type: 'servicio', lotTracking: false, warrantyMonths: 6, category: 'Servicios TI', unitOfMeasure: 'SRV', companyId: 'co-1' },
+  { id: 'p-s4', name: 'Póliza Mensual de Soporte Técnico Remoto y Presencial para Empresas', sku: 'SRV-POL-SOP', barcode: '7709002000040', cost: 0, price: 850000, tax: 19, type: 'servicio', lotTracking: false, category: 'Pólizas & Contratos', unitOfMeasure: 'MES', companyId: 'co-1' },
+  { id: 'p-s5', name: 'Licencia Anual y Parametrización Software Contable FinteKia Cloud', sku: 'SRV-LIC-FIN', barcode: '7709002000057', cost: 0, price: 680000, tax: 19, type: 'servicio', lotTracking: false, category: 'Software & Licencias', unitOfMeasure: 'LIC', companyId: 'co-1' },
+  // Materias Primas & Panadería (Alimentos del Norte co-2)
+  { id: 'p-1', name: 'Harina de Trigo Industrial (Kg)', sku: 'MP-HAR-01', barcode: '7701001000018', cost: 3200, price: 0, tax: 0, type: 'materia_prima', lotTracking: true, minStock: 100, category: 'Materias Primas', unitOfMeasure: 'KG', companyId: 'co-2' },
+  { id: 'p-2', name: 'Azúcar Blanca Refinada (Kg)', sku: 'MP-AZU-01', barcode: '7701001000025', cost: 2800, price: 0, tax: 0, type: 'materia_prima', lotTracking: true, minStock: 80, category: 'Materias Primas', unitOfMeasure: 'KG', companyId: 'co-2' },
+  { id: 'p-3', name: 'Mantequilla Premium (Kg)', sku: 'MP-MAN-01', barcode: '7701001000032', cost: 12000, price: 0, tax: 19, type: 'materia_prima', lotTracking: true, minStock: 25, category: 'Materias Primas', unitOfMeasure: 'KG', companyId: 'co-2' },
+  { id: 'p-4', name: 'Esencia de Vainilla (L/Botella)', sku: 'MP-VAI-01', barcode: '7701001000049', cost: 15000, price: 0, tax: 0, type: 'materia_prima', lotTracking: false, minStock: 5, category: 'Insumos Líquidos', unitOfMeasure: 'L', companyId: 'co-2' },
+  { id: 'p-5', name: 'Cajas de Cartón Galletas (Unidades)', sku: 'MP-CAJ-01', barcode: '7701001000056', cost: 450, price: 0, tax: 19, type: 'materia_prima', lotTracking: false, minStock: 200, category: 'Empaques', unitOfMeasure: 'UND', companyId: 'co-2' },
+  // Productos Terminados (Alimentos del Norte co-2)
+  { id: 'p-6', name: 'Caja Galletas de Vainilla x 12', sku: 'PT-GAL-VAI', barcode: '7702001000062', cost: 6500, price: 16500, tax: 19, type: 'terminado', lotTracking: true, shelfLifeDays: 90, minStock: 30, category: 'Productos Terminados', unitOfMeasure: 'CAJA', companyId: 'co-2' },
+  { id: 'p-7', name: 'Pan de Avena Familiar 500g', sku: 'PT-PAN-AVE', barcode: '7702001000079', cost: 3200, price: 7800, tax: 5, type: 'terminado', lotTracking: true, shelfLifeDays: 12, minStock: 15, category: 'Productos Terminados', unitOfMeasure: 'UND', companyId: 'co-2' }
 ];
 
 export const INITIAL_TECH_ORDERS: TechServiceOrder[] = [
@@ -237,7 +242,8 @@ export const INITIAL_TECH_ORDERS: TechServiceOrder[] = [
       { date: '2026-10-02 09:30', status: 'Recibido', note: 'Equipo recibido en mostrador con cargador.', user: 'Washington Quiñones' },
       { date: '2026-10-02 14:15', status: 'En Diagnóstico', note: 'Pruebas térmicas alcanzaron 94°C. Ventilador obstruido.', user: 'Washington Quiñones' },
       { date: '2026-10-03 10:00', status: 'En Proceso', note: 'Presupuesto aprobado por cliente vía WhatsApp. Procediendo al cambio de SSD y pasta térmica.', user: 'Washington Quiñones' }
-    ]
+    ],
+    companyId: 'co-1'
   },
   {
     id: 'ot-2',
@@ -274,7 +280,8 @@ export const INITIAL_TECH_ORDERS: TechServiceOrder[] = [
       { date: '2026-09-28 08:00', status: 'Recibido', note: 'Servidor recibido para puesta en marcha.', user: 'Washington Quiñones' },
       { date: '2026-09-29 11:30', status: 'En Proceso', note: 'Discos instalados y RAID 1 sincronizado al 100%.', user: 'Washington Quiñones' },
       { date: '2026-10-01 16:40', status: 'Listo para Entrega', note: 'Pruebas de contingencia y failover validadas con éxito.', user: 'Washington Quiñones' }
-    ]
+    ],
+    companyId: 'co-1'
   },
   {
     id: 'ot-3',
@@ -307,7 +314,8 @@ export const INITIAL_TECH_ORDERS: TechServiceOrder[] = [
     timeline: [
       { date: '2026-10-04 10:15', status: 'Recibido', note: 'Equipos y fuentes ingresados para test de laboratorio.', user: 'Andrés Felipe Gómez' },
       { date: '2026-10-05 09:00', status: 'En Diagnóstico', note: 'Mediciones de atenuación y pérdida de paquetes realizadas.', user: 'Andrés Felipe Gómez' }
-    ]
+    ],
+    companyId: 'co-1'
   }
 ];
 
@@ -339,27 +347,27 @@ export const INITIAL_BOMS: BOM[] = [
 ];
 
 export const INITIAL_WAREHOUSES: Warehouse[] = [
-  { id: 'wh-1', name: 'Bodega de Materia Prima', address: 'Almacén 1, Planta Central Bogotá' },
-  { id: 'wh-2', name: 'Bodega de Despachos y Terminados', address: 'Dique de Despachos, Planta Bogotá' },
-  { id: 'wh-3', name: 'Bodega Principal de Hardware & Equipos', address: 'Sede Principal Norte, Bogotá D.C.' },
-  { id: 'wh-4', name: 'Bodega de Repuestos & Taller TI', address: 'Laboratorio de Soporte, Bogotá D.C.' }
+  { id: 'wh-1', name: 'Bodega de Materia Prima', address: 'Almacén 1, Planta Central Bogotá', companyId: 'co-2' },
+  { id: 'wh-2', name: 'Bodega de Despachos y Terminados', address: 'Dique de Despachos, Planta Bogotá', companyId: 'co-2' },
+  { id: 'wh-3', name: 'Bodega Principal de Hardware & Equipos', address: 'Sede Principal Norte, Bogotá D.C.', companyId: 'co-1' },
+  { id: 'wh-4', name: 'Bodega de Repuestos & Taller TI', address: 'Laboratorio de Soporte, Bogotá D.C.', companyId: 'co-1' }
 ];
 
 export const INITIAL_INVENTORY: InventoryItem[] = [
-  // Hardware y Tecnología en Bodegas
-  { id: 'inv-item-t1', productId: 'p-t1', lotNumber: 'SN-LN-2026-A1', warehouseId: 'wh-3', quantity: 8, avgCost: 2450000 },
-  { id: 'inv-item-t2', productId: 'p-t2', lotNumber: 'SN-MK-2026-B4', warehouseId: 'wh-3', quantity: 14, avgCost: 195000 },
-  { id: 'inv-item-t3', productId: 'p-t3', lotNumber: 'LOT-SSD-KC30', warehouseId: 'wh-4', quantity: 22, avgCost: 230000 },
-  { id: 'inv-item-t4', productId: 'p-t4', lotNumber: 'SN-DL-MON-09', warehouseId: 'wh-3', quantity: 6, avgCost: 580000 },
-  { id: 'inv-item-t5', productId: 'p-t5', lotNumber: 'LOT-RAM-COR16', warehouseId: 'wh-4', quantity: 18, avgCost: 110000 },
-  // Materias primas y alimentos (cuando módulo MRP está activo)
-  { id: 'inv-item-1', productId: 'p-1', lotNumber: 'L-HARI-005', expirationDate: '2026-11-30', warehouseId: 'wh-1', quantity: 550, avgCost: 3200 },
-  { id: 'inv-item-2', productId: 'p-2', lotNumber: 'L-AZUC-012', expirationDate: '2027-04-15', warehouseId: 'wh-1', quantity: 300, avgCost: 2800 },
-  { id: 'inv-item-3', productId: 'p-3', lotNumber: 'L-MANT-990', expirationDate: '2026-08-30', warehouseId: 'wh-1', quantity: 120, avgCost: 12000 },
-  { id: 'inv-item-4', productId: 'p-4', lotNumber: undefined, expirationDate: undefined, warehouseId: 'wh-1', quantity: 25, avgCost: 15000 },
-  { id: 'inv-item-5', productId: 'p-5', lotNumber: undefined, expirationDate: undefined, warehouseId: 'wh-1', quantity: 1000, avgCost: 450 },
-  { id: 'inv-item-6', productId: 'p-6', lotNumber: 'L-GVAL-001', expirationDate: '2026-09-09', warehouseId: 'wh-2', quantity: 150, avgCost: 6500 },
-  { id: 'inv-item-7', productId: 'p-7', lotNumber: 'L-PAVE-044', expirationDate: '2026-06-21', warehouseId: 'wh-2', quantity: 40, avgCost: 3200 }
+  // Hardware y Tecnología en Bodegas (co-1)
+  { id: 'inv-item-t1', productId: 'p-t1', lotNumber: 'SN-LN-2026-A1', warehouseId: 'wh-3', quantity: 8, avgCost: 2450000, companyId: 'co-1' },
+  { id: 'inv-item-t2', productId: 'p-t2', lotNumber: 'SN-MK-2026-B4', warehouseId: 'wh-3', quantity: 14, avgCost: 195000, companyId: 'co-1' },
+  { id: 'inv-item-t3', productId: 'p-t3', lotNumber: 'LOT-SSD-KC30', warehouseId: 'wh-4', quantity: 22, avgCost: 230000, companyId: 'co-1' },
+  { id: 'inv-item-t4', productId: 'p-t4', lotNumber: 'SN-DL-MON-09', warehouseId: 'wh-3', quantity: 6, avgCost: 580000, companyId: 'co-1' },
+  { id: 'inv-item-t5', productId: 'p-t5', lotNumber: 'LOT-RAM-COR16', warehouseId: 'wh-4', quantity: 18, avgCost: 110000, companyId: 'co-1' },
+  // Materias primas y alimentos (co-2)
+  { id: 'inv-item-1', productId: 'p-1', lotNumber: 'L-HARI-005', expirationDate: '2026-11-30', warehouseId: 'wh-1', quantity: 550, avgCost: 3200, companyId: 'co-2' },
+  { id: 'inv-item-2', productId: 'p-2', lotNumber: 'L-AZUC-012', expirationDate: '2027-04-15', warehouseId: 'wh-1', quantity: 300, avgCost: 2800, companyId: 'co-2' },
+  { id: 'inv-item-3', productId: 'p-3', lotNumber: 'L-MANT-990', expirationDate: '2026-08-30', warehouseId: 'wh-1', quantity: 120, avgCost: 12000, companyId: 'co-2' },
+  { id: 'inv-item-4', productId: 'p-4', lotNumber: undefined, expirationDate: undefined, warehouseId: 'wh-1', quantity: 25, avgCost: 15000, companyId: 'co-2' },
+  { id: 'inv-item-5', productId: 'p-5', lotNumber: undefined, expirationDate: undefined, warehouseId: 'wh-1', quantity: 1000, avgCost: 450, companyId: 'co-2' },
+  { id: 'inv-item-6', productId: 'p-6', lotNumber: 'L-GVAL-001', expirationDate: '2026-09-09', warehouseId: 'wh-2', quantity: 150, avgCost: 6500, companyId: 'co-2' },
+  { id: 'inv-item-7', productId: 'p-7', lotNumber: 'L-PAVE-044', expirationDate: '2026-06-21', warehouseId: 'wh-2', quantity: 40, avgCost: 3200, companyId: 'co-2' }
 ];
 
 export const INITIAL_ASSETS: Asset[] = [
@@ -368,8 +376,8 @@ export const INITIAL_ASSETS: Asset[] = [
 ];
 
 export const INITIAL_BANK_ACCOUNTS: BankAccount[] = [
-  { id: 'ba-1', name: 'Corriente Bancolombia Ppal', bankName: 'Bancolombia', accountNumber: '243-900540-12', balance: 34500000 },
-  { id: 'ba-2', name: 'Ahorros Davivienda Recaudos', bankName: 'Davivienda', accountNumber: '0040-5441-3200', balance: 9800000 }
+  { id: 'ba-1', name: 'Corriente Bancolombia Ppal', bankName: 'Bancolombia', accountNumber: '243-900540-12', balance: 34500000, companyId: 'co-1' },
+  { id: 'ba-2', name: 'Ahorros Davivienda Recaudos', bankName: 'Davivienda', accountNumber: '0040-5441-3200', balance: 9800000, companyId: 'co-2' }
 ];
 
 export const INITIAL_COST_CENTERS: CostCenter[] = [
@@ -452,7 +460,8 @@ export const INITIAL_PRODUCTION_ORDERS: ProductionOrder[] = [
     dueDate: '2026-06-11',
     status: 'proceso',
     costEstimates: { materials: 350000, labor: 150000, overhead: 100000 },
-    generatedLot: 'LOT-2606-B1'
+    generatedLot: 'LOT-2606-B1',
+    companyId: 'co-2'
   },
   {
     id: 'po-2',
@@ -463,7 +472,8 @@ export const INITIAL_PRODUCTION_ORDERS: ProductionOrder[] = [
     dueDate: '2026-06-10',
     status: 'pendiente',
     costEstimates: { materials: 140000, labor: 450000, overhead: 20000 },
-    generatedLot: 'LOT-2606-B2'
+    generatedLot: 'LOT-2606-B2',
+    companyId: 'co-2'
   }
 ];
 
@@ -565,6 +575,39 @@ export const getInitialState = (): AppState => {
               if (!v.companyId) {
                 v.companyId = v.number === 'CE-555' ? 'co-2' : 'co-1';
               }
+            });
+          }
+
+          // Ensure products, warehouses, and orders have companyId backfilled
+          if (parsed.products) {
+            parsed.products.forEach((p: any) => {
+              if (!p.companyId) {
+                p.companyId = (p.id.startsWith('p-t') || p.id.startsWith('p-s')) ? 'co-1' : 'co-2';
+              }
+            });
+          }
+          if (parsed.warehouses) {
+            parsed.warehouses.forEach((w: any) => {
+              if (!w.companyId) {
+                w.companyId = (w.id === 'wh-3' || w.id === 'wh-4') ? 'co-1' : 'co-2';
+              }
+            });
+          }
+          if (parsed.bankAccounts) {
+            parsed.bankAccounts.forEach((ba: any) => {
+              if (!ba.companyId) {
+                ba.companyId = ba.id === 'ba-2' ? 'co-2' : 'co-1';
+              }
+            });
+          }
+          if (parsed.techServiceOrders) {
+            parsed.techServiceOrders.forEach((o: any) => {
+              if (!o.companyId) o.companyId = 'co-1';
+            });
+          }
+          if (parsed.productionOrders) {
+            parsed.productionOrders.forEach((po: any) => {
+              if (!po.companyId) po.companyId = 'co-2';
             });
           }
 

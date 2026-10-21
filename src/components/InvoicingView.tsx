@@ -368,13 +368,12 @@ export default function InvoicingView({
   };
 
   // Filter clients and finished products
-  const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
-  const isNavy = (theme === 'navy_dark' || theme === 'light_gray');
+  const isNavy = theme === 'navy_dark';
   
-  const inputBg = isNavy ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800';
-  const labelText = isNavy ? 'text-slate-400' : 'text-slate-500';
-  const sectionBorder = isNavy ? 'border-slate-850' : 'border-slate-100';
-  const headingText = isNavy ? 'text-white' : 'text-slate-800';
+  const inputBg = isNavy ? 'bg-slate-950 border-slate-800 text-white' : 'bg-white border-slate-300 text-slate-900';
+  const labelText = isNavy ? 'text-slate-400' : 'text-slate-700 font-semibold';
+  const sectionBorder = isNavy ? 'border-slate-850' : 'border-slate-200';
+  const headingText = isNavy ? 'text-white' : 'text-slate-900 font-bold';
 
   const clients = terceros.filter((t) => t.roles.includes('cliente'));
   const saleableProducts = products; // Allow all registered products to be billed/sold

@@ -26,7 +26,7 @@ export default function TercerosView({
 }: TercerosViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<'all' | 'cliente' | 'proveedor' | 'empleado'>('all');
-  const isDark = theme === 'navy_dark' || theme === 'light_gray';
+  const isDark = theme !== 'light_gray';
 
   // Pagination for terceros (15 per page)
   const [tercerosPage, setTercerosPage] = useState(1);

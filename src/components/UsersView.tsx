@@ -50,7 +50,7 @@ export default function UsersView({
   const [formActive, setFormActive] = useState(true);
 
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
-  const isDark = theme === 'navy_dark' || theme === 'light_gray';
+  const isDark = theme !== 'light_gray';
 
   // Fallback initial list if database hasn't saved one
   const fallbackUsers: UserProfile[] = [

@@ -84,7 +84,7 @@ export default function PayrollView({
   
   const activeCompany = companies.find(c => c.id === currentCompanyId) || companies[0];
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
-  const isDark = theme === 'navy_dark' || theme === 'light_gray';
+  const isDark = theme !== 'light_gray';
 
   // State
   const [activeTab, setActiveTab] = useState<'planilla' | 'colaboradores' | 'calculadora' | 'prestaciones'>('planilla');

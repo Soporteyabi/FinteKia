@@ -98,6 +98,7 @@ export interface Tercero {
   providerBank?: string;
   providerBankAccountType?: 'ahorros' | 'corriente';
   providerBankAccountNumber?: string;
+  companyId?: string;
 }
 
 export interface Product {
@@ -118,6 +119,7 @@ export interface Product {
   minStock?: number;
   category?: string;
   unitOfMeasure?: string;
+  companyId?: string;
 }
 
 export interface TechServicePartItem {
@@ -166,6 +168,7 @@ export interface TechServiceOrder {
   notes?: string;
   deliveryNotes?: string;
   timeline?: TechServiceTimelineEvent[];
+  companyId?: string;
 }
 
 export interface InventoryItem {
@@ -176,6 +179,7 @@ export interface InventoryItem {
   warehouseId: string;
   quantity: number;
   avgCost: number;
+  companyId?: string;
 }
 
 export interface InventoryMovement {
@@ -190,6 +194,7 @@ export interface InventoryMovement {
   cost: number;
   userId: string;
   notes?: string;
+  companyId?: string;
 }
 
 export interface Warehouse {
@@ -197,6 +202,7 @@ export interface Warehouse {
   name: string;
   address: string;
   manager?: string;
+  companyId?: string;
 }
 
 export interface Asset {
@@ -282,6 +288,7 @@ export interface BankAccount {
   bankName: string;
   accountNumber: string;
   balance: number;
+  companyId?: string;
 }
 
 export interface BankTransaction {
@@ -306,7 +313,7 @@ export interface BOM {
   finishedProductId: string;
   version: string;
   items: BOMItem[];
-  standards: {
+  standards?: {
     param: string;
     target: number;
     tolerance: number;
@@ -338,6 +345,7 @@ export interface ProductionOrder {
   productionHours?: number;
   laborHourlyRate?: number;
   overheadHourlyRate?: number;
+  companyId?: string;
 }
 
 export interface QualityInspection {
@@ -426,6 +434,7 @@ export interface UserProfile {
   cargo: string;
   active: boolean;
   dateCreated: string;
+  allowedCompanyIds?: string[]; // Specific companies this user can access (if empty/undefined and Admin, can access all)
 }
 
 export interface AppState {

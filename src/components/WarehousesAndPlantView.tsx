@@ -38,7 +38,7 @@ export default function WarehousesAndPlantView({
   theme
 }: WarehousesAndPlantViewProps) {
   const [activeTab, setActiveTab] = useState<'bodegas' | 'plantas' | 'kardex'>('bodegas');
-  const isDark = theme === 'navy_dark' || theme === 'light_gray';
+  const isDark = theme !== 'light_gray';
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
 
   // Search & Filter State

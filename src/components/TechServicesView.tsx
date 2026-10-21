@@ -391,25 +391,13 @@ export default function TechServicesView({
             <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md flex items-center justify-between gap-4">
               <div className="text-left">
                 <span className="text-[10px] uppercase font-mono font-bold text-slate-300 block">
-                  Producción Industrial
+                  Perfil de Empresa
                 </span>
-                <span className="text-xs font-semibold text-white">
-                  {isProductionActive ? 'Habilitada (BOM/MRP)' : 'Desactivada (Solo Taller TI)'}
+                <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${isProductionActive ? 'bg-amber-400' : 'bg-sky-400'}`}></span>
+                  {isProductionActive ? 'Producción MRP Habilitada' : 'Servicios TI & Comercial'}
                 </span>
               </div>
-
-              <button
-                onClick={handleToggleProduction}
-                className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-sm ${
-                  isProductionActive
-                    ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black'
-                    : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
-                }`}
-                title="Activar o desactivar el módulo de producción industrial (MRP/BOM) para esta empresa"
-              >
-                <Factory className="w-3.5 h-3.5" />
-                <span>{isProductionActive ? 'Desactivar MRP' : 'Activar MRP'}</span>
-              </button>
             </div>
 
             <button

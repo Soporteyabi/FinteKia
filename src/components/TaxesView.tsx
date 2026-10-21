@@ -57,7 +57,7 @@ export default function TaxesView({
 }: TaxesViewProps) {
   
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
-  const isDark = theme === 'navy_dark' || theme === 'light_gray';
+  const isDark = theme !== 'light_gray';
 
   // Get current company details
   const currentCompany = (companies.find(c => c.id === currentCompanyId) || companies[0] || {

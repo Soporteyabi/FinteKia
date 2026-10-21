@@ -129,6 +129,7 @@ export default function App() {
 
   // Company creation wizard states
   const [showCreateCompanyModal, setShowCreateCompanyModal] = useState(false);
+  const [newCompDataMode, setNewCompDataMode] = useState<'clean' | 'demo'>('clean'); // Default: 0 datos limpios desde cero
   const [newCompName, setNewCompName] = useState('');
   const [newCompNit, setNewCompNit] = useState('');
   const [newCompSlogan, setNewCompSlogan] = useState('Línea o Sucursal Industrial Nueva');
@@ -138,6 +139,16 @@ export default function App() {
   const [newCompPeriod, setNewCompPeriod] = useState(2026);
   const [newCompSmmlv, setNewCompSmmlv] = useState(1423500); // Standard Colombian 2026 params
   const [newCompAuxTransporte, setNewCompAuxTransporte] = useState(172000);
+  const [newCompBusinessType, setNewCompBusinessType] = useState<Company['businessType']>('comercial');
+  const [newCompEnableProduction, setNewCompEnableProduction] = useState(false);
+  const [newCompEnableTechServices, setNewCompEnableTechServices] = useState(true);
+
+  // Security: Company switch protection states
+  const [showSwitchConfirmModal, setShowSwitchConfirmModal] = useState(false);
+  const [pendingTargetCompany, setPendingTargetCompany] = useState<Company | null>(null);
+  const [switchAdminPin, setSwitchAdminPin] = useState('');
+  const [switchPinError, setSwitchPinError] = useState('');
+  const [showThemeMenu, setShowThemeMenu] = useState(false);
 
   // Save state immediately on modifications to local storage and debounce to Cloud SQL
   useEffect(() => {
@@ -194,16 +205,53 @@ export default function App() {
     }).format(val);
   };
 
-  // State manipulation triggers (actions)
-  const handleSwitchCompany = (id: string) => {
-    const target = state.companies.find((co) => co.id === id);
+  // State manipulation triggers (actions) with security authorization & confirmation
+  const handleRequestSwitchCompany = (targetId: string) => {
+    const target = state.companies.find((co) => co.id === targetId);
+    if (!target) return;
+    if (target.id === activeCompany.id) {
+      toast.info(`Ya estás operando en la empresa "${target.name}".`, 'Empresa Actual');
+      return;
+    }
+    
+    // Check user profile restrictions if any
+    const profile = state.users?.find(u => u.email === state.currentUser.email);
+    if (profile?.allowedCompanyIds && profile.allowedCompanyIds.length > 0 && !profile.allowedCompanyIds.includes(target.id) && state.currentUser.role !== 'Admin') {
+      toast.error(`Acceso restringido: No tienes permisos asignados para acceder a "${target.name}". Contacta al Administrador.`, 'Permiso Denegado');
+      return;
+    }
+
+    setPendingTargetCompany(target);
+    setSwitchAdminPin('');
+    setSwitchPinError('');
+    setShowSwitchConfirmModal(true);
+    setShowCompanyDropdown(false);
+  };
+
+  const handleConfirmSwitchCompany = () => {
+    if (!pendingTargetCompany) return;
+    
+    // Non-admin roles require admin PIN (default: 1234)
+    if (state.currentUser.role !== 'Admin') {
+      if (switchAdminPin.trim() !== '1234') {
+        setSwitchPinError('PIN de Administrador incorrecto (PIN predeterminado: 1234).');
+        return;
+      }
+    }
+
     setState((prev) => ({
       ...prev,
-      currentCompanyId: id
+      currentCompanyId: pendingTargetCompany.id
     }));
-    if (target) {
-      toast.info(`Entorno cambiado a "${target.name}". Prefijo DIAN: ${target.billingConfig?.prefix || 'FE'}`, 'Empresa Activa');
-    }
+
+    toast.success(`Entorno empresarial cambiado con éxito a "${pendingTargetCompany.name}".`, 'Entorno Activo');
+    setShowSwitchConfirmModal(false);
+    setPendingTargetCompany(null);
+  };
+
+  // Backwards compatibility alias
+  const handleSwitchCompany = (id: string) => {
+    handleRequestSwitchCompany(id);
   };
 
   const handleCreateCompany = () => {
@@ -216,6 +264,10 @@ export default function App() {
     setNewCompPeriod(2026);
     setNewCompSmmlv(1423500);
     setNewCompAuxTransporte(172000);
+    setNewCompDataMode('clean'); // By default: completely clean from scratch!
+    setNewCompBusinessType('comercial');
+    setNewCompEnableProduction(false);
+    setNewCompEnableTechServices(true);
     
     setShowCreateCompanyModal(true);
   };
@@ -227,8 +279,9 @@ export default function App() {
       return;
     }
 
+    const companyId = `co-${Date.now()}`;
     const newCompany: Company = {
-      id: `co-${Date.now()}`,
+      id: companyId,
       name: newCompName.trim(),
       nit: newCompNit.trim(),
       slogan: newCompSlogan.trim(),
@@ -236,9 +289,9 @@ export default function App() {
       regimen: newCompRegimen,
       currency: newCompCurrency,
       period: newCompPeriod,
-      businessType: 'comercial',
-      enableProduction: false,
-      enableTechServices: true,
+      businessType: newCompBusinessType,
+      enableProduction: newCompEnableProduction,
+      enableTechServices: newCompEnableTechServices,
       billingConfig: {
         providerType: 'tercero_proveedor',
         providerName: 'Alanube',
@@ -271,14 +324,71 @@ export default function App() {
       }
     };
 
-    setState((prev) => ({
-      ...prev,
-      companies: [...prev.companies, newCompany],
-      currentCompanyId: newCompany.id,
-      activeView: 'dashboard'
-    }));
+    if (newCompDataMode === 'clean') {
+      // 100% CLEAN ENVIRONMENT: 0 products, 0 inventory, 0 vouchers, 0 production orders
+      // Only 1 empty initial warehouse and 1 empty starting cash account
+      const cleanWarehouse: Warehouse = {
+        id: `wh-${companyId}-1`,
+        name: `Bodega Principal - ${newCompany.name.split(' ')[0]}`,
+        address: newCompany.address,
+        companyId: companyId,
+        manager: 'Administrador General'
+      };
 
-    toast.success(`Organización "${newCompany.name}" creada y activada.`, 'Empresa Creada');
+      const cleanBankAccount: BankAccount = {
+        id: `ba-${companyId}-1`,
+        name: `Caja General (${newCompany.name.split(' ')[0]})`,
+        bankName: 'Caja General / Efectivo',
+        accountNumber: `CAJA-${newCompany.nit.replace(/[^0-9]/g, '').slice(-4) || '0001'}`,
+        balance: 0,
+        companyId: companyId
+      };
+
+      setState((prev) => ({
+        ...prev,
+        companies: [...prev.companies, newCompany],
+        warehouses: [...prev.warehouses, cleanWarehouse],
+        bankAccounts: [...prev.bankAccounts, cleanBankAccount],
+        currentCompanyId: newCompany.id,
+        activeView: 'dashboard'
+      }));
+
+      toast.success(`Organización "${newCompany.name}" creada desde cero (ambiente 100% limpio sin datos demo).`, 'Empresa Creada');
+    } else {
+      // Demo template mode: add demo items specifically for this company
+      const demoWarehouse: Warehouse = {
+        id: `wh-${companyId}-1`,
+        name: `Bodega Principal - ${newCompany.name.split(' ')[0]}`,
+        address: newCompany.address,
+        companyId: companyId,
+        manager: 'Administrador'
+      };
+
+      const demoProduct: Product = {
+        id: `p-${companyId}-1`,
+        name: newCompBusinessType === 'produccion' ? 'Producto Fabricado Estándar' : 'Servicio / Producto Comercial',
+        sku: 'ITEM-DEMO-01',
+        cost: 15000,
+        price: 35000,
+        tax: 19,
+        type: newCompBusinessType === 'produccion' ? 'terminado' : 'tecnologia',
+        lotTracking: false,
+        unitOfMeasure: 'UND',
+        companyId: companyId
+      };
+
+      setState((prev) => ({
+        ...prev,
+        companies: [...prev.companies, newCompany],
+        warehouses: [...prev.warehouses, demoWarehouse],
+        products: [...prev.products, demoProduct],
+        currentCompanyId: newCompany.id,
+        activeView: 'dashboard'
+      }));
+
+      toast.success(`Organización "${newCompany.name}" creada con plantilla de prueba.`, 'Empresa Creada');
+    }
+
     setShowCreateCompanyModal(false);
   };
 
@@ -334,7 +444,8 @@ export default function App() {
   const handleAddTechOrder = (order: Omit<TechServiceOrder, 'id'>) => {
     const newOrder: TechServiceOrder = {
       id: `ot-${Date.now()}`,
-      ...order
+      ...order,
+      companyId: order.companyId || activeCompany.id
     };
     setState((prev) => ({
       ...prev,
@@ -359,7 +470,8 @@ export default function App() {
   const handleAddBankAccount = (ba: Omit<BankAccount, 'id'>) => {
     const newAccount: BankAccount = {
       id: `ba-${Date.now()}`,
-      ...ba
+      ...ba,
+      companyId: ba.companyId || activeCompany.id
     };
     setState((prev) => ({
       ...prev,
@@ -508,7 +620,8 @@ export default function App() {
             expirationDate: expirationDate,
             warehouseId: whId,
             quantity: diffQty,
-            avgCost: prod ? prod.cost : 5000
+            avgCost: prod ? prod.cost : 5000,
+            companyId: activeCompany.id
           });
         }
       }
@@ -538,7 +651,8 @@ export default function App() {
         finishedWarehouseId: p.finishedWarehouseId,
         productionHours: p.productionHours,
         laborHourlyRate: p.laborHourlyRate,
-        overheadHourlyRate: p.overheadHourlyRate
+        overheadHourlyRate: p.overheadHourlyRate,
+        companyId: p.companyId || activeCompany.id
       };
 
       return {
@@ -749,7 +863,8 @@ export default function App() {
   const handleAddTercero = (newTerData: Omit<Tercero, 'id'>) => {
     const newTercero: Tercero = {
       id: `ter-${Date.now()}`,
-      ...newTerData
+      ...newTerData,
+      companyId: newTerData.companyId || activeCompany.id
     };
     setState((prev) => ({
       ...prev,
@@ -834,7 +949,8 @@ export default function App() {
   const handleAddProduct = (payload: Omit<Product, 'id'>) => {
     const newProduct: Product = {
       ...payload,
-      id: `p-${Date.now()}`
+      id: `p-${Date.now()}`,
+      companyId: payload.companyId || activeCompany.id
     };
 
     setState((prev) => ({
@@ -860,7 +976,8 @@ export default function App() {
   const handleAddWarehouse = (payload: Omit<Warehouse, 'id'>) => {
     const newWh: Warehouse = {
       ...payload,
-      id: `wh-${Date.now()}`
+      id: `wh-${Date.now()}`,
+      companyId: payload.companyId || activeCompany.id
     };
     setState((prev) => ({
       ...prev,
@@ -934,7 +1051,8 @@ export default function App() {
           lotNumber: lotNum,
           warehouseId: destWhId,
           quantity: qty,
-          avgCost: cost
+          avgCost: cost,
+          companyId: activeCompany.id
         });
       }
 
@@ -949,7 +1067,8 @@ export default function App() {
         destWarehouseId: destWhId,
         quantity: qty,
         cost,
-        userId: 'Admin Contable'
+        userId: 'Admin Contable',
+        companyId: activeCompany.id
       };
 
       return {
@@ -1002,20 +1121,89 @@ export default function App() {
     }));
   };
 
-  // Calculations for active metrics totals
-  const salesVouchersArr = state.vouchers.filter((v) => v.type === 'venta');
+  // Strictly isolate company data:
+  // If an entity has companyId === activeCompany.id, it belongs to this company.
+  // Legacy fallback: if companyId is unset, only treat as co-1 if activeCompany is co-1.
+  const activeProducts = React.useMemo(() => 
+    state.products.filter(p => p.companyId === activeCompany.id || (!p.companyId && activeCompany.id === 'co-1')),
+    [state.products, activeCompany.id]
+  );
+
+  const activeInventory = React.useMemo(() => 
+    state.inventory.filter(i => i.companyId === activeCompany.id || (!i.companyId && activeCompany.id === 'co-1')),
+    [state.inventory, activeCompany.id]
+  );
+
+  const activeWarehouses = React.useMemo(() => 
+    state.warehouses.filter(w => w.companyId === activeCompany.id || (!w.companyId && activeCompany.id === 'co-1')),
+    [state.warehouses, activeCompany.id]
+  );
+
+  const activeVouchers = React.useMemo(() => 
+    state.vouchers.filter(v => v.companyId === activeCompany.id || (!v.companyId && activeCompany.id === 'co-1')),
+    [state.vouchers, activeCompany.id]
+  );
+
+  const activeBankAccounts = React.useMemo(() => 
+    state.bankAccounts.filter(b => b.companyId === activeCompany.id || (!b.companyId && activeCompany.id === 'co-1')),
+    [state.bankAccounts, activeCompany.id]
+  );
+
+  const activeProductionOrders = React.useMemo(() => 
+    state.productionOrders.filter(o => o.companyId === activeCompany.id || (!o.companyId && activeCompany.id === 'co-2')),
+    [state.productionOrders, activeCompany.id]
+  );
+
+  const activeTechServiceOrders = React.useMemo(() => 
+    (state.techServiceOrders || []).filter(t => t.companyId === activeCompany.id || (!t.companyId && activeCompany.id === 'co-1')),
+    [state.techServiceOrders, activeCompany.id]
+  );
+
+  const activeTerceros = React.useMemo(() => 
+    state.terceros.filter(t => t.companyId === activeCompany.id || (!t.companyId && activeCompany.id === 'co-1')),
+    [state.terceros, activeCompany.id]
+  );
+
+  const activeBoms = React.useMemo(() => 
+    state.boms.filter(b => activeProducts.some(p => p.id === b.finishedProductId)),
+    [state.boms, activeProducts]
+  );
+
+  // Active company metrics calculations (Purely isolated to the current company)
+  const salesVouchersArr = activeVouchers.filter((v) => v.type === 'venta');
   const salesSum = salesVouchersArr.reduce((acc, v) => acc + v.total, 0);
 
-  const purchaseVouchersArr = state.vouchers.filter((v) => v.type === 'compra');
+  const purchaseVouchersArr = activeVouchers.filter((v) => v.type === 'compra');
   const expensesSum = purchaseVouchersArr.reduce((acc, v) => acc + v.total, 0);
 
   const netOperacionProfit = salesSum - expensesSum;
-  const netMarginVal = salesSum > 0 ? `${Math.round((netOperacionProfit / salesSum) * 100)}%` : '100%';
+  const netMarginVal = salesSum > 0 ? `${Math.round((netOperacionProfit / salesSum) * 100)}%` : '0%';
 
-  const clientsList = state.terceros.filter((t) => t.roles.includes('cliente'));
+  const clientsList = activeTerceros.filter((t) => t.roles.includes('cliente'));
 
   const currentThemeId = state.theme || 'navy_dark';
   const activeThemeObj = THEMES_MAP[currentThemeId] || THEMES_MAP.navy_dark;
+
+  // Real-time synchronization of document classes and background for high contrast theme
+  useEffect(() => {
+    if (currentThemeId === 'light_gray') {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+      document.body.style.backgroundColor = '#f1f5f9';
+      document.body.style.color = '#0f172a';
+    } else {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+      const darkBgs: Record<string, string> = {
+        navy_dark: '#070b14',
+        slate_gray: '#0b1120',
+        zinc_classic: '#09090b',
+        steel_sage: '#08100e'
+      };
+      document.body.style.backgroundColor = darkBgs[currentThemeId] || '#070b14';
+      document.body.style.color = '#f8fafc';
+    }
+  }, [currentThemeId]);
 
   const [globalSearch, setGlobalSearch] = useState('');
   const [showNotifMenu, setShowNotifMenu] = useState(false);
@@ -1159,27 +1347,38 @@ export default function App() {
                   className="fixed inset-0 z-40" 
                   onClick={() => setShowCompanyDropdown(false)}
                 />
-                <div className="absolute left-0 mt-2 w-80 rounded-2xl bg-white dark:bg-[#0d1424] border border-slate-200 dark:border-slate-800 shadow-2xl p-2.5 z-50 text-xs animate-in fade-in slide-in-from-top-1 duration-150">
-                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-slate-100 dark:border-slate-800 font-bold text-slate-400 text-[10px] uppercase">
-                    <span>Organizaciones Multiempresa</span>
-                    <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-mono">{state.companies.length}</span>
+                <div className="absolute left-0 mt-2 w-84 rounded-2xl bg-white dark:bg-[#0d1424] border border-slate-200 dark:border-slate-800 shadow-2xl p-2.5 z-50 text-xs animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-slate-100 dark:border-slate-850 font-bold text-slate-500 dark:text-slate-400 text-[10px] uppercase">
+                    <span className="flex items-center gap-1.5">
+                      <i className="ri-shield-keyhole-line text-amber-500"></i>
+                      <span>Entornos Empresariales</span>
+                    </span>
+                    <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold">
+                      {state.companies.length} org.
+                    </span>
                   </div>
+
+                  {/* Security notice banner */}
+                  <div className="px-2 py-1.5 my-1 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                    <i className="ri-lock-password-line shrink-0 text-xs"></i>
+                    <span>Cambio protegido: Requiere confirmación y autorización de administrador.</span>
+                  </div>
+
                   <div className="max-h-56 overflow-y-auto mt-1 space-y-1">
                     {state.companies.map((co) => (
                       <button
                         key={co.id}
                         onClick={() => {
-                          handleSwitchCompany(co.id);
-                          setShowCompanyDropdown(false);
+                          handleRequestSwitchCompany(co.id);
                         }}
                         className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
                           co.id === activeCompany.id
                             ? 'bg-blue-600 text-white font-bold shadow-sm'
-                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-200'
                         }`}
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
+                          <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-750 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
                             {co.logoUrl ? (
                               <img src={co.logoUrl} alt={co.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                             ) : (
@@ -1193,10 +1392,19 @@ export default function App() {
                             <span className="text-[9.5px] font-mono opacity-70">NIT: {co.nit}</span>
                           </div>
                         </div>
-                        {co.id === activeCompany.id && <i className="ri-check-line text-base shrink-0"></i>}
+                        {co.id === activeCompany.id ? (
+                          <span className="text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded text-white flex items-center gap-0.5 shrink-0">
+                            <i className="ri-check-line"></i> Activa
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 group-hover:text-slate-200 flex items-center gap-0.5 shrink-0">
+                            <i className="ri-arrow-right-s-line"></i>
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>
+
                   <div className="pt-2 mt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1">
                     <button
                       onClick={() => {
@@ -1205,7 +1413,7 @@ export default function App() {
                       }}
                       className="w-full py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-cyan-400 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
                     >
-                      <i className="ri-add-line"></i> Crear Nueva Organización
+                      <i className="ri-add-line"></i> Crear Nueva Organización (Desde Cero)
                     </button>
                     <button
                       onClick={() => {
@@ -1320,18 +1528,177 @@ export default function App() {
               )}
             </div>
 
-            {/* Theme Quick Toggle */}
-            <button
-              onClick={() => {
-                const themes: Array<keyof typeof THEMES_MAP> = ['navy_dark', 'slate_gray', 'zinc_classic', 'steel_sage', 'light_gray'];
-                const nextIdx = (themes.indexOf(currentThemeId) + 1) % themes.length;
-                setState(prev => ({ ...prev, theme: themes[nextIdx] }));
-              }}
-              className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-900/80 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all cursor-pointer"
-              title={`Tema: ${activeThemeObj.label}. Clic para cambiar`}
-            >
-              <i className="ri-palette-line text-sm"></i>
-            </button>
+            {/* Theme Selector Popover */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowThemeMenu(!showThemeMenu);
+                  setShowCompanyDropdown(false);
+                  setShowNotifMenu(false);
+                  setShowUserMenu(false);
+                }}
+                className={`h-8 px-2.5 rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer text-xs font-bold ${
+                  currentThemeId === 'light_gray'
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400'
+                    : 'bg-slate-100 dark:bg-slate-900/80 hover:bg-slate-200 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+                }`}
+                title={`Tema actual: ${activeThemeObj.label}. Clic para cambiar`}
+              >
+                <i className="ri-palette-line text-sm text-blue-500"></i>
+                <span className="hidden xl:inline text-[11px] font-semibold">
+                  {currentThemeId === 'light_gray' ? 'Gris Claro' : activeThemeObj.label.split(' ')[0]}
+                </span>
+                <i className="ri-arrow-down-s-line text-slate-400 text-xs"></i>
+              </button>
+
+              {showThemeMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowThemeMenu(false)} />
+                  <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-white dark:bg-[#0d1424] border border-slate-200 dark:border-slate-800 shadow-2xl p-2.5 z-50 text-xs animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-slate-100 dark:border-slate-800 font-bold text-slate-500 dark:text-slate-400 text-[10px] uppercase">
+                      <span>Paleta Visual & Contraste</span>
+                      <i className="ri-contrast-drop-2-line text-blue-500"></i>
+                    </div>
+
+                    <div className="mt-1.5 space-y-1">
+                      {/* 1. GRIS CLARO ALTO CONTRASTE (DESTACADO) */}
+                      <button
+                        onClick={() => {
+                          setState(prev => ({ ...prev, theme: 'light_gray' }));
+                          setShowThemeMenu(false);
+                          toast.success('Tema Gris Claro (Alto Contraste) activado.', 'Tema Visual');
+                        }}
+                        className={`w-full text-left p-2 rounded-xl flex items-center justify-between gap-2.5 transition-all cursor-pointer ${
+                          currentThemeId === 'light_gray'
+                            ? 'bg-blue-600 text-white font-bold shadow-md'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-[#f1f5f9] border border-slate-300 flex items-center justify-center text-slate-900 font-black text-xs shrink-0 shadow-xs">
+                            ☀️
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-xs">Gris Claro (Alto Contraste)</span>
+                              <span className={`text-[8.5px] px-1 rounded uppercase font-black ${
+                                currentThemeId === 'light_gray' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                Recomendado
+                              </span>
+                            </div>
+                            <span className={`text-[9.5px] block leading-tight ${currentThemeId === 'light_gray' ? 'text-white/80' : 'text-slate-600'}`}>
+                              Fondo claro limpio y textos nítidos de máxima legibilidad
+                            </span>
+                          </div>
+                        </div>
+                        {currentThemeId === 'light_gray' && <i className="ri-check-line text-base font-bold shrink-0"></i>}
+                      </button>
+
+                      {/* 2. AZUL NEON NAVY DARK */}
+                      <button
+                        onClick={() => {
+                          setState(prev => ({ ...prev, theme: 'navy_dark' }));
+                          setShowThemeMenu(false);
+                          toast.info('Tema Azul Neón activado.', 'Tema Visual');
+                        }}
+                        className={`w-full text-left p-2 rounded-xl flex items-center justify-between gap-2.5 transition-all cursor-pointer ${
+                          currentThemeId === 'navy_dark'
+                            ? 'bg-blue-600 text-white font-bold shadow-sm'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-[#070b14] border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs shrink-0">
+                            🌙
+                          </div>
+                          <div>
+                            <span className="font-bold text-xs block">Azul Neón (Navy Dark)</span>
+                            <span className="text-[9.5px] opacity-70 block">Estilo oscuro con acentos cian y azul</span>
+                          </div>
+                        </div>
+                        {currentThemeId === 'navy_dark' && <i className="ri-check-line text-base shrink-0"></i>}
+                      </button>
+
+                      {/* 3. GRIS SLATE CONTABLE */}
+                      <button
+                        onClick={() => {
+                          setState(prev => ({ ...prev, theme: 'slate_gray' }));
+                          setShowThemeMenu(false);
+                          toast.info('Tema Gris Slate activado.', 'Tema Visual');
+                        }}
+                        className={`w-full text-left p-2 rounded-xl flex items-center justify-between gap-2.5 transition-all cursor-pointer ${
+                          currentThemeId === 'slate_gray'
+                            ? 'bg-blue-600 text-white font-bold shadow-sm'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-[#0f172a] border border-slate-700 flex items-center justify-center text-blue-400 text-xs shrink-0">
+                            🌑
+                          </div>
+                          <div>
+                            <span className="font-bold text-xs block">Gris Slate Contable</span>
+                            <span className="text-[9.5px] opacity-70 block">Tonalidad grafito oscuro corporativo</span>
+                          </div>
+                        </div>
+                        {currentThemeId === 'slate_gray' && <i className="ri-check-line text-base shrink-0"></i>}
+                      </button>
+
+                      {/* 4. ZINC CLASICO */}
+                      <button
+                        onClick={() => {
+                          setState(prev => ({ ...prev, theme: 'zinc_classic' }));
+                          setShowThemeMenu(false);
+                          toast.info('Tema Zinc Clásico activado.', 'Tema Visual');
+                        }}
+                        className={`w-full text-left p-2 rounded-xl flex items-center justify-between gap-2.5 transition-all cursor-pointer ${
+                          currentThemeId === 'zinc_classic'
+                            ? 'bg-blue-600 text-white font-bold shadow-sm'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-[#18181b] border border-zinc-700 flex items-center justify-center text-zinc-300 text-xs shrink-0">
+                            🏢
+                          </div>
+                          <div>
+                            <span className="font-bold text-xs block">Zinc Puro Oficina</span>
+                            <span className="text-[9.5px] opacity-70 block">Escala de grises minimalista</span>
+                          </div>
+                        </div>
+                        {currentThemeId === 'zinc_classic' && <i className="ri-check-line text-base shrink-0"></i>}
+                      </button>
+
+                      {/* 5. VERDE SABIO CONTABLE */}
+                      <button
+                        onClick={() => {
+                          setState(prev => ({ ...prev, theme: 'steel_sage' }));
+                          setShowThemeMenu(false);
+                          toast.info('Tema Verde Sabio activado.', 'Tema Visual');
+                        }}
+                        className={`w-full text-left p-2 rounded-xl flex items-center justify-between gap-2.5 transition-all cursor-pointer ${
+                          currentThemeId === 'steel_sage'
+                            ? 'bg-blue-600 text-white font-bold shadow-sm'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-[#0d1715] border border-emerald-900 flex items-center justify-center text-emerald-400 text-xs shrink-0">
+                            🌲
+                          </div>
+                          <div>
+                            <span className="font-bold text-xs block">Verde Sabio Contable</span>
+                            <span className="text-[9.5px] opacity-70 block">Tono esmeralda descansado para la vista</span>
+                          </div>
+                        </div>
+                        {currentThemeId === 'steel_sage' && <i className="ri-check-line text-base shrink-0"></i>}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Live Date / Time Widget */}
             <div className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 text-slate-600 dark:text-slate-400 text-[11px] font-mono border border-slate-200 dark:border-slate-800">
@@ -1511,37 +1878,37 @@ export default function App() {
             />
           ) : (
             <>
-              {/* Modular Views Router: DashboardView now has the complete Portal Menu and Privacy Shield! */}
+              {/* Modular Views Router: Purely isolated data per active company */}
               {state.activeView === 'dashboard' && (
                 <DashboardView
-                  vouchers={state.vouchers}
-                  terceros={state.terceros}
-                  products={state.products}
+                  vouchers={activeVouchers}
+                  terceros={activeTerceros}
+                  products={activeProducts}
                   setActiveView={(v) => setState((prev) => ({ ...prev, activeView: v }))}
                   onQuickAction={() => {}}
                   formatCOP={formatCOP}
                   theme={currentThemeId}
-                  boms={state.boms}
-                  inventory={state.inventory}
+                  boms={activeBoms}
+                  inventory={activeInventory}
                   sales={salesSum}
                   expenses={expensesSum}
                   profit={netOperacionProfit}
                   margin={netMarginVal}
                   clientsCount={clientsList.length}
-                  suppliersCount={state.terceros.filter(t => t.roles.includes('proveedor')).length}
+                  suppliersCount={activeTerceros.filter(t => t.roles.includes('proveedor')).length}
                   currentUser={state.currentUser}
                   searchQuery={globalSearch}
                   currentCompany={activeCompany}
                   onUpdateCompany={handleUpdateCompany}
-                  techServiceOrders={state.techServiceOrders}
+                  techServiceOrders={activeTechServiceOrders}
                 />
               )}
 
               {state.activeView === 'servicios_tech' && (
                 <TechServicesView
-                  products={state.products}
-                  terceros={state.terceros}
-                  techServiceOrders={state.techServiceOrders}
+                  products={activeProducts}
+                  terceros={activeTerceros}
+                  techServiceOrders={activeTechServiceOrders}
                   onAddServiceOrder={handleAddTechOrder}
                   onUpdateServiceOrder={handleUpdateTechOrder}
                   onUpdateServiceOrderStatus={handleUpdateTechOrderStatus}
@@ -1557,7 +1924,7 @@ export default function App() {
               {state.activeView === 'terceros' && (
                 <TercerosView
                   currentCompany={activeCompany}
-                  terceros={state.terceros}
+                  terceros={activeTerceros}
                   addTercero={handleAddTercero}
                   updateTercero={handleUpdateTercero}
                   deleteTercero={handleDeleteTercero}
@@ -1567,9 +1934,9 @@ export default function App() {
 
               {state.activeView === 'productos' && (
                 <ProductsView
-                  products={state.products}
-                  inventory={state.inventory}
-                  warehouses={state.warehouses}
+                  products={activeProducts}
+                  inventory={activeInventory}
+                  warehouses={activeWarehouses}
                   addProduct={handleAddProduct}
                   updateProduct={handleUpdateProduct}
                   deleteProduct={handleDeleteProduct}
@@ -1580,10 +1947,10 @@ export default function App() {
 
               {state.activeView === 'bodegas' && (
                 <WarehousesAndPlantView
-                  warehouses={state.warehouses}
+                  warehouses={activeWarehouses}
                   assets={state.assets}
-                  inventory={state.inventory}
-                  products={state.products}
+                  inventory={activeInventory}
+                  products={activeProducts}
                   inventoryMovements={state.inventoryMovements}
                   addWarehouse={handleAddWarehouse}
                   updateWarehouse={handleUpdateWarehouse}
@@ -1599,10 +1966,10 @@ export default function App() {
               {state.activeView === 'facturacion' && (
                 <InvoicingView
                   currentCompany={activeCompany}
-                  vouchers={state.vouchers}
-                  terceros={state.terceros}
-                  products={state.products}
-                  inventory={state.inventory}
+                  vouchers={activeVouchers}
+                  terceros={activeTerceros}
+                  products={activeProducts}
+                  inventory={activeInventory}
                   addVoucher={handleAddVoucher}
                   updateInventory={handleUpdateInventory}
                   puc={state.puc}
@@ -1620,11 +1987,11 @@ export default function App() {
               {state.activeView === 'compras' && (
                 <PurchasesView
                   currentCompany={activeCompany}
-                  vouchers={state.vouchers}
-                  terceros={state.terceros}
-                  products={state.products}
-                  inventory={state.inventory}
-                  warehouses={state.warehouses}
+                  vouchers={activeVouchers}
+                  terceros={activeTerceros}
+                  products={activeProducts}
+                  inventory={activeInventory}
+                  warehouses={activeWarehouses}
                   puc={state.puc}
                   addVoucher={handleAddVoucher}
                   updateInventory={handleUpdateInventory}
@@ -1636,36 +2003,41 @@ export default function App() {
 
               {state.activeView === 'ordenes_prod' && (
                 activeCompany.enableProduction === false ? (
-                  <div className="p-8 max-w-xl mx-auto rounded-3xl bg-slate-900 border border-slate-800 text-center space-y-4 shadow-xl my-8">
-                    <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-400/20 flex items-center justify-center text-2xl mx-auto">
+                  <div className="p-8 max-w-xl mx-auto rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-xl my-8">
+                    <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-400/20 flex items-center justify-center text-2xl mx-auto">
                       <i className="ri-tools-fill"></i>
                     </div>
-                    <h3 className="text-lg font-bold text-white">Módulo de Producción Industrial (MRP) Desactivado</h3>
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      Esta empresa está operando en <strong>Modo Tecnología, Hardware & Servicios</strong>. Las recetas BOM y órdenes de producción están en pausa.
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Módulo de Producción Industrial (MRP) Desactivado</h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      La empresa <strong>{activeCompany.name}</strong> está configurada en giro <strong>{activeCompany.businessType?.replace('_', ' ') || 'Comercial / Servicios'}</strong>. Cada empresa activa o desactiva su módulo de producción de forma independiente.
                     </p>
                     <div className="pt-2 flex flex-col sm:flex-row justify-center gap-2.5">
                       <button
-                        onClick={() => handleUpdateCompany({ ...activeCompany, enableProduction: true })}
-                        className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs cursor-pointer shadow-md transition-all"
+                        onClick={() => setState(prev => ({ ...prev, activeView: 'empresa' }))}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs cursor-pointer shadow-md transition-all flex items-center justify-center gap-1.5"
                       >
-                        Activar Módulo de Producción
+                        <i className="ri-settings-4-line"></i> Configurar Módulos en Empresa
                       </button>
                       <button
-                        onClick={() => setState(prev => ({ ...prev, activeView: 'servicios_tech' }))}
-                        className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs cursor-pointer transition-all"
+                        onClick={() => {
+                          if (window.confirm(`¿Desea activar de forma confirmada el módulo de producción industrial (MRP) para "${activeCompany.name}"?`)) {
+                            handleUpdateCompany({ ...activeCompany, enableProduction: true });
+                            toast.success(`Módulo de Producción habilitado para "${activeCompany.name}".`, 'Configuración Guardada');
+                          }
+                        }}
+                        className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs cursor-pointer shadow-md transition-all flex items-center justify-center gap-1.5"
                       >
-                        Ir a Servicios Tecnológicos & OT
+                        <i className="ri-check-line"></i> Habilitar para esta Empresa (Confirmar)
                       </button>
                     </div>
                   </div>
                 ) : (
                   <ManufacturingView
-                    boms={state.boms}
-                    products={state.products}
-                    productionOrders={state.productionOrders}
-                    inventory={state.inventory}
-                    warehouses={state.warehouses}
+                    boms={activeBoms}
+                    products={activeProducts}
+                    productionOrders={activeProductionOrders}
+                    inventory={activeInventory}
+                    warehouses={activeWarehouses}
                     addProductionOrder={handleAddProductionOrder}
                     updateOrderStatus={handleUpdateOrderStatus}
                     addQualityInspection={handleAddQualityInspection}
@@ -1676,37 +2048,31 @@ export default function App() {
 
               {state.activeView === 'mrp' && (
                 activeCompany.enableProduction === false ? (
-                  <div className="p-8 max-w-xl mx-auto rounded-3xl bg-slate-900 border border-slate-800 text-center space-y-4 shadow-xl my-8">
-                    <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-400/20 flex items-center justify-center text-2xl mx-auto">
+                  <div className="p-8 max-w-xl mx-auto rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-xl my-8">
+                    <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-400/20 flex items-center justify-center text-2xl mx-auto">
                       <i className="ri-cpu-line"></i>
                     </div>
-                    <h3 className="text-lg font-bold text-white">Planificación de Requerimientos (MRP) en Pausa</h3>
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      El módulo de cálculo de necesidades de materiales está desactivado porque la empresa está configurada para <strong>Tecnología & Servicios</strong>.
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Planificación de Requerimientos (MRP) en Pausa</h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      El módulo de cálculo de materiales está desactivado para <strong>{activeCompany.name}</strong> según su actividad configurada.
                     </p>
                     <div className="pt-2 flex flex-col sm:flex-row justify-center gap-2.5">
                       <button
-                        onClick={() => handleUpdateCompany({ ...activeCompany, enableProduction: true })}
-                        className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs cursor-pointer shadow-md transition-all"
+                        onClick={() => setState(prev => ({ ...prev, activeView: 'empresa' }))}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs cursor-pointer shadow-md transition-all"
                       >
-                        Activar Módulo MRP
-                      </button>
-                      <button
-                        onClick={() => setState(prev => ({ ...prev, activeView: 'servicios_tech' }))}
-                        className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs cursor-pointer transition-all"
-                      >
-                        Ir a Servicios Tecnológicos & OT
+                        Gestionar en Datos de Empresa
                       </button>
                     </div>
                   </div>
                 ) : (
                   <PlanningView
-                    boms={state.boms}
-                    products={state.products}
-                    productionOrders={state.productionOrders}
-                    inventory={state.inventory}
-                    terceros={state.terceros}
-                    warehouses={state.warehouses}
+                    boms={activeBoms}
+                    products={activeProducts}
+                    productionOrders={activeProductionOrders}
+                    inventory={activeInventory}
+                    terceros={activeTerceros}
+                    warehouses={activeWarehouses}
                     addProductionOrder={handleAddProductionOrder}
                     addVoucher={handleAddVoucher}
                     updateInventory={handleUpdateInventory}
@@ -1717,35 +2083,29 @@ export default function App() {
 
               {state.activeView === 'calidad' && (
                 activeCompany.enableProduction === false ? (
-                  <div className="p-8 max-w-xl mx-auto rounded-3xl bg-slate-900 border border-slate-800 text-center space-y-4 shadow-xl my-8">
-                    <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-400/20 flex items-center justify-center text-2xl mx-auto">
+                  <div className="p-8 max-w-xl mx-auto rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-xl my-8">
+                    <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-400/20 flex items-center justify-center text-2xl mx-auto">
                       <i className="ri-shield-check-line"></i>
                     </div>
-                    <h3 className="text-lg font-bold text-white">Inspección de Calidad de Producción</h3>
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      Este módulo audita lotes de manufactura industrial. Para control de garantías de hardware, use el módulo de Tecnología.
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Inspección de Calidad de Producción</h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Este módulo audita lotes de manufactura industrial. Para servicios y garantías técnicas, utilice el módulo de Servicios TI.
                     </p>
                     <div className="pt-2 flex flex-col sm:flex-row justify-center gap-2.5">
                       <button
-                        onClick={() => handleUpdateCompany({ ...activeCompany, enableProduction: true })}
-                        className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs cursor-pointer shadow-md transition-all"
+                        onClick={() => setState(prev => ({ ...prev, activeView: 'empresa' }))}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs cursor-pointer transition-all"
                       >
-                        Activar Módulo de Calidad & MRP
-                      </button>
-                      <button
-                        onClick={() => setState(prev => ({ ...prev, activeView: 'servicios_tech' }))}
-                        className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs cursor-pointer transition-all"
-                      >
-                        Ir a Servicios Tecnológicos & OT
+                        Gestionar en Datos de Empresa
                       </button>
                     </div>
                   </div>
                 ) : (
                   <QualityView
                     qualityInspections={state.qualityInspections}
-                    productionOrders={state.productionOrders}
-                    boms={state.boms}
-                    products={state.products}
+                    productionOrders={activeProductionOrders}
+                    boms={activeBoms}
+                    products={activeProducts}
                     addQualityInspection={handleAddQualityInspection}
                     updateOrderStatus={handleUpdateOrderStatus}
                     theme={currentThemeId}
@@ -1756,10 +2116,10 @@ export default function App() {
               {state.activeView === 'comprobantes' && (
                 <VouchersView
                   currentCompany={activeCompany}
-                  vouchers={state.vouchers}
+                  vouchers={activeVouchers}
                   puc={state.puc}
                   costCenters={state.costCenters}
-                  terceros={state.terceros}
+                  terceros={activeTerceros}
                   addVoucher={handleAddVoucher}
                   theme={currentThemeId}
                 />
@@ -1767,11 +2127,11 @@ export default function App() {
 
               {state.activeView === 'bancos' && (
                 <BanksView
-                  bankAccounts={state.bankAccounts}
+                  bankAccounts={activeBankAccounts}
                   bankTransactions={state.bankTransactions}
-                  vouchers={state.vouchers}
+                  vouchers={activeVouchers}
                   puc={state.puc}
-                  terceros={state.terceros}
+                  terceros={activeTerceros}
                   addVoucher={handleAddVoucher}
                   addBankAccount={handleAddBankAccount}
                   addBankTransaction={handleAddBankTransaction}
@@ -1782,9 +2142,9 @@ export default function App() {
 
               {state.activeView === 'impuestos' && (
                 <TaxesView
-                  vouchers={state.vouchers}
+                  vouchers={activeVouchers}
                   puc={state.puc}
-                  terceros={state.terceros}
+                  terceros={activeTerceros}
                   companies={state.companies}
                   currentCompanyId={state.currentCompanyId}
                   addVoucher={handleAddVoucher}
@@ -1797,7 +2157,7 @@ export default function App() {
                   budgets={state.budgets}
                   costCenters={state.costCenters}
                   puc={state.puc}
-                  vouchers={state.vouchers}
+                  vouchers={activeVouchers}
                   addBudget={handleAddBudget}
                   deleteBudget={handleDeleteBudget}
                   updateBudget={handleUpdateBudget}
@@ -1808,9 +2168,9 @@ export default function App() {
 
               {state.activeView === 'cartera' && (
                 <PortfolioView
-                  vouchers={state.vouchers}
-                  terceros={state.terceros}
-                  bankAccounts={state.bankAccounts}
+                  vouchers={activeVouchers}
+                  terceros={activeTerceros}
+                  bankAccounts={activeBankAccounts}
                   puc={state.puc}
                   addVoucher={handleAddVoucher}
                   theme={currentThemeId}
@@ -1821,8 +2181,8 @@ export default function App() {
                 <PayrollView
                   companies={state.companies}
                   currentCompanyId={state.currentCompanyId}
-                  terceros={state.terceros}
-                  bankAccounts={state.bankAccounts}
+                  terceros={activeTerceros}
+                  bankAccounts={activeBankAccounts}
                   puc={state.puc}
                   payrollLogs={state.payrollLogs || []}
                   onAddTercero={handleAddTercero}
@@ -1839,9 +2199,9 @@ export default function App() {
               {state.activeView === 'ai_advisor' && (
                 <AIAdvisorView
                   currentCompany={activeCompany}
-                  vouchers={state.vouchers}
-                  inventory={state.inventory}
-                  products={state.products}
+                  vouchers={activeVouchers}
+                  inventory={activeInventory}
+                  products={activeProducts}
                 />
               )}
 
@@ -1864,7 +2224,7 @@ export default function App() {
                   updateCompany={handleUpdateCompany}
                   theme={currentThemeId}
                   companies={state.companies}
-                  onSwitchCompany={handleSwitchCompany}
+                  onSwitchCompany={handleRequestSwitchCompany}
                   onCreateCompany={handleCreateCompany}
                 />
               )}
@@ -1909,8 +2269,143 @@ export default function App() {
             {/* Modal Body */}
             <form onSubmit={handleSaveNewCompany} className="p-5 flex-1 overflow-y-auto space-y-4 text-xs">
               <p className="text-slate-500 leading-relaxed">
-                Configure los parámetros e información legal de la nueva organización. Al confirmarse, se habilitará un ambiente contable, tributario y de nómina independiente para esta empresa.
+                Configure los parámetros e información legal de la nueva organización. Al confirmarse, se habilitará un ambiente contable, tributario y de facturación independiente para esta empresa.
               </p>
+
+              {/* 1. MODO DE DATOS INICIALES (DESDE CERO O DEMO) */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <label className="text-[10px] font-black text-slate-600 uppercase flex items-center gap-1.5">
+                  <i className="ri-database-2-line text-blue-600"></i> Carga de Datos Iniciales:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewCompDataMode('clean')}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      newCompDataMode === 'clean'
+                        ? 'border-blue-600 bg-blue-50 text-blue-900 font-bold ring-1 ring-blue-500/30'
+                        : 'border-slate-200 bg-white hover:border-slate-300 text-slate-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">✨</span>
+                      <div>
+                        <p className="font-bold text-xs text-slate-900">Desde CERO (Limpio)</p>
+                        <p className="text-[10px] text-slate-500 font-normal mt-0.5">0 productos, 0 comprobantes, sin datos demo.</p>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewCompDataMode('demo')}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      newCompDataMode === 'demo'
+                        ? 'border-blue-600 bg-blue-50 text-blue-900 font-bold ring-1 ring-blue-500/30'
+                        : 'border-slate-200 bg-white hover:border-slate-300 text-slate-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">📦</span>
+                      <div>
+                        <p className="font-bold text-xs text-slate-900">Plantilla de Demostración</p>
+                        <p className="text-[10px] text-slate-500 font-normal mt-0.5">Carga catálogo base para pruebas.</p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. GIRO & ACTIVACIÓN DEL MÓDULO DE PRODUCCIÓN (MRP) */}
+              <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black text-amber-900 uppercase flex items-center gap-1.5">
+                    <i className="ri-settings-4-line text-amber-600"></i> Giro & Activación de Módulos Operativos:
+                  </label>
+                  <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
+                    newCompEnableProduction ? 'bg-amber-500/20 text-amber-900 border border-amber-300' : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {newCompEnableProduction ? 'MRP Activo' : 'Sin Producción'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCompBusinessType('comercial');
+                      setNewCompEnableProduction(false);
+                      setNewCompEnableTechServices(false);
+                    }}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                      newCompBusinessType === 'comercial' ? 'bg-amber-600 text-white font-bold border-amber-600' : 'bg-white border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    Comercial
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCompBusinessType('tecnologia_servicios');
+                      setNewCompEnableProduction(false);
+                      setNewCompEnableTechServices(true);
+                    }}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                      newCompBusinessType === 'tecnologia_servicios' ? 'bg-amber-600 text-white font-bold border-amber-600' : 'bg-white border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    Servicios TI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCompBusinessType('produccion');
+                      setNewCompEnableProduction(true);
+                      setNewCompEnableTechServices(false);
+                    }}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                      newCompBusinessType === 'produccion' ? 'bg-amber-600 text-white font-bold border-amber-600' : 'bg-white border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    Manufactura MRP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCompBusinessType('mixto');
+                      setNewCompEnableProduction(true);
+                      setNewCompEnableTechServices(true);
+                    }}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                      newCompBusinessType === 'mixto' ? 'bg-amber-600 text-white font-bold border-amber-600' : 'bg-white border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    Mixta (Todo)
+                  </button>
+                </div>
+
+                <div className="pt-2 border-t border-amber-200/60 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl bg-white border border-amber-100">
+                    <input
+                      type="checkbox"
+                      checked={newCompEnableProduction}
+                      onChange={(e) => setNewCompEnableProduction(e.target.checked)}
+                      className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="font-semibold text-slate-800 text-[11px]">Habilitar Módulo Producción (MRP)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl bg-white border border-amber-100">
+                    <input
+                      type="checkbox"
+                      checked={newCompEnableTechServices}
+                      onChange={(e) => setNewCompEnableTechServices(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="font-semibold text-slate-800 text-[11px]">Habilitar Servicios Técnicos (OT)</span>
+                  </label>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Name */}
@@ -2072,6 +2567,108 @@ export default function App() {
 
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* SECURITY MODAL: CONTROL DE ACCESO Y CONFIRMACIÓN DE CAMBIO DE EMPRESA */}
+      {showSwitchConfirmModal && pendingTargetCompany && (
+        <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#0d1424] text-slate-800 dark:text-slate-100 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl space-y-0">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center">
+                  <i className="ri-shield-keyhole-line text-lg"></i>
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">Confirmar Cambio de Organización</h3>
+                  <p className="text-[10.5px] text-slate-500 dark:text-slate-400">Control de Acceso Multiempresa</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowSwitchConfirmModal(false);
+                  setPendingTargetCompany(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <i className="ri-close-line text-lg"></i>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 text-xs">
+              <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500 dark:text-slate-400">Empresa Actual:</span>
+                  <span className="font-bold text-slate-800 dark:text-white truncate max-w-[200px]">{activeCompany.name}</span>
+                </div>
+                <div className="flex items-center justify-center text-slate-400">
+                  <i className="ri-arrow-down-line text-sm"></i>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500 dark:text-slate-400">Empresa Destino:</span>
+                  <span className="font-black text-blue-600 dark:text-cyan-400 truncate max-w-[200px]">{pendingTargetCompany.name}</span>
+                </div>
+              </div>
+
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11.5px]">
+                <strong>ADVERTENCIA:</strong> Esta acción cambiará el contexto de trabajo en todas las pantallas. Las facturas emitidas, inventarios, bodegas y cuentas bancarias pertenecerán exclusivamente a <strong>{pendingTargetCompany.name}</strong>.
+              </p>
+
+              {/* Role authorization check */}
+              {state.currentUser.role !== 'Admin' && (
+                <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 space-y-2">
+                  <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 font-bold text-xs">
+                    <i className="ri-lock-2-line"></i>
+                    <span>Autorización de Administrador Requerida</span>
+                  </div>
+                  <p className="text-[10px] text-slate-600 dark:text-slate-300 leading-snug">
+                    Su perfil actual es <strong>{state.currentUser.role}</strong>. Para alternar entre empresas debe ingresar el PIN de autorización de Administrador.
+                  </p>
+                  <div>
+                    <input
+                      type="password"
+                      maxLength={6}
+                      value={switchAdminPin}
+                      onChange={(e) => {
+                        setSwitchAdminPin(e.target.value);
+                        setSwitchPinError('');
+                      }}
+                      placeholder="Ingrese PIN (Predeterminado: 1234)"
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-center font-mono font-bold text-sm tracking-widest text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                    />
+                    {switchPinError && (
+                      <p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold mt-1 text-center">
+                        {switchPinError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSwitchConfirmModal(false);
+                  setPendingTargetCompany(null);
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSwitchCompany}
+                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs cursor-pointer shadow-md transition-all flex items-center gap-1.5"
+              >
+                <i className="ri-check-line"></i> Confirmar y Cambiar
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -54,7 +54,7 @@ export default function CompanyView({
   onCreateCompany
 }: CompanyViewProps) {
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
-  const isDark = theme === 'slate_gray' || theme === 'navy_dark' || theme === 'light_gray';
+  const isDark = theme !== 'light_gray';
 
   // Toggle between "directory", "form" and "invoice_design" tabs
   const [activeTab, setActiveTab] = useState<'directory' | 'form' | 'invoice_design'>('directory');
@@ -602,20 +602,18 @@ export default function CompanyView({
                           </button>
                         </div>
 
-                        {/* Production Module Quick Toggle */}
-                        <button
-                          type="button"
-                          onClick={(e) => handleToggleProductionForCompany(co.id, e)}
-                          className={`text-[9.5px] font-bold px-2.5 py-1.5 rounded-xl border flex items-center gap-1 transition-all ${
+                        {/* Production Module Status Badge */}
+                        <div
+                          className={`text-[9.5px] font-bold px-2.5 py-1.5 rounded-xl border flex items-center gap-1.5 ${
                             co.enableProduction !== false
-                              ? 'bg-amber-500/10 text-amber-500 border-amber-500/30 hover:bg-amber-500/20'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700 hover:text-slate-700 dark:hover:text-slate-300'
+                              ? 'bg-amber-500/10 text-amber-500 border-amber-500/30'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'
                           }`}
-                          title="Activar o desactivar el módulo de producción industrial (MRP/BOM/Recetas)"
+                          title={co.enableProduction !== false ? 'Módulo de producción industrial habilitado para esta empresa' : 'Módulo de producción desactivado (Modo Comercial/Servicios)'}
                         >
-                          <Settings2 className="w-3.5 h-3.5" />
-                          <span>{co.enableProduction !== false ? 'MRP Activo' : 'MRP En Pausa'}</span>
-                        </button>
+                          <span className={`w-1.5 h-1.5 rounded-full ${co.enableProduction !== false ? 'bg-amber-400' : 'bg-slate-400'}`}></span>
+                          <span>{co.enableProduction !== false ? 'MRP Activo' : 'Sin MRP'}</span>
+                        </div>
                       </div>
 
                       {/* Select and Edit tools */}
@@ -631,7 +629,6 @@ export default function CompanyView({
                                 return;
                               }
                               onSwitchCompany(co.id);
-                              showToast('Entorno contable cambiado', `Ahora estás operando en el entorno de "${co.name}".`);
                             }}
                             className={`font-black text-[10px] uppercase tracking-wider px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
                               isStatusActive 

@@ -61,7 +61,7 @@ export default function PortfolioView({
 }: PortfolioViewProps) {
   
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
-  const isDark = theme === 'navy_dark' || theme === 'light_gray';
+  const isDark = theme !== 'light_gray';
 
   // Navigation Tabs: 'cxc' (clientes), 'cxp' (proveedores), 'reporte' (antiguedad)
   const [activeTab, setActiveTab] = useState<'cxc' | 'cxp' | 'reporte'>('cxc');

@@ -29,7 +29,7 @@ export default function ProductsView({
 }: ProductsViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<'all' | 'critical' | 'tecnologia' | 'servicio' | 'terminado' | 'materia_prima'>('all');
-  const isDark = theme === 'navy_dark' || theme === 'light_gray';
+  const isDark = theme !== 'light_gray';
 
   // Modal / Form state
   const [isFormOpen, setIsFormOpen] = useState(false);

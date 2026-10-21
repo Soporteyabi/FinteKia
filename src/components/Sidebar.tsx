@@ -89,21 +89,21 @@ export const THEMES_MAP = {
     label: 'Verde Sabio Contable'
   },
   light_gray: {
-    sidebarBg: 'bg-[#111217] border-zinc-800 text-slate-100',
-    sidebarActive: 'bg-gradient-to-r from-violet-600/20 to-transparent text-white border-l-4 border-violet-400 font-semibold shadow-inner',
-    sidebarHover: 'hover:bg-zinc-800/80 hover:text-white',
-    sidebarCategoryText: 'text-zinc-400 font-semibold',
-    topBarBg: 'bg-[#1b1b22] border-zinc-800 text-slate-100',
-    topBarTextMuted: 'text-slate-400',
-    mainBg: 'bg-[#0b0c10] text-slate-200',
-    buttonAccent: 'bg-violet-600 hover:bg-violet-500 text-white border border-violet-500/30',
-    cardStyles: 'bg-[#16171e] border border-zinc-800/90 shadow-lg rounded-2xl text-slate-200',
-    headerTitleText: 'text-white',
-    headerSubTitleText: 'text-slate-400',
-    titlePrimary: 'text-white',
-    badgeColor: 'bg-zinc-900 text-slate-300 border-zinc-800',
-    accentText: 'text-violet-400',
-    label: 'Gris Oscuro Profesional'
+    sidebarBg: 'bg-[#f8fafc] border-slate-300 text-slate-900 shadow-xs',
+    sidebarActive: 'bg-blue-600 text-white font-bold shadow-md',
+    sidebarHover: 'hover:bg-slate-200 hover:text-slate-950',
+    sidebarCategoryText: 'text-slate-700 font-bold uppercase tracking-wider',
+    topBarBg: 'bg-white border-slate-300 text-slate-950 shadow-xs',
+    topBarTextMuted: 'text-slate-700 font-medium',
+    mainBg: 'bg-[#f1f5f9] text-slate-950',
+    buttonAccent: 'bg-blue-600 hover:bg-blue-700 text-white shadow-md font-bold',
+    cardStyles: 'bg-white border border-slate-300 shadow-sm rounded-2xl text-slate-900',
+    headerTitleText: 'text-slate-950 font-black',
+    headerSubTitleText: 'text-slate-700 font-semibold',
+    titlePrimary: 'text-slate-950 font-black',
+    badgeColor: 'bg-slate-200 text-slate-900 border-slate-300 font-bold',
+    accentText: 'text-blue-700 font-black',
+    label: 'Gris Claro Contable (Alto Contraste)'
   },
 };
 

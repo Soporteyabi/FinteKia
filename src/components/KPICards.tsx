@@ -21,7 +21,7 @@ export default function KPICards({ sales, expenses, profit, margin, clientsCount
 
   const isProfitPositive = profit >= 0;
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
-  const isDark = theme === 'navy_dark' || theme === 'light_gray';
+  const isDark = theme !== 'light_gray';
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
