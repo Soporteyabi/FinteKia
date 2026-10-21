@@ -352,7 +352,7 @@ export default function Sidebar({
         { id: 'presupuestos', label: 'Presupuestos Activos', icon: 'ri-pie-chart-2-line', roles: ['Admin', 'Contador'] },
       ]
     },
-    ...(currentCompany.enableProduction !== false ? [{
+    {
       id: 'operaciones',
       label: 'PRODUCCIÓN & MRP',
       items: [
@@ -360,7 +360,7 @@ export default function Sidebar({
         { id: 'mrp', label: 'Planificación MRP', icon: 'ri-cpu-line', roles: ['Admin', 'Contador'] },
         { id: 'calidad', label: 'Control de Calidad', icon: 'ri-shield-check-line', roles: ['Admin', 'Contador', 'Operario'] },
       ]
-    }] : []),
+    },
     {
       id: 'inteligencia',
       label: 'INTELIGENCIA ARTIFICIAL',

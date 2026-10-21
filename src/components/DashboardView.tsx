@@ -500,7 +500,7 @@ export default function DashboardView({
     },
     {
       id: 'operaciones',
-      name: isProductionActive ? 'Inventario, Bodegas & Producción' : 'Inventario & Almacén de Equipos',
+      name: 'Inventario, Bodegas & Producción',
       catColor: '#8B5CF6', // Violeta
       icon: 'ri-archive-line',
       accentColor: 'text-purple-500',
@@ -531,31 +531,29 @@ export default function DashboardView({
             { label: 'Activos de Planta', icon: 'ri-dashboard-2-line', action: () => setActiveView('bodegas') },
           ]
         },
-        ...(isProductionActive ? [
-          {
-            id: 'produccion',
-            title: 'Producción & Recetas',
-            subtitle: 'Órdenes de fabricación y BOM',
-            icon: 'ri-flask-fill',
-            mainAction: () => setActiveView('ordenes_prod'),
-            links: [
-              { label: 'Órdenes de Fabricación', icon: 'ri-file-settings-line', action: () => setActiveView('ordenes_prod') },
-              { label: 'Fórmulas y Recetas BOM', icon: 'ri-flask-line', action: () => setActiveView('ordenes_prod') },
-              { label: 'Kiosco Operario', icon: 'ri-computer-line', action: () => setActiveView('ordenes_prod') },
-            ]
-          },
-          {
-            id: 'mrp',
-            title: 'MRP & Control Calidad',
-            subtitle: 'Cálculo de insumos e inspección',
-            icon: 'ri-cpu-fill',
-            mainAction: () => setActiveView('mrp'),
-            links: [
-              { label: 'Planificación MRP', icon: 'ri-cpu-line', action: () => setActiveView('mrp') },
-              { label: 'Control de Calidad', icon: 'ri-shield-check-line', action: () => setActiveView('calidad') },
-            ]
-          }
-        ] : [])
+        {
+          id: 'produccion',
+          title: 'Producción & Recetas',
+          subtitle: 'Órdenes de fabricación y BOM',
+          icon: 'ri-flask-fill',
+          mainAction: () => setActiveView('ordenes_prod'),
+          links: [
+            { label: 'Órdenes de Fabricación', icon: 'ri-file-settings-line', action: () => setActiveView('ordenes_prod') },
+            { label: 'Fórmulas y Recetas BOM', icon: 'ri-flask-line', action: () => setActiveView('ordenes_prod') },
+            { label: 'Kiosco Operario', icon: 'ri-computer-line', action: () => setActiveView('ordenes_prod') },
+          ]
+        },
+        {
+          id: 'mrp',
+          title: 'MRP & Control Calidad',
+          subtitle: 'Cálculo de insumos e inspección',
+          icon: 'ri-cpu-fill',
+          mainAction: () => setActiveView('mrp'),
+          links: [
+            { label: 'Planificación MRP', icon: 'ri-cpu-line', action: () => setActiveView('mrp') },
+            { label: 'Control de Calidad', icon: 'ri-shield-check-line', action: () => setActiveView('calidad') },
+          ]
+        }
       ]
     },
     {

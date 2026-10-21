@@ -29,7 +29,7 @@ export const INITIAL_COMPANIES: Company[] = [
     currency: 'COP',
     period: 2026,
     businessType: 'tecnologia_servicios',
-    enableProduction: false, // Production module starts DEACTIVATED by default for the tech enterprise!
+    enableProduction: true,
     enableTechServices: true,
     logoUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%232563eb"/><stop offset="100%" stop-color="%234f46e5"/></linearGradient></defs><rect width="200" height="200" rx="44" fill="url(%23g1)"/><path d="M60 55 L140 55 L140 80 L95 80 L95 95 L130 95 L130 120 L95 120 L95 145 L60 145 Z" fill="%23ffffff"/><circle cx="150" cy="140" r="14" fill="%2338bdf8"/></svg>',
     billingConfig: {
@@ -506,7 +506,7 @@ export const getInitialState = (): AppState => {
           }
           // Ensure first company has tech/services and enableProduction configured
           if (parsed.companies[0].enableProduction === undefined) {
-            parsed.companies[0].enableProduction = false;
+            parsed.companies[0].enableProduction = true;
             parsed.companies[0].businessType = 'tecnologia_servicios';
             parsed.companies[0].name = 'FinteKia Tech & Solutions S.A.S.';
             parsed.companies[0].slogan = 'Tecnología, Hardware, Servicios TI & Facturación Electrónica';
