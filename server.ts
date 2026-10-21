@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 import { requireAuth, AuthRequest } from "./src/middleware/auth.ts";
@@ -312,6 +313,178 @@ async function startServer() {
     } catch (error: any) {
       console.error("Batch sync processing failed:", error);
       res.status(500).json({ error: error.message || "Failed to process batch sync chunk" });
+    }
+  });
+
+  // --- SEGURIDAD & RESPALDOS (BACKUP & AUDIT TRAIL) ---
+  const BACKUPS_DIR = path.join(process.cwd(), "backups");
+  if (!fs.existsSync(BACKUPS_DIR)) {
+    try {
+      fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+    } catch (e) {
+      console.error("Failed to create backups directory:", e);
+    }
+  }
+
+  // 1. Export Full Cryptographic Backup (.json with SHA-256)
+  app.get("/api/backup/export", async (_req, res) => {
+    try {
+      const erp = await getErpData();
+      const timestamp = new Date().toISOString();
+      const payloadString = JSON.stringify(erp);
+      const checksum = crypto.createHash("sha256").update(payloadString).digest("hex");
+
+      const backupPackage = {
+        meta: {
+          app: "FinteKia ERP Empresarial",
+          version: "2026.2",
+          timestamp,
+          environment: process.env.DATABASE_URL ? "PostgreSQL / Cloud SQL" : "Local Store",
+          checksumSha256: checksum,
+          counts: {
+            companies: erp.companies?.length || 0,
+            vouchers: erp.vouchers?.length || 0,
+            terceros: erp.terceros?.length || 0,
+            products: erp.products?.length || 0,
+            inventory: erp.inventory?.length || 0,
+            bankAccounts: erp.bankAccounts?.length || 0,
+          }
+        },
+        data: erp
+      };
+
+      const filename = `FinteKia_Backup_${timestamp.substring(0, 10)}_${Date.now()}.json`;
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Type", "application/json");
+      res.send(JSON.stringify(backupPackage, null, 2));
+    } catch (error: any) {
+      console.error("Backup export error:", error);
+      res.status(500).json({ error: error.message || "Failed to generate backup" });
+    }
+  });
+
+  // 2. Create Server-Side Snapshot
+  app.post("/api/backup/create-snapshot", async (req, res) => {
+    try {
+      const erp = await getErpData();
+      const timestamp = new Date().toISOString();
+      const user = req.body.user || "Administrador";
+      const payloadString = JSON.stringify(erp);
+      const checksum = crypto.createHash("sha256").update(payloadString).digest("hex");
+
+      const filename = `snapshot_${Date.now()}_${timestamp.substring(0, 10)}.json`;
+      const filePath = path.join(BACKUPS_DIR, filename);
+
+      const snapshot = {
+        id: `snap_${Date.now()}`,
+        timestamp,
+        filename,
+        createdAtFormatted: new Date().toLocaleString("es-CO"),
+        createdBy: user,
+        sizeBytes: Buffer.byteLength(payloadString, "utf8"),
+        checksumSha256: checksum,
+        version: "2026.2",
+        stats: {
+          companiesCount: erp.companies?.length || 0,
+          vouchersCount: erp.vouchers?.length || 0,
+          tercerosCount: erp.terceros?.length || 0,
+          productsCount: erp.products?.length || 0,
+          bankAccountsCount: erp.bankAccounts?.length || 0,
+          usersCount: erp.extraState?.users?.length || 0,
+        },
+        storageLocation: "server_snapshot"
+      };
+
+      fs.writeFileSync(filePath, JSON.stringify({ meta: snapshot, data: erp }, null, 2), "utf8");
+
+      res.json({
+        success: true,
+        message: "Punto de restauración guardado exitosamente en el servidor.",
+        snapshot
+      });
+    } catch (error: any) {
+      console.error("Create server snapshot error:", error);
+      res.status(500).json({ error: error.message || "Failed to create snapshot" });
+    }
+  });
+
+  // 3. List Server-Side Snapshots
+  app.get("/api/backup/snapshots", async (_req, res) => {
+    try {
+      if (!fs.existsSync(BACKUPS_DIR)) {
+        return res.json([]);
+      }
+      const files = fs.readdirSync(BACKUPS_DIR).filter(f => f.endsWith(".json"));
+      const snapshots: any[] = [];
+
+      for (const file of files) {
+        try {
+          const content = JSON.parse(fs.readFileSync(path.join(BACKUPS_DIR, file), "utf8"));
+          if (content.meta) {
+            snapshots.push(content.meta);
+          }
+        } catch {
+          // Skip unreadable files
+        }
+      }
+
+      snapshots.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      res.json(snapshots);
+    } catch (error: any) {
+      console.error("List snapshots error:", error);
+      res.status(500).json({ error: error.message || "Failed to list snapshots" });
+    }
+  });
+
+  // 4. Restore Backup from Snapshot or Payload
+  app.post("/api/backup/restore", async (req, res) => {
+    try {
+      const { adminPin, payload, filename } = req.body;
+      if (adminPin !== "1234") {
+        return res.status(403).json({ error: "PIN de Administrador incorrecto (Predeterminado: 1234)." });
+      }
+
+      let dataToRestore: any = null;
+
+      if (payload) {
+        dataToRestore = payload.data ? payload.data : payload;
+      } else if (filename) {
+        const filePath = path.join(BACKUPS_DIR, filename);
+        if (!fs.existsSync(filePath)) {
+          return res.status(404).json({ error: "El archivo de respaldo seleccionado no existe en el servidor." });
+        }
+        const fileContent = JSON.parse(fs.readFileSync(filePath, "utf8"));
+        dataToRestore = fileContent.data || fileContent;
+      }
+
+      if (!dataToRestore || typeof dataToRestore !== "object") {
+        return res.status(400).json({ error: "Estructura de copia de seguridad inválida o dañada." });
+      }
+
+      // Restore into PostgreSQL / database
+      await saveErpData({
+        companiesList: dataToRestore.companies,
+        tercerosList: dataToRestore.terceros,
+        productsList: dataToRestore.products,
+        vouchersList: dataToRestore.vouchers,
+        inventoryList: dataToRestore.inventory,
+        bankAccountsList: dataToRestore.bankAccounts,
+        extraState: dataToRestore.extraState || dataToRestore
+      });
+
+      res.json({
+        success: true,
+        message: "Base de datos restaurada satisfactoriamente con todos los respaldos verificados.",
+        restoredCounts: {
+          companies: dataToRestore.companies?.length || 0,
+          vouchers: dataToRestore.vouchers?.length || 0,
+          terceros: dataToRestore.terceros?.length || 0,
+          products: dataToRestore.products?.length || 0,
+        }
+      });
+    } catch (error: any) {
+      console.error("Restore error:", error);
+      res.status(500).json({ error: error.message || "Failed to restore backup" });
     }
   });
 

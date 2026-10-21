@@ -373,6 +373,7 @@ export default function Sidebar({
       label: 'CONFIGURACIÓN',
       items: [
         { id: 'empresa', label: 'Datos de la Empresa', icon: 'ri-building-4-line', roles: ['Admin', 'Contador'] },
+        { id: 'seguridad', label: 'Seguridad & Respaldos', icon: 'ri-shield-keyhole-line', badge: 'BACKUP', roles: ['Admin', 'Contador'] },
         { id: 'database', label: 'Base de Datos & Supabase', icon: 'ri-database-2-line', badge: 'SQL', roles: ['Admin', 'Contador'] },
         { id: 'alanube_config', label: 'API Alanube & DIAN', icon: 'ri-cloud-line', badge: 'DIAN API', roles: ['Admin', 'Contador'] },
         { id: 'usuarios', label: 'Control de Usuarios', icon: 'ri-user-settings-line', roles: ['Admin', 'Contador'] },

@@ -437,6 +437,41 @@ export interface UserProfile {
   allowedCompanyIds?: string[]; // Specific companies this user can access (if empty/undefined and Admin, can access all)
 }
 
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  userId?: string;
+  userName: string;
+  userRole: string;
+  action: 'LOGIN' | 'SWITCH_COMPANY' | 'CREATE_VOUCHER' | 'EDIT_COMPANY' | 'BACKUP_CREATED' | 'BACKUP_RESTORED' | 'SECURITY_PIN_CHANGED' | 'SYNC_DB' | 'EXPORT_DATA' | 'PARAM_UPDATE';
+  details: string;
+  ipOrDevice?: string;
+  severity: 'info' | 'warning' | 'critical';
+  companyId?: string;
+  companyName?: string;
+}
+
+export interface BackupSnapshot {
+  id: string;
+  timestamp: string;
+  filename: string;
+  createdAtFormatted: string;
+  createdBy: string;
+  sizeBytes: number;
+  checksumSha256: string;
+  version: string;
+  stats: {
+    companiesCount: number;
+    vouchersCount: number;
+    tercerosCount: number;
+    productsCount: number;
+    bankAccountsCount: number;
+    usersCount: number;
+  };
+  storageLocation: 'server_snapshot' | 'local_download' | 'browser_cache';
+  dataPayload?: any;
+}
+
 export interface AppState {
   currentCompanyId: string;
   companies: Company[];
@@ -465,6 +500,9 @@ export interface AppState {
     email: string;
   };
   users?: UserProfile[];
+  auditLogs?: AuditLogEntry[];
+  backupSnapshots?: BackupSnapshot[];
+  lastBackupTimestamp?: string;
   kioskMode: boolean;
   theme?: 'slate_gray' | 'zinc_classic' | 'navy_dark' | 'steel_sage' | 'light_gray';
 }

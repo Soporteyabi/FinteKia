@@ -29,6 +29,7 @@ import CompanyView from './components/CompanyView';
 import TechServicesView from './components/TechServicesView';
 import AlanubeConfigView from './components/AlanubeConfigView';
 import DatabaseView from './components/DatabaseView';
+import SecurityBackupView from './components/SecurityBackupView';
 import LoginView from './components/LoginView';
 
 export default function App() {
@@ -2295,6 +2296,15 @@ export default function App() {
 
               {state.activeView === 'database' && (
                 <DatabaseView theme={currentThemeId} />
+              )}
+
+              {(state.activeView === 'seguridad' || state.activeView === 'respaldos') && (
+                <SecurityBackupView
+                  state={state}
+                  setState={setState}
+                  theme={currentThemeId}
+                  onNavigateToView={(view) => setState(prev => ({ ...prev, activeView: view }))}
+                />
               )}
             </>
           )}

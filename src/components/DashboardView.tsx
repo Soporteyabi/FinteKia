@@ -680,6 +680,7 @@ export default function DashboardView({
           mainAction: () => setActiveView('empresa'),
           links: [
             { label: 'Datos de Empresa', icon: 'ri-building-line', action: () => setActiveView('empresa') },
+            { label: 'Seguridad & Respaldos', icon: 'ri-shield-keyhole-line', action: () => setActiveView('seguridad') },
             { label: 'Usuarios y Roles', icon: 'ri-user-settings-line', action: () => setActiveView('usuarios') },
             { label: 'Parámetros e Impuestos', icon: 'ri-percent-line', action: () => setActiveView('impuestos') },
           ]
@@ -1553,13 +1554,23 @@ export default function DashboardView({
                 </div>
               </div>
 
-              <div className={`flex items-center gap-1 text-[9.5px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
-                isLight 
-                  ? 'text-emerald-900 bg-emerald-100 border-emerald-300 font-black'
-                  : 'text-emerald-400 bg-emerald-950/60 border-emerald-800'
-              }`}>
-                <i className="ri-checkbox-circle-fill text-[10px]"></i>
-                <span>En línea</span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <div className={`flex items-center gap-1 text-[9.5px] font-bold px-2 py-0.5 rounded-full border ${
+                  isLight 
+                    ? 'text-emerald-900 bg-emerald-100 border-emerald-300 font-black'
+                    : 'text-emerald-400 bg-emerald-950/60 border-emerald-800'
+                }`}>
+                  <i className="ri-checkbox-circle-fill text-[10px]"></i>
+                  <span>En línea</span>
+                </div>
+                <button
+                  onClick={() => setActiveView('seguridad')}
+                  className="px-2 py-0.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[9.5px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                  title="Abrir Centro de Seguridad y Respaldos"
+                >
+                  <i className="ri-shield-keyhole-line text-[10px]"></i>
+                  <span>Respaldos</span>
+                </button>
               </div>
             </div>
           </div>
