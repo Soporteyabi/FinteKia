@@ -106,6 +106,52 @@ export const INITIAL_COMPANIES: Company[] = [
       termsAndNotes: 'Esta factura de venta se asimila en sus efectos legales a una letra de cambio según la Ley 1231 de 2008. Alimentos del Norte Ltda.'
     },
     payrollParameters: { smmlv: 1423500, auxTransporte: 172000 },
+  },
+  {
+    id: 'co-1781210729382',
+    name: "DIGITAL YA'BI",
+    nit: '87942146-5',
+    slogan: 'ALEGRIA QUE SE EXPANDE',
+    address: 'CR 28H 41 - 50',
+    regimen: 'no_responsable',
+    currency: 'COP',
+    period: 2026,
+    businessType: 'tecnologia_servicios',
+    enableProduction: true,
+    enableTechServices: true,
+    logoUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><defs><linearGradient id="gy" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%2310b981"/><stop offset="100%" stop-color="%23059669"/></linearGradient></defs><rect width="200" height="200" rx="44" fill="url(%23gy)"/><text x="100" y="125" font-size="70" font-family="system-ui,sans-serif" font-weight="900" fill="%23ffffff" text-anchor="middle">DY</text></svg>',
+    billingConfig: {
+      providerType: 'tercero_proveedor',
+      providerName: 'Factus',
+      providerNit: '901.324.558-1',
+      apiEndpoint: 'https://api.factus.com.co/v1/bills',
+      apiToken: 'fk_live_9a87d6e5c4b3a2_token_auth',
+      testSetId: 'f7c81a2e-4b3d-4950-8912-78d1e2a3b4c5',
+      environment: 'produccion',
+      prefix: 'FE',
+      resolutionNumber: '187640000099',
+      resolutionDate: '2026-01-15',
+      authorizedRangeFrom: 101,
+      authorizedRangeTo: 10000,
+      autoSendEmail: true,
+      lastTestStatus: 'success',
+      lastTestTimestamp: '2026-10-18T16:30:08.051Z',
+      lastTestMessage: 'Habilitación DIAN completada con éxito: 8 de 8 facturas de prueba validadas por Alanube y DIAN.',
+      dianTestInvoicesCount: 8,
+      dianHabilitationStatus: 'habilitado'
+    },
+    invoiceDesign: {
+      logoPosition: 'left',
+      logoSize: 'md',
+      logoStyle: 'rounded',
+      accentColor: '#10b981',
+      showSlogan: true,
+      showResolutionBox: true,
+      showBankAccounts: true,
+      bankAccountDetails: 'Bancolombia Cta Ahorros No. 892-004312-55 (NIT 87942146-5)',
+      termsAndNotes: 'Esta factura de venta se asimila en sus efectos legales a una letra de cambio según la Ley 1231 de 2008. DIGITAL YA\'BI.'
+    },
+    payrollParameters: { smmlv: 1750905, auxTransporte: 249095 }
   }
 ];
 
@@ -511,6 +557,15 @@ export const getInitialState = (): AppState => {
             parsed.companies[0].name = 'FinteKia Tech & Solutions S.A.S.';
             parsed.companies[0].slogan = 'Tecnología, Hardware, Servicios TI & Facturación Electrónica';
           }
+
+          // Ensure all initial companies (including DIGITAL YA'BI) exist in cached companies
+          INITIAL_COMPANIES.forEach(initCo => {
+            const exists = parsed.companies.some((c: Company) => c.id === initCo.id || c.nit === initCo.nit);
+            if (!exists) {
+              parsed.companies.push(initCo);
+            }
+          });
+
           // Ensure all companies have third-party electronic billing configured
           parsed.companies.forEach((co: any) => {
             if (!co.billingConfig) {
