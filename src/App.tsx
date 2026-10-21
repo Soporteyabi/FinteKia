@@ -1181,8 +1181,9 @@ export default function App() {
 
   const clientsList = activeTerceros.filter((t) => t.roles.includes('cliente'));
 
-  const currentThemeId = state.theme || 'navy_dark';
-  const activeThemeObj = THEMES_MAP[currentThemeId] || THEMES_MAP.navy_dark;
+  const currentThemeId = state.theme || 'light_gray';
+  const activeThemeObj = THEMES_MAP[currentThemeId] || THEMES_MAP.light_gray;
+  const isLight = currentThemeId === 'light_gray';
 
   // Real-time synchronization of document classes and background for high contrast theme
   useEffect(() => {
@@ -1281,7 +1282,9 @@ export default function App() {
     <div className={`flex flex-col h-screen overflow-hidden ${activeThemeObj.mainBg} font-sans`}>
       
       {/* Header App bar: Clean, Organized Enterprise Top Navigation */}
-      <header className="no-print border-b flex items-center justify-between px-3 sm:px-6 py-2 shrink-0 gap-3 shadow-xs bg-white dark:bg-[#090e1a] border-slate-200 dark:border-slate-800/80 text-slate-800 dark:text-white z-30 relative">
+      <header className={`no-print border-b flex items-center justify-between px-3 sm:px-6 py-2 shrink-0 gap-3 shadow-xs z-30 relative ${
+        isLight ? 'bg-white border-slate-300 text-slate-950' : 'bg-white dark:bg-[#090e1a] border-slate-200 dark:border-slate-800/80 text-slate-800 dark:text-white'
+      }`}>
         
         {/* Left Section: Brand & Context */}
         <div className="flex items-center gap-2.5 shrink-0">
@@ -1295,10 +1298,12 @@ export default function App() {
               <i className="ri-pulse-fill text-lg"></i>
             </div>
             <div className="hidden sm:block leading-tight">
-              <span className="font-black text-sm sm:text-base tracking-tight text-slate-900 dark:text-white group-hover:text-blue-500 dark:group-hover:text-cyan-400 transition-colors">
+              <span className={`font-black text-sm sm:text-base tracking-tight transition-colors ${
+                isLight ? 'text-slate-950 font-black' : 'text-slate-900 dark:text-white group-hover:text-blue-500 dark:group-hover:text-cyan-400'
+              }`}>
                 FinteKia
               </span>
-              <p className="text-[10px] text-slate-400 font-medium leading-none">
+              <p className={`text-[10px] font-bold leading-none ${isLight ? 'text-slate-700' : 'text-slate-400'}`}>
                 ERP Empresarial
               </p>
             </div>
@@ -1308,7 +1313,11 @@ export default function App() {
           {state.activeView !== 'dashboard' && (
             <button
               onClick={() => setState((prev) => ({ ...prev, activeView: 'dashboard' }))}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-blue-600/10 hover:bg-blue-600 text-blue-600 dark:text-cyan-400 hover:text-white border border-blue-500/25 hover:border-blue-500 text-xs font-bold transition-all cursor-pointer active:scale-95"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 border ${
+                isLight 
+                  ? 'bg-blue-50 hover:bg-blue-600 text-blue-900 hover:text-white border-blue-300' 
+                  : 'bg-blue-600/10 hover:bg-blue-600 text-blue-600 dark:text-cyan-400 hover:text-white border-blue-500/25 hover:border-blue-500'
+              }`}
               title="Regresar al menú principal"
             >
               <i className="ri-arrow-left-line text-xs"></i>
@@ -1324,7 +1333,11 @@ export default function App() {
                 setShowNotifMenu(false);
                 setShowUserMenu(false);
               }}
-              className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/90 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-xs font-semibold cursor-pointer transition-all max-w-[180px] sm:max-w-[230px]"
+              className={`flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-xl border text-xs cursor-pointer transition-all max-w-[180px] sm:max-w-[230px] ${
+                isLight 
+                  ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-950 font-black' 
+                  : 'bg-slate-100 dark:bg-slate-900/90 hover:bg-slate-200 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white font-semibold'
+              }`}
               title="Organización activa (clic para cambiar o configurar)"
             >
               {activeCompany.logoUrl ? (
@@ -1337,8 +1350,8 @@ export default function App() {
               ) : (
                 <i className="ri-building-2-line text-blue-500 shrink-0 text-sm"></i>
               )}
-              <span className="truncate font-bold text-slate-800 dark:text-white text-xs">{activeCompany.name}</span>
-              <i className="ri-arrow-down-s-line text-slate-400 text-xs shrink-0"></i>
+              <span className={`truncate text-xs ${isLight ? 'font-black text-slate-950' : 'font-bold text-slate-800 dark:text-white'}`}>{activeCompany.name}</span>
+              <i className={`ri-arrow-down-s-line text-xs shrink-0 ${isLight ? 'text-slate-600' : 'text-slate-400'}`}></i>
             </button>
 
             {showCompanyDropdown && (
@@ -1347,19 +1360,27 @@ export default function App() {
                   className="fixed inset-0 z-40" 
                   onClick={() => setShowCompanyDropdown(false)}
                 />
-                <div className="absolute left-0 mt-2 w-84 rounded-2xl bg-white dark:bg-[#0d1424] border border-slate-200 dark:border-slate-800 shadow-2xl p-2.5 z-50 text-xs animate-in fade-in slide-in-from-top-1 duration-150">
-                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-slate-100 dark:border-slate-850 font-bold text-slate-500 dark:text-slate-400 text-[10px] uppercase">
+                <div className={`absolute left-0 mt-2 w-84 rounded-2xl border shadow-2xl p-2.5 z-50 text-xs animate-in fade-in slide-in-from-top-1 duration-150 ${
+                  isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-white dark:bg-[#0d1424] border-slate-200 dark:border-slate-800'
+                }`}>
+                  <div className={`flex items-center justify-between px-2.5 py-1.5 border-b font-bold text-[10px] uppercase ${
+                    isLight ? 'border-slate-200 text-slate-700' : 'border-slate-100 dark:border-slate-850 text-slate-500 dark:text-slate-400'
+                  }`}>
                     <span className="flex items-center gap-1.5">
                       <i className="ri-shield-keyhole-line text-amber-500"></i>
                       <span>Entornos Empresariales</span>
                     </span>
-                    <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                      isLight ? 'bg-slate-200 text-slate-900' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}>
                       {state.companies.length} org.
                     </span>
                   </div>
 
                   {/* Security notice banner */}
-                  <div className="px-2 py-1.5 my-1 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                  <div className={`px-2 py-1.5 my-1 rounded-xl text-[10px] flex items-center gap-1.5 border ${
+                    isLight ? 'bg-amber-100/70 border-amber-300 text-amber-950 font-medium' : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                  }`}>
                     <i className="ri-lock-password-line shrink-0 text-xs"></i>
                     <span>Cambio protegido: Requiere confirmación y autorización de administrador.</span>
                   </div>
@@ -1373,23 +1394,27 @@ export default function App() {
                         }}
                         className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
                           co.id === activeCompany.id
-                            ? 'bg-blue-600 text-white font-bold shadow-sm'
-                            : 'hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-200'
+                            ? 'bg-blue-600 text-white font-black shadow-sm'
+                            : isLight
+                              ? 'hover:bg-slate-100 text-slate-900 font-bold'
+                              : 'hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-200'
                         }`}
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-750 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
+                          <div className={`w-7 h-7 rounded-lg border flex items-center justify-center overflow-hidden shrink-0 p-0.5 ${
+                            isLight ? 'bg-slate-100 border-slate-300' : 'bg-white dark:bg-slate-850 border-slate-200 dark:border-slate-750'
+                          }`}>
                             {co.logoUrl ? (
                               <img src={co.logoUrl} alt={co.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                             ) : (
-                              <span className="text-[10px] font-black text-slate-600 dark:text-slate-300">
+                              <span className={`text-[10px] font-black ${isLight ? 'text-slate-800' : 'text-slate-600 dark:text-slate-300'}`}>
                                 {co.name.substring(0, 2).toUpperCase()}
                               </span>
                             )}
                           </div>
                           <div className="truncate">
-                            <span className="block truncate font-semibold leading-tight">{co.name}</span>
-                            <span className="text-[9.5px] font-mono opacity-70">NIT: {co.nit}</span>
+                            <span className="block truncate font-black leading-tight">{co.name}</span>
+                            <span className="text-[9.5px] font-mono opacity-80">NIT: {co.nit}</span>
                           </div>
                         </div>
                         {co.id === activeCompany.id ? (
@@ -1405,13 +1430,17 @@ export default function App() {
                     ))}
                   </div>
 
-                  <div className="pt-2 mt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1">
+                  <div className={`pt-2 mt-1.5 border-t space-y-1 ${isLight ? 'border-slate-200' : 'border-slate-100 dark:border-slate-800'}`}>
                     <button
                       onClick={() => {
                         handleCreateCompany();
                         setShowCompanyDropdown(false);
                       }}
-                      className="w-full py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-cyan-400 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
+                      className={`w-full py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                        isLight 
+                          ? 'bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200' 
+                          : 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-cyan-400 hover:bg-blue-100 dark:hover:bg-blue-900/60'
+                      }`}
                     >
                       <i className="ri-add-line"></i> Crear Nueva Organización (Desde Cero)
                     </button>
@@ -1420,7 +1449,11 @@ export default function App() {
                         setState(prev => ({ ...prev, activeView: 'empresa' }));
                         setShowCompanyDropdown(false);
                       }}
-                      className="w-full py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors cursor-pointer"
+                      className={`w-full py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                        isLight 
+                          ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200' 
+                          : 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60'
+                      }`}
                     >
                       <i className="ri-palette-line"></i> Diseñar Factura & Logotipo
                     </button>
@@ -1441,7 +1474,11 @@ export default function App() {
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
               placeholder="Buscar módulos, clientes, facturas o cuentas..."
-              className="w-full pl-9 pr-14 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 transition-all shadow-inner"
+              className={`w-full pl-9 pr-14 py-1.5 rounded-xl border text-xs focus:outline-none transition-all shadow-inner ${
+                isLight 
+                  ? 'bg-slate-100 border-slate-300 text-slate-950 placeholder-slate-500 font-bold focus:border-blue-500' 
+                  : 'bg-slate-100 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40'
+              }`}
             />
             {globalSearch ? (
               <button
@@ -1452,7 +1489,9 @@ export default function App() {
                 <i className="ri-close-line text-sm"></i>
               </button>
             ) : (
-              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-200/60 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-700/60 pointer-events-none">
+              <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono px-1.5 py-0.5 rounded border pointer-events-none ${
+                isLight ? 'text-slate-600 bg-slate-200/80 border-slate-300 font-bold' : 'text-slate-400 dark:text-slate-500 bg-slate-200/60 dark:bg-slate-800 border-slate-300 dark:border-slate-700/60'
+              }`}>
                 ⌘K
               </span>
             )}
@@ -1467,12 +1506,16 @@ export default function App() {
             {/* Cloud SQL / Postgres DB Status */}
             <button
               onClick={() => setState(prev => ({ ...prev, activeView: 'database' }))}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-[11px] font-medium text-slate-700 dark:text-slate-300 cursor-pointer transition-all active:scale-95"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold cursor-pointer transition-all active:scale-95 ${
+                isLight 
+                  ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-950' 
+                  : 'bg-slate-100 dark:bg-slate-900/80 hover:bg-slate-200 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+              }`}
               title="Base de datos Cloud SQL PostgreSQL (clic para ver tablas e inspector)"
             >
               <span className={`w-2 h-2 rounded-full shrink-0 ${isCloudSqlSyncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 shadow-[0_0_8px_#34d399]'}`}></span>
-              <i className="ri-database-2-line text-emerald-400 text-xs"></i>
-              <span className="font-bold text-[10.5px] text-emerald-400 hidden xl:inline">
+              <i className="ri-database-2-line text-emerald-500 text-xs"></i>
+              <span className={`font-black text-[10.5px] hidden xl:inline ${isLight ? 'text-emerald-800' : 'text-emerald-400'}`}>
                 {isCloudSqlSyncing ? 'Sincronizando' : 'Postgres DB'}
               </span>
             </button>
@@ -1485,7 +1528,11 @@ export default function App() {
                   setShowCompanyDropdown(false);
                   setShowUserMenu(false);
                 }}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-900/80 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center relative transition-all cursor-pointer"
+                className={`w-8 h-8 rounded-xl border flex items-center justify-center relative transition-all cursor-pointer ${
+                  isLight 
+                    ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-900' 
+                    : 'bg-slate-100 dark:bg-slate-900/80 hover:bg-slate-200 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300'
+                }`}
                 title="Notificaciones del sistema"
               >
                 <i className="ri-notification-3-line text-sm"></i>

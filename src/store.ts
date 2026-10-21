@@ -619,6 +619,9 @@ export const getInitialState = (): AppState => {
               { id: 'usr-4', name: 'Carlos Mario Bedoya', email: 'c.bedoya@fintekia.co', role: 'Operario', cargo: 'Jefe de Operaciones', active: true, dateCreated: '2026-04-20' },
             ];
           }
+          if (!parsed.theme || parsed.theme === 'navy_dark') {
+            parsed.theme = 'light_gray';
+          }
           return parsed as AppState;
         }
       } catch (e) {
@@ -660,7 +663,7 @@ export const getInitialState = (): AppState => {
       { id: 'usr-4', name: 'Carlos Mario Bedoya', email: 'c.bedoya@fintekia.co', role: 'Operario', cargo: 'Jefe de Panificación', active: true, dateCreated: '2026-04-20' },
     ],
     kioskMode: false,
-    theme: 'navy_dark'
+    theme: 'light_gray'
   };
 };
 

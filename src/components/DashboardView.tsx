@@ -94,6 +94,7 @@ export default function DashboardView({
   };
 
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.navy_dark;
+  const isLight = theme === 'light_gray';
 
   // View mode: 'menu' (the FinteKia portal menu) vs 'cashflow' (Data Visualization) vs 'analytics' (stock alerts & MRP)
   const [viewMode, setViewMode] = useState<'menu' | 'cashflow' | 'analytics'>('menu');
@@ -723,12 +724,16 @@ export default function DashboardView({
     <div className="space-y-4 select-none max-w-7xl mx-auto w-full">
       
       {/* Top Controller Bar: View Switcher & Stock Alert Badge */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1 border-b border-black/5 dark:border-white/5">
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1 border-b ${
+        isLight ? 'border-slate-300' : 'border-black/5 dark:border-white/5'
+      }`}>
         <div className="flex flex-wrap items-center gap-1.5">
           {viewMode === 'menu' ? (
             <div className="flex items-center gap-2 px-1">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></span>
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">
+              <span className={`w-2 h-2 rounded-full ${isLight ? 'bg-blue-600 shadow-[0_0_8px_#2563eb]' : 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]'}`}></span>
+              <span className={`text-xs uppercase tracking-wider font-mono ${
+                isLight ? 'text-slate-950 font-black' : 'text-slate-300 font-bold'
+              }`}>
                 Módulos de Gestión Empresarial
               </span>
             </div>
@@ -749,41 +754,51 @@ export default function DashboardView({
           {/* PDF Sales & Operating Margins Report Button */}
           <button
             onClick={() => setIsSalesReportModalOpen(true)}
-            className="px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer bg-sky-500/10 text-sky-300 border border-sky-500/30 hover:bg-sky-500/20 hover:border-sky-500/50 shadow-sm"
+            className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              isLight
+                ? 'bg-white text-slate-950 border border-slate-300 hover:bg-slate-100 shadow-xs'
+                : 'bg-sky-500/10 text-sky-300 border border-sky-500/30 hover:bg-sky-500/20 hover:border-sky-500/50 shadow-sm'
+            }`}
             title="Generar y exportar reporte en PDF de ventas y márgenes operativos (jsPDF)"
           >
-            <FileText className="w-3.5 h-3.5 text-sky-400" />
+            <FileText className={`w-3.5 h-3.5 ${isLight ? 'text-blue-600' : 'text-sky-400'}`} />
             <span>Reporte PDF Ventas</span>
           </button>
 
           {/* Excel Sales & Operating Margins Report Button */}
           <button
             onClick={() => exportDashboardSalesToExcel(vouchers, terceros, products, currentCompany)}
-            className="px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/50 shadow-sm"
+            className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              isLight
+                ? 'bg-white text-emerald-950 border border-slate-300 hover:bg-slate-100 shadow-xs'
+                : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/50 shadow-sm'
+            }`}
             title="Exportar reporte ejecutivo de ventas, márgenes y KPIs a Excel (.xlsx)"
             id="export-dashboard-excel-btn"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+            <FileSpreadsheet className={`w-3.5 h-3.5 ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`} />
             <span>Reporte Excel Ventas</span>
           </button>
 
           <button
             onClick={toggleMetricsVisibility}
-            className={`px-2.5 py-1 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer border ${
-              isMetricsVisible
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
-                : 'bg-blue-500/10 text-cyan-300 border-blue-500/30 hover:bg-blue-500/20'
+            className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
+              isLight
+                ? 'bg-white text-slate-950 border-slate-300 hover:bg-slate-100 shadow-xs'
+                : isMetricsVisible
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                  : 'bg-blue-500/10 text-cyan-300 border-blue-500/30 hover:bg-blue-500/20'
             }`}
             title="Activar o desactivar visibilidad de las tarjetas de cifras financieras"
           >
             {isMetricsVisible ? (
               <>
-                <Eye className="w-3 h-3 text-emerald-400" />
+                <Eye className={`w-3 h-3 ${isLight ? 'text-emerald-700' : 'text-emerald-400'}`} />
                 <span>Cifras Visibles</span>
               </>
             ) : (
               <>
-                <EyeOff className="w-3 h-3 text-cyan-300" />
+                <EyeOff className={`w-3 h-3 ${isLight ? 'text-slate-700' : 'text-cyan-300'}`} />
                 <span>Cifras Protegidas</span>
               </>
             )}
@@ -798,27 +813,41 @@ export default function DashboardView({
           {/* Royal Sapphire Blue + 3D Metallic Silver Chrome Finish    */}
           {/* ======================================================== */}
           <div 
-            className="relative rounded-3xl overflow-hidden shadow-2xl p-7 sm:p-9 lg:p-10 select-none"
-            style={{
+            className={`relative rounded-3xl overflow-hidden shadow-2xl p-7 sm:p-9 lg:p-10 select-none ${
+              isLight ? 'border-2' : ''
+            }`}
+            style={isLight ? {
+              background: 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 45%, #f1f5f9 100%)',
+              border: '2px solid #cbd5e1',
+              boxShadow: 'inset 0 2px 3px rgba(255, 255, 255, 0.95), 0 10px 25px -5px rgba(15, 23, 42, 0.12)'
+            } : {
               background: 'radial-gradient(ellipse 120% 90% at 50% 10%, #0d3b6f 0%, #07254b 38%, #031633 72%, #010c1c 100%)',
               border: '2px solid rgba(226, 232, 240, 0.5)',
               boxShadow: 'inset 0 2px 3px rgba(255, 255, 255, 0.5), inset 0 -2px 3px rgba(0, 0, 0, 0.8), 0 25px 50px -10px rgba(0, 0, 0, 0.9), 0 0 35px rgba(56, 189, 248, 0.2)'
             }}
           >
-            {/* Ambient Sapphire & Silver Luminous Reflections */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-sky-400/15 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -top-10 left-10 w-72 h-72 bg-slate-100/15 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 right-10 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl pointer-events-none" />
+            {/* Ambient Reflections (Attenuated in Light Gray) */}
+            {!isLight && (
+              <>
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-sky-400/15 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -top-10 left-10 w-72 h-72 bg-slate-100/15 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute bottom-0 right-10 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl pointer-events-none" />
+              </>
+            )}
 
             {/* Top Specular Silver Hairline */}
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent pointer-events-none" />
+            <div className={`absolute inset-x-0 top-0 h-px pointer-events-none ${
+              isLight ? 'bg-gradient-to-r from-transparent via-white to-transparent' : 'bg-gradient-to-r from-transparent via-white/80 to-transparent'
+            }`} />
 
             <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               {/* Left Column: Greeting & Grand Identity with 3D Chrome Text Effect */}
               <div className="max-w-2xl">
                 <span 
-                  className="text-xs font-extrabold tracking-[0.2em] uppercase font-mono block"
-                  style={{
+                  className={`text-xs font-black tracking-[0.2em] uppercase font-mono block ${
+                    isLight ? 'text-slate-700' : ''
+                  }`}
+                  style={isLight ? {} : {
                     background: 'linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 50%, #94A3B8 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
@@ -828,10 +857,15 @@ export default function DashboardView({
                   Bienvenido a
                 </span>
                 
-                {/* FINTEKIA: 3D Raised Metallic Silver Chrome Lettering */}
+                {/* FINTEKIA: Raised Metallic Lettering (Black in light mode, Silver Chrome in dark mode) */}
                 <h2 
                   className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight mt-1 font-sans select-none"
-                  style={{
+                  style={isLight ? {
+                    background: 'linear-gradient(180deg, #020617 0%, #0f172a 45%, #1e293b 80%, #020617 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))'
+                  } : {
                     background: 'linear-gradient(180deg, #FFFFFF 0%, #F1F5F9 28%, #CBD5E1 48%, #64748B 52%, #CBD5E1 70%, #FFFFFF 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
@@ -842,32 +876,42 @@ export default function DashboardView({
                 </h2>
 
                 <p 
-                  className="text-slate-200/90 text-sm sm:text-base mt-2 font-medium leading-relaxed"
-                  style={{ textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}
+                  className={`text-sm sm:text-base mt-2 leading-relaxed ${
+                    isLight 
+                      ? 'text-slate-900 font-bold' 
+                      : 'text-slate-200/90 font-medium'
+                  }`}
+                  style={isLight ? {} : { textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}
                 >
                   Control total de tu negocio, en un solo lugar. Módulos de gestión organizados por categorías.
                 </p>
               </div>
 
-              {/* Right Column: 3D Laptop with Silver Beveled Frame */}
+              {/* Right Column: Laptop Widget */}
               <div className="hidden lg:flex items-center justify-center shrink-0">
                 <div 
                   className="relative w-72 h-40 rounded-2xl p-3.5 backdrop-blur-md overflow-hidden flex flex-col justify-between"
-                  style={{
+                  style={isLight ? {
+                    background: '#ffffff',
+                    border: '1.5px solid #cbd5e1',
+                    boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.9)'
+                  } : {
                     background: 'radial-gradient(ellipse at 50% 20%, #0d2c52 0%, #061933 65%, #020c1a 100%)',
                     border: '1.5px solid rgba(226, 232, 240, 0.45)',
                     boxShadow: 'inset 0 1.5px 2px rgba(255, 255, 255, 0.4), inset 0 -1.5px 2px rgba(0, 0, 0, 0.8), 0 20px 35px -10px rgba(0, 0, 0, 0.85)'
                   }}
                 >
-                  <div className="flex items-center justify-between border-b border-slate-600/50 pb-1.5">
+                  <div className={`flex items-center justify-between pb-1.5 ${isLight ? 'border-b border-slate-200' : 'border-b border-slate-600/50'}`}>
                     <div className="flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-rose-500/80 shadow-[0_0_6px_rgba(244,63,94,0.6)]" />
                       <span className="w-2 h-2 rounded-full bg-amber-500/80 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
                       <span className="w-2 h-2 rounded-full bg-emerald-500/80 shadow-[0_0_6px_rgba(16,185,129,0.6)]" />
                     </div>
                     <span 
-                      className="text-[9.5px] font-mono font-black tracking-widest"
-                      style={{
+                      className={`text-[9.5px] font-mono font-black tracking-widest ${
+                        isLight ? 'text-slate-950 font-black' : ''
+                      }`}
+                      style={isLight ? {} : {
                         background: 'linear-gradient(180deg, #FFFFFF 0%, #CBD5E1 55%, #94A3B8 100%)',
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
@@ -878,31 +922,31 @@ export default function DashboardView({
                     </span>
                   </div>
 
-                  {/* Attenuated decorative bars in silver-cyan palette */}
-                  <div className="flex items-end justify-between h-16 px-1.5 pt-1.5 gap-2 opacity-80">
-                    <div className="w-full bg-slate-700/40 rounded-t h-[40%] relative overflow-hidden">
-                      <div className="absolute inset-x-0 bottom-0 bg-sky-500/60 h-full rounded-t" />
+                  {/* Attenuated decorative bars */}
+                  <div className="flex items-end justify-between h-16 px-1.5 pt-1.5 gap-2 opacity-85">
+                    <div className={`w-full rounded-t h-[40%] relative overflow-hidden ${isLight ? 'bg-slate-200' : 'bg-slate-700/40'}`}>
+                      <div className="absolute inset-x-0 bottom-0 bg-sky-500/70 h-full rounded-t" />
                     </div>
-                    <div className="w-full bg-slate-700/40 rounded-t h-[65%] relative overflow-hidden">
-                      <div className="absolute inset-x-0 bottom-0 bg-sky-400/70 h-full rounded-t" />
+                    <div className={`w-full rounded-t h-[65%] relative overflow-hidden ${isLight ? 'bg-slate-200' : 'bg-slate-700/40'}`}>
+                      <div className="absolute inset-x-0 bottom-0 bg-sky-400/80 h-full rounded-t" />
                     </div>
-                    <div className="w-full bg-slate-700/40 rounded-t h-[50%] relative overflow-hidden">
-                      <div className="absolute inset-x-0 bottom-0 bg-indigo-400/60 h-full rounded-t" />
+                    <div className={`w-full rounded-t h-[50%] relative overflow-hidden ${isLight ? 'bg-slate-200' : 'bg-slate-700/40'}`}>
+                      <div className="absolute inset-x-0 bottom-0 bg-indigo-500/70 h-full rounded-t" />
                     </div>
-                    <div className="w-full bg-slate-700/40 rounded-t h-[85%] relative overflow-hidden">
-                      <div className="absolute inset-x-0 bottom-0 bg-emerald-400/70 h-full rounded-t" />
+                    <div className={`w-full rounded-t h-[85%] relative overflow-hidden ${isLight ? 'bg-slate-200' : 'bg-slate-700/40'}`}>
+                      <div className="absolute inset-x-0 bottom-0 bg-emerald-500/80 h-full rounded-t" />
                     </div>
-                    <div className="w-full bg-slate-700/40 rounded-t h-[100%] relative overflow-hidden">
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-sky-500 via-sky-300 to-slate-100 h-full rounded-t shadow-[0_0_15px_rgba(56,189,248,0.6)]" />
+                    <div className={`w-full rounded-t h-[100%] relative overflow-hidden ${isLight ? 'bg-slate-200' : 'bg-slate-700/40'}`}>
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-blue-600 via-sky-400 to-sky-200 h-full rounded-t shadow-[0_0_12px_rgba(37,99,235,0.5)]" />
                     </div>
                   </div>
 
                   {/* Discrete status */}
-                  <div className="flex items-center justify-between text-[8px] font-mono text-slate-300 pt-1 border-t border-slate-700/60">
-                    <span className="font-semibold tracking-wider text-slate-300">DIAN 2026</span>
-                    <span className="flex items-center gap-1.5 text-slate-300">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
-                      <span className="text-emerald-300 font-bold">Sistema Activo</span>
+                  <div className={`flex items-center justify-between text-[8px] font-mono pt-1 ${isLight ? 'border-t border-slate-200 text-slate-700' : 'border-t border-slate-700/60 text-slate-300'}`}>
+                    <span className="font-bold tracking-wider">DIAN 2026</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
+                      <span className={isLight ? "text-emerald-800 font-black" : "text-emerald-300 font-bold"}>Sistema Activo</span>
                     </span>
                   </div>
                 </div>
@@ -911,15 +955,18 @@ export default function DashboardView({
 
             {/* ======================================================== */}
             {/* 5 METRIC CARDS WITH PRIVACY / CONFIDENTIALITY SHIELD    */}
-            {/* Compact single-line bar with Silver-Blue styling        */}
             {/* ======================================================== */}
-            <div className="mt-5 pt-4 border-t border-slate-700/60">
+            <div className={`mt-5 pt-4 border-t ${isLight ? 'border-slate-300' : 'border-slate-700/60'}`}>
               
               {!isMetricsVisible ? (
-                /* PRIVACY SHIELD: Compact Single-line Bar with Silver-Blue frosted glass */
+                /* PRIVACY SHIELD: Compact Single-line Bar */
                 <div 
                   className="px-3.5 py-2 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all"
-                  style={{
+                  style={isLight ? {
+                    background: '#ffffff',
+                    border: '1.5px solid #cbd5e1',
+                    boxShadow: '0 4px 12px rgba(15, 23, 42, 0.08)'
+                  } : {
                     background: 'linear-gradient(90deg, rgba(7, 24, 51, 0.85) 0%, rgba(13, 38, 77, 0.75) 50%, rgba(7, 24, 51, 0.85) 100%)',
                     border: '1.5px solid rgba(203, 213, 225, 0.4)',
                     boxShadow: 'inset 0 1.5px 2px rgba(255, 255, 255, 0.35), inset 0 -1.5px 2px rgba(0, 0, 0, 0.7), 0 8px 20px rgba(0, 0, 0, 0.6)'
@@ -927,19 +974,23 @@ export default function DashboardView({
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div 
-                      className="w-6 h-6 rounded-md flex items-center justify-center text-xs shrink-0"
-                      style={{
+                      className={`w-6 h-6 rounded-md flex items-center justify-center text-xs shrink-0 ${
+                        isLight ? 'bg-slate-100 border border-slate-300 text-slate-800' : ''
+                      }`}
+                      style={isLight ? {} : {
                         background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.25) 0%, rgba(14, 165, 233, 0.15) 100%)',
                         border: '1px solid rgba(226, 232, 240, 0.4)',
                         boxShadow: '0 0 10px rgba(56, 189, 248, 0.3)'
                       }}
                     >
-                      <EyeOff className="w-3.5 h-3.5 text-sky-200" />
+                      <EyeOff className={`w-3.5 h-3.5 ${isLight ? 'text-slate-800' : 'text-sky-200'}`} />
                     </div>
                     <div className="flex items-center gap-2 min-w-0">
                       <span 
-                        className="font-bold text-xs tracking-tight truncate"
-                        style={{
+                        className={`text-xs tracking-tight truncate ${
+                          isLight ? 'text-slate-950 font-black' : 'font-bold'
+                        }`}
+                        style={isLight ? {} : {
                           background: 'linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 60%, #CBD5E1 100%)',
                           WebkitBackgroundClip: 'text',
                           WebkitTextFillColor: 'transparent',
@@ -948,10 +999,16 @@ export default function DashboardView({
                       >
                         Tarjetas Financieras Protegidas
                       </span>
-                      <span className="text-[8.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 uppercase tracking-wider shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.2)]">
+                      <span className={`text-[8.5px] font-mono font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${
+                        isLight 
+                          ? 'bg-emerald-100 text-emerald-950 border border-emerald-300 font-black'
+                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 shadow-[0_0_8px_rgba(16,185,129,0.2)]'
+                      }`}>
                         Modo Privado
                       </span>
-                      <span className="hidden md:inline text-[11px] text-slate-300/80 truncate">
+                      <span className={`hidden md:inline text-[11px] truncate ${
+                        isLight ? 'text-slate-700 font-semibold' : 'text-slate-300/80'
+                      }`}>
                         — Cifras confidenciales ocultas a terceros
                       </span>
                     </div>
@@ -960,13 +1017,17 @@ export default function DashboardView({
                   <button
                     onClick={() => setIsMetricsVisible(true)}
                     id="reveal-metric-cards-btn"
-                    style={{
+                    style={isLight ? {} : {
                       border: '1.5px solid rgba(255, 255, 255, 0.6)',
                       boxShadow: 'inset 0 1.5px 2px rgba(255, 255, 255, 0.6), 0 0 20px rgba(56, 189, 248, 0.5)'
                     }}
-                    className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-sky-400 via-cyan-300 to-blue-500 hover:from-white hover:to-sky-400 text-slate-950 font-black text-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 self-end sm:self-auto"
+                    className={`px-3.5 py-1.5 rounded-lg font-black text-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 self-end sm:self-auto ${
+                      isLight 
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                        : 'bg-gradient-to-r from-sky-400 via-cyan-300 to-blue-500 hover:from-white hover:to-sky-400 text-slate-950'
+                    }`}
                   >
-                    <Eye className="w-3.5 h-3.5 text-slate-950" />
+                    <Eye className={`w-3.5 h-3.5 ${isLight ? 'text-white' : 'text-slate-950'}`} />
                     <span>Revelar tarjetas de métricas</span>
                   </button>
                 </div>
@@ -974,37 +1035,51 @@ export default function DashboardView({
                 /* REVEALED STATE: Rich grid of 5 metric cards */
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-blue-200">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <div className={`flex items-center gap-2 text-xs font-bold ${
+                      isLight ? 'text-slate-950 font-black' : 'text-blue-200'
+                    }`}>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                       <span>Métricas de Negocio en Tiempo Real</span>
                     </div>
 
                     <div className="flex items-center gap-2.5">
                       <button
                         onClick={() => setShowInlineCashFlow(!showInlineCashFlow)}
-                        className={`text-[10px] flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all border cursor-pointer ${
+                        className={`text-[10px] flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all border cursor-pointer font-bold ${
                           showInlineCashFlow
-                            ? 'bg-sky-500/25 text-white border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.3)] font-bold'
-                            : 'bg-black/20 hover:bg-black/30 text-blue-200 border-white/10'
+                            ? isLight 
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                              : 'bg-sky-500/25 text-white border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.3)] font-bold'
+                            : isLight
+                              ? 'bg-white hover:bg-slate-100 text-slate-900 border-slate-300'
+                              : 'bg-black/20 hover:bg-black/30 text-blue-200 border-white/10'
                         }`}
                         title="Ver gráfico de líneas de tendencia y flujo de caja con recharts"
                       >
-                        <TrendingUp className="w-3 h-3 text-cyan-300" />
+                        <TrendingUp className={`w-3 h-3 ${isLight ? (showInlineCashFlow ? 'text-white' : 'text-blue-600') : 'text-cyan-300'}`} />
                         <span>{showInlineCashFlow ? "Ocultar Gráfico" : "Gráfico Flujo de Caja"}</span>
                       </button>
 
                       <button
                         onClick={() => setMaskAmounts(!maskAmounts)}
-                        className="text-[10px] text-blue-200 hover:text-white flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/20 hover:bg-black/30 transition-all border border-white/10 cursor-pointer"
+                        className={`text-[10px] flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all border cursor-pointer font-bold ${
+                          isLight
+                            ? 'bg-white hover:bg-slate-100 text-slate-900 border-slate-300'
+                            : 'bg-black/20 hover:bg-black/30 text-blue-200 hover:text-white border-white/10'
+                        }`}
                         title={maskAmounts ? "Mostrar cifras reales" : "Ocultar cifras con puntos"}
                       >
-                        {maskAmounts ? <Eye className="w-3 h-3 text-cyan-300" /> : <EyeOff className="w-3 h-3 text-slate-400" />}
+                        {maskAmounts ? <Eye className={`w-3 h-3 ${isLight ? 'text-blue-600' : 'text-cyan-300'}`} /> : <EyeOff className={`w-3 h-3 ${isLight ? 'text-slate-600' : 'text-slate-400'}`} />}
                         <span>{maskAmounts ? "Revelar Números" : "Enmascarar"}</span>
                       </button>
 
                       <button
                         onClick={() => setIsMetricsVisible(false)}
-                        className="text-[10px] text-blue-200 hover:text-white flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 transition-all border border-rose-500/30 cursor-pointer"
+                        className={`text-[10px] flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all border cursor-pointer font-bold ${
+                          isLight
+                            ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300'
+                            : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border-rose-500/30'
+                        }`}
                         title="Ocultar las tarjetas de nuevo para proteger la privacidad"
                       >
                         <Lock className="w-3 h-3" />
@@ -1091,7 +1166,9 @@ export default function DashboardView({
           {/* CATEGORY SELECTOR & DENSITY BAR (UNIFORM & ALIGNED)       */}
           {/* Sleek single-height bar, concise badges, no awkward wraps  */}
           {/* ======================================================== */}
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 p-2 rounded-2xl bg-slate-900/90 border border-slate-700/80 shadow-sm">
+          <div className={`flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 p-2 rounded-2xl shadow-sm ${
+            isLight ? 'bg-slate-200/90 border border-slate-300' : 'bg-slate-900/90 border border-slate-700/80'
+          }`}>
             
             {/* Filter Pills with Uniform Height & Clean Concise Labels */}
             <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
@@ -1099,8 +1176,10 @@ export default function DashboardView({
                 onClick={() => setSelectedCategory('all')}
                 className={`h-8 px-3 rounded-xl text-xs transition-all cursor-pointer font-bold border flex items-center gap-1.5 shrink-0 ${
                   selectedCategory === 'all'
-                    ? 'bg-blue-600 text-white border-sky-400 shadow-md ring-1 ring-sky-400/30'
-                    : 'bg-slate-950/60 text-slate-300 hover:text-white border-slate-700/70 hover:border-slate-500'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-1 ring-blue-500/30'
+                    : isLight
+                      ? 'bg-white text-slate-950 hover:bg-slate-100 border-slate-300 font-bold'
+                      : 'bg-slate-950/60 text-slate-300 hover:text-white border-slate-700/70 hover:border-slate-500'
                 }`}
               >
                 <i className="ri-apps-2-line text-xs"></i>
@@ -1135,7 +1214,9 @@ export default function DashboardView({
                     className={`h-8 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 border shrink-0 ${
                       isSelected
                         ? 'text-white shadow-md ring-1 ring-white/30'
-                        : 'bg-slate-950/60 text-slate-300 hover:text-white border-slate-700/70 hover:border-slate-500'
+                        : isLight
+                          ? 'bg-white text-slate-950 hover:bg-slate-100 border-slate-300 font-bold'
+                          : 'bg-slate-950/60 text-slate-300 hover:text-white border-slate-700/70 hover:border-slate-500'
                     }`}
                   >
                     <i className={`${cat.icon} text-xs`}></i>
@@ -1152,9 +1233,11 @@ export default function DashboardView({
               <button
                 onClick={() => setSelectedCategory(selectedCategory === 'all' ? 'comercial' : 'all')}
                 className={`h-8 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs shrink-0 ${
-                  selectedCategory === 'all'
-                    ? 'bg-slate-950/80 border-slate-700 text-amber-300 hover:text-white hover:border-slate-500'
-                    : 'bg-slate-950/80 border-slate-700 text-cyan-300 hover:text-white hover:border-slate-500'
+                  isLight
+                    ? 'bg-white border-slate-300 text-slate-950 hover:bg-slate-100'
+                    : selectedCategory === 'all'
+                      ? 'bg-slate-950/80 border-slate-700 text-amber-300 hover:text-white hover:border-slate-500'
+                      : 'bg-slate-950/80 border-slate-700 text-cyan-300 hover:text-white hover:border-slate-500'
                 }`}
                 title={selectedCategory === 'all' ? "Recoger menú (mostrar solo una categoría compacta)" : "Desplegar todos los módulos de todas las categorías"}
               >
@@ -1163,14 +1246,18 @@ export default function DashboardView({
               </button>
 
               {/* Density Toggle Group */}
-              <div className="h-8 flex items-center gap-1 bg-slate-950/80 p-0.5 px-1.5 rounded-xl border border-slate-700/80 text-xs shadow-xs shrink-0">
-                <span className="text-[10px] text-slate-400 font-mono font-medium px-1">Tamaño:</span>
+              <div className={`h-8 flex items-center gap-1 p-0.5 px-1.5 rounded-xl border text-xs shadow-xs shrink-0 ${
+                isLight ? 'bg-white border-slate-300' : 'bg-slate-950/80 border-slate-700/80'
+              }`}>
+                <span className={`text-[10px] font-mono font-medium px-1 ${isLight ? 'text-slate-600 font-bold' : 'text-slate-400'}`}>Tamaño:</span>
                 <button
                   onClick={() => handleSetCardDensity('mini')}
                   className={`h-6.5 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                     cardDensity === 'mini'
                       ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      : isLight
+                        ? 'text-slate-700 hover:text-slate-950 hover:bg-slate-100'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
                   }`}
                   title="Tarjetas ultra compactas (48px de alto)"
                 >
@@ -1182,7 +1269,9 @@ export default function DashboardView({
                   className={`h-6.5 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                     cardDensity === 'normal'
                       ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      : isLight
+                        ? 'text-slate-700 hover:text-slate-950 hover:bg-slate-100'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
                   }`}
                   title="Tarjetas cuadrícula mediana"
                 >
@@ -1195,33 +1284,40 @@ export default function DashboardView({
 
           {/* ======================================================== */}
           {/* CATEGORIZED MODULES (HIGH-CONTRAST MODERN CARDS)        */}
-          {/* Crisp pure white titles, luminous sky subtitles,         */}
-          {/* and metallic silver beveled borders                     */}
+          {/* Crisp pure black titles, dark legible subtitles          */}
           {/* ======================================================== */}
           <div className="space-y-4 pt-1">
             {displayedCategories.map((category) => (
               <div key={category.id} className="space-y-2">
                 
                 {/* Section Header with High Contrast */}
-                <div className="flex items-center justify-between pb-1.5 border-b border-slate-700/60">
+                <div className={`flex items-center justify-between pb-1.5 border-b ${
+                  isLight ? 'border-slate-300' : 'border-slate-700/60'
+                }`}>
                   <div className="flex items-center gap-2.5">
                     <span 
                       className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_var(--cat-color)] shrink-0" 
                       style={{ backgroundColor: category.catColor }} 
                     />
                     <h4 
-                      className="text-xs font-black uppercase font-mono tracking-[0.1em] text-white drop-shadow-xs"
+                      className={`text-xs uppercase font-mono tracking-[0.1em] ${
+                        isLight ? 'text-slate-950 font-black' : 'text-white font-black drop-shadow-xs'
+                      }`}
                     >
                       {category.name}
                     </h4>
                   </div>
-                  <span className="text-[10px] font-mono font-bold text-sky-200/90 bg-sky-950/70 px-2 py-0.5 rounded-md border border-sky-700/40 flex items-center gap-1">
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${
+                    isLight 
+                      ? 'text-slate-950 bg-slate-200 border-slate-300 font-black'
+                      : 'text-sky-200/90 bg-sky-950/70 border-sky-700/40'
+                  }`}>
                     {category.cards.length} {category.cards.length === 1 ? 'módulo' : 'módulos'}
                     <i className="ri-arrow-down-s-line text-xs"></i>
                   </span>
                 </div>
 
-                {/* Cards Grid: Mini/Small (48-50px) vs Normal (64px) - Always shown with full card styling */}
+                {/* Cards Grid: Mini/Small (48-50px) vs Normal (64px) */}
                 <div className={
                   cardDensity === 'mini'
                     ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-2.5"
@@ -1237,27 +1333,40 @@ export default function DashboardView({
                         style={{ '--cat-color': category.catColor } as React.CSSProperties}
                       >
                         
-                        {/* Entire card is clickable with Metallic Silver Bevel & High-Contrast Typography */}
+                        {/* Entire card is clickable with High-Contrast Typography */}
                         <button
                           type="button"
                           onClick={mod.mainAction}
-                          style={{
+                          style={isLight ? {
+                            background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                            border: '1.5px solid #cbd5e1',
+                            boxShadow: '0 2px 6px rgba(15, 23, 42, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.9)'
+                          } : {
                             background: 'radial-gradient(ellipse 130% 100% at 50% 0%, #0d315f 0%, #072042 60%, #041226 100%)',
                             border: '1.5px solid rgba(203, 213, 225, 0.5)',
                             boxShadow: 'inset 0 1.5px 1.5px rgba(255, 255, 255, 0.5), inset 0 -1.5px 1.5px rgba(0, 0, 0, 0.75), 0 4px 14px rgba(0, 0, 0, 0.65)',
                           }}
                           className={`w-full ${
                             cardDensity === 'mini' ? 'px-3 py-2 min-h-[50px] sm:min-h-[52px]' : 'p-3.5 min-h-[66px]'
-                          } rounded-[12px] text-left flex items-center justify-between gap-2.5 cursor-pointer select-none transition-all duration-150 hover:-translate-y-[2px] hover:border-white hover:shadow-[inset_0_1.5px_2px_rgba(255,255,255,0.8),0_0_22px_rgba(56,189,248,0.45),0_8px_25px_-4px_rgba(0,0,0,0.85)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2`}
+                          } rounded-[12px] text-left flex items-center justify-between gap-2.5 cursor-pointer select-none transition-all duration-150 ${
+                            isLight
+                              ? 'hover:-translate-y-[2px] hover:border-blue-600 hover:shadow-md hover:bg-slate-50'
+                              : 'hover:-translate-y-[2px] hover:border-white hover:shadow-[inset_0_1.5px_2px_rgba(255,255,255,0.8),0_0_22px_rgba(56,189,248,0.45),0_8px_25px_-4px_rgba(0,0,0,0.85)]'
+                          } focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:outline-offset-2`}
                           title={`Abrir módulo de ${mod.title}`}
                         >
-                          {/* Left: Silver Beveled Icon Box + High-Contrast Pure White Title & Sky Subtitle */}
+                          {/* Left: Icon Box + High-Contrast Black Title & Dark Subtitle */}
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div 
                               className={`${
                                 cardDensity === 'mini' ? 'w-7 h-7 text-xs' : 'w-8 h-8 text-sm'
                               } rounded-lg flex items-center justify-center shrink-0 transition-transform duration-150`}
-                              style={{
+                              style={isLight ? {
+                                background: 'linear-gradient(145deg, #f1f5f9 0%, #e2e8f0 100%)',
+                                border: '1px solid #cbd5e1',
+                                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                                color: category.catColor
+                              } : {
                                 background: 'linear-gradient(145deg, rgba(255, 255, 255, 0.2) 0%, rgba(148, 163, 184, 0.1) 100%)',
                                 border: '1px solid rgba(226, 232, 240, 0.55)',
                                 boxShadow: 'inset 0 1px 1.5px rgba(255, 255, 255, 0.45), 0 2px 6px rgba(0, 0, 0, 0.5)',
@@ -1268,23 +1377,27 @@ export default function DashboardView({
                             </div>
                             
                             <div className="min-w-0">
-                              {/* High-Contrast Luminous White Title */}
+                              {/* High-Contrast Title: Pure black in Light mode */}
                               <h5 
-                                className="font-bold text-xs sm:text-[12.5px] text-white tracking-tight truncate leading-snug drop-shadow-xs"
+                                className={`font-black text-xs sm:text-[12.5px] tracking-tight truncate leading-snug ${
+                                  isLight ? 'text-slate-950 font-black' : 'text-white font-bold drop-shadow-xs'
+                                }`}
                               >
                                 {mod.title}
                               </h5>
-                              {/* Modern Luminous Sky Subtitle with High Legibility */}
+                              {/* Subtitle with High Legibility */}
                               <p 
-                                className="text-[11px] sm:text-[11.5px] text-sky-200/90 font-medium truncate block leading-tight mt-0.5"
+                                className={`text-[11px] sm:text-[11.5px] font-bold truncate block leading-tight mt-0.5 ${
+                                  isLight ? 'text-slate-700' : 'text-sky-200/90'
+                                }`}
                               >
                                 {mod.subtitle}
                               </p>
                             </div>
                           </div>
 
-                          {/* Right: Controls (3-dots button & arrow), hidden by default, visible on hover/focus-within */}
-                          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 [@media(hover:none)]:opacity-50 transition-opacity duration-150">
+                          {/* Right: Controls (3-dots button & arrow) */}
+                          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 [@media(hover:none)]:opacity-60 transition-opacity duration-150">
                             {mod.links && mod.links.length > 0 && (
                               <span
                                 role="button"
@@ -1300,28 +1413,36 @@ export default function DashboardView({
                                     setOpenPopoverId(isPopoverOpen ? null : mod.id);
                                   }
                                 }}
-                                style={{
+                                className={`${
+                                  cardDensity === 'mini' ? 'w-5 h-5 text-[10px]' : 'w-6 h-6 text-xs'
+                                } rounded-md flex items-center justify-center transition-colors cursor-pointer ${
+                                  isLight 
+                                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300'
+                                    : 'bg-white/15 hover:bg-white/30 text-white'
+                                }`}
+                                style={isLight ? {} : {
                                   border: '1px solid rgba(226, 232, 240, 0.4)',
                                   boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.3)'
                                 }}
-                                className={`${
-                                  cardDensity === 'mini' ? 'w-5 h-5 text-[10px]' : 'w-6 h-6 text-xs'
-                                } rounded-md bg-white/15 hover:bg-white/30 text-white flex items-center justify-center transition-colors cursor-pointer`}
                                 title="Ver accesos rápidos de este módulo"
                               >
                                 <i className="ri-more-2-fill"></i>
                               </span>
                             )}
                             <i 
-                              className={`ri-arrow-right-s-line text-sky-200 group-hover/card:text-white transition-colors ${
+                              className={`ri-arrow-right-s-line transition-colors ${
                                 cardDensity === 'mini' ? 'text-sm' : 'text-base'
+                              } ${
+                                isLight 
+                                  ? 'text-slate-600 group-hover/card:text-blue-600' 
+                                  : 'text-sky-200 group-hover/card:text-white'
                               }`}
-                              style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }}
+                              style={isLight ? {} : { filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))' }}
                             ></i>
                           </div>
                         </button>
 
-                        {/* Floating Popover Menu for Sub-links (doesn't push grid) */}
+                        {/* Floating Popover Menu for Sub-links */}
                         <AnimatePresence>
                           {isPopoverOpen && mod.links && (
                             <motion.div
@@ -1330,9 +1451,15 @@ export default function DashboardView({
                               exit={{ opacity: 0, scale: 0.95, y: -4 }}
                               transition={{ duration: 0.12 }}
                               onClick={(e) => e.stopPropagation()}
-                              className="absolute right-0 top-full mt-1 w-48 p-1.5 rounded-xl bg-[#0c1424] border border-white/10 shadow-2xl space-y-0.5 z-40"
+                              className={`absolute right-0 top-full mt-1 w-52 p-1.5 rounded-xl shadow-2xl space-y-0.5 z-40 border ${
+                                isLight 
+                                  ? 'bg-white border-slate-300 text-slate-900 shadow-xl' 
+                                  : 'bg-[#0c1424] border-white/10 text-white'
+                              }`}
                             >
-                              <div className="px-2 py-1 text-[9px] font-mono text-white/40 border-b border-white/5 uppercase tracking-wider">
+                              <div className={`px-2 py-1 text-[9px] font-mono uppercase tracking-wider border-b ${
+                                isLight ? 'text-slate-500 border-slate-200 font-bold' : 'text-white/40 border-white/5'
+                              }`}>
                                 Atajos de {mod.title}
                               </div>
                               {mod.links.map((link, idx) => (
@@ -1342,13 +1469,17 @@ export default function DashboardView({
                                     link.action();
                                     setOpenPopoverId(null);
                                   }}
-                                  className="w-full flex items-center justify-between p-1.5 rounded-lg hover:bg-white/10 text-white/80 hover:text-white text-[10.5px] font-medium transition-colors cursor-pointer text-left"
+                                  className={`w-full flex items-center justify-between p-1.5 rounded-lg text-[10.5px] font-medium transition-colors cursor-pointer text-left ${
+                                    isLight
+                                      ? 'hover:bg-slate-100 text-slate-800 hover:text-slate-950 font-bold'
+                                      : 'hover:bg-white/10 text-white/80 hover:text-white'
+                                  }`}
                                 >
                                   <span className="flex items-center gap-1.5 truncate">
-                                    <i className={`${link.icon} text-white/40 text-xs`}></i>
+                                    <i className={`${link.icon} text-xs ${isLight ? 'text-slate-500' : 'text-white/40'}`}></i>
                                     <span className="truncate">{link.label}</span>
                                   </span>
-                                  <i className="ri-arrow-right-s-line text-white/40 text-[9px]"></i>
+                                  <i className={`ri-arrow-right-s-line text-[9px] ${isLight ? 'text-slate-400' : 'text-white/40'}`}></i>
                                 </button>
                               ))}
                             </motion.div>
@@ -1370,16 +1501,18 @@ export default function DashboardView({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1">
             
             {/* Banner 1: Cumple con la DIAN */}
-            <div className="bg-slate-900/90 rounded-xl p-3 border border-white/10 shadow-xs flex items-center justify-between gap-3">
+            <div className={`rounded-xl p-3 border shadow-xs flex items-center justify-between gap-3 ${
+              isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900/90 border-white/10 text-white'
+            }`}>
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-sm shrink-0 shadow-xs">
                   <i className="ri-check-line font-bold"></i>
                 </div>
                 <div className="min-w-0">
-                  <h4 className="font-semibold text-xs text-white leading-tight">
+                  <h4 className={`font-black text-xs leading-tight ${isLight ? 'text-slate-950' : 'text-white'}`}>
                     Cumple con la DIAN
                   </h4>
-                  <p className="text-[10px] text-white/55 truncate leading-tight mt-0.5">
+                  <p className={`text-[10px] truncate leading-tight mt-0.5 ${isLight ? 'text-slate-700 font-semibold' : 'text-white/55'}`}>
                     Facturas electrónicas vigentes 2026
                   </p>
                 </div>
@@ -1387,7 +1520,11 @@ export default function DashboardView({
 
               <button
                 onClick={() => setActiveView('facturacion')}
-                className="px-2.5 py-1 rounded-lg bg-blue-900/80 hover:bg-blue-800 text-white text-[9.5px] font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0 border border-blue-700/50"
+                className={`px-2.5 py-1 rounded-lg text-[9.5px] font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
+                  isLight 
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs' 
+                    : 'bg-blue-900/80 hover:bg-blue-800 text-white border border-blue-700/50'
+                }`}
               >
                 <span>Configurar</span>
                 <i className="ri-arrow-right-line text-[9px]"></i>
@@ -1395,16 +1532,22 @@ export default function DashboardView({
             </div>
 
             {/* Banner 2: Tu negocio en crecimiento */}
-            <div className="bg-gradient-to-r from-blue-950 to-slate-900 text-white rounded-xl p-3 border border-blue-900/50 shadow-xs flex items-center justify-between gap-3">
+            <div className={`rounded-xl p-3 border shadow-xs flex items-center justify-between gap-3 ${
+              isLight 
+                ? 'bg-white border-slate-300 text-slate-900' 
+                : 'bg-gradient-to-r from-blue-950 to-slate-900 text-white border-blue-900/50'
+            }`}>
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-lg bg-white/10 backdrop-blur-md flex items-center justify-center text-sm text-white shrink-0 border border-white/10">
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0 ${
+                  isLight ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-white/10 text-white border border-white/10'
+                }`}>
                   <i className="ri-bar-chart-grouped-line"></i>
                 </div>
                 <div className="min-w-0">
-                  <h4 className="font-semibold text-xs text-white leading-tight">
+                  <h4 className={`font-black text-xs leading-tight ${isLight ? 'text-slate-950' : 'text-white'}`}>
                     Negocio en Crecimiento
                   </h4>
-                  <p className="text-[10px] text-white/55 truncate leading-tight mt-0.5">
+                  <p className={`text-[10px] truncate leading-tight mt-0.5 ${isLight ? 'text-slate-700 font-semibold' : 'text-white/55'}`}>
                     Información financiera al instante
                   </p>
                 </div>
@@ -1420,27 +1563,32 @@ export default function DashboardView({
             </div>
 
             {/* Banner 3: Respaldo en la nube */}
-            <div className="bg-slate-900/90 text-white rounded-xl p-3 border border-white/10 shadow-xs flex items-center justify-between gap-3">
+            <div className={`rounded-xl p-3 border shadow-xs flex items-center justify-between gap-3 ${
+              isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900/90 border-white/10 text-white'
+            }`}>
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm shrink-0 shadow-xs">
                   <i className="ri-cloud-line"></i>
                 </div>
                 <div className="min-w-0">
-                  <h4 className="font-semibold text-xs text-white leading-tight">
+                  <h4 className={`font-black text-xs leading-tight ${isLight ? 'text-slate-950' : 'text-white'}`}>
                     Respaldo en la Nube
                   </h4>
-                  <p className="text-[10px] text-white/55 truncate leading-tight mt-0.5">
+                  <p className={`text-[10px] truncate leading-tight mt-0.5 ${isLight ? 'text-slate-700 font-semibold' : 'text-white/55'}`}>
                     Sincronización segura continua
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 text-[9.5px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-800 shrink-0">
+              <div className={`flex items-center gap-1 text-[9.5px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                isLight 
+                  ? 'text-emerald-900 bg-emerald-100 border-emerald-300 font-black'
+                  : 'text-emerald-400 bg-emerald-950/60 border-emerald-800'
+              }`}>
                 <i className="ri-checkbox-circle-fill text-[10px]"></i>
                 <span>En línea</span>
               </div>
             </div>
-
           </div>
         </>
       ) : viewMode === 'cashflow' ? (
@@ -1459,75 +1607,99 @@ export default function DashboardView({
 
           {/* Quick Summary Cards & Operations Direct Access */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-700/80 shadow-xs space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-sky-400">
+            <div className={`p-4 rounded-xl border shadow-xs space-y-2 ${
+              isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900/90 border-slate-700/80'
+            }`}>
+              <div className="flex items-center justify-between text-xs font-bold text-sky-600 dark:text-sky-400">
                 <span className="flex items-center gap-1.5">
                   <i className="ri-file-text-line"></i>
                   <span>Facturación Electrónica (Tercero)</span>
                 </span>
-                <span className="text-[10px] bg-sky-500/10 px-2 py-0.5 rounded border border-sky-400/20">
+                <span className={`text-[10px] px-2 py-0.5 rounded border ${
+                  isLight ? 'bg-sky-50 text-sky-800 border-sky-300 font-bold' : 'bg-sky-500/10 text-sky-300 border-sky-400/20'
+                }`}>
                   Operativo
                 </span>
               </div>
-              <p className="text-sm font-semibold text-slate-200">
-                Total Facturado: <strong className="text-white font-mono">{formatCOP(salesVal)}</strong>
+              <p className={`text-sm font-semibold ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
+                Total Facturado: <strong className={`font-mono ${isLight ? 'text-slate-950 font-black' : 'text-white'}`}>{formatCOP(salesVal)}</strong>
               </p>
-              <p className="text-[11px] text-slate-400">
+              <p className={`text-[11px] ${isLight ? 'text-slate-600 font-medium' : 'text-slate-400'}`}>
                 Comprobantes de venta sincronizados con el calendario del mes.
               </p>
               <button
                 onClick={() => setActiveView('facturacion')}
-                className="w-full py-1.5 px-3 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 text-xs font-bold border border-sky-400/30 transition-all cursor-pointer flex items-center justify-center gap-1 mt-1"
+                className={`w-full py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 mt-1 ${
+                  isLight 
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs' 
+                    : 'bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-400/30'
+                }`}
               >
                 <span>Ir al Módulo de Facturación</span>
                 <ArrowUpRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-700/80 shadow-xs space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-rose-400">
+            <div className={`p-4 rounded-xl border shadow-xs space-y-2 ${
+              isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900/90 border-slate-700/80'
+            }`}>
+              <div className="flex items-center justify-between text-xs font-bold text-rose-600 dark:text-rose-400">
                 <span className="flex items-center gap-1.5">
                   <i className="ri-truck-line"></i>
                   <span>Compras & Egresos</span>
                 </span>
-                <span className="text-[10px] bg-rose-500/10 px-2 py-0.5 rounded border border-rose-400/20">
+                <span className={`text-[10px] px-2 py-0.5 rounded border ${
+                  isLight ? 'bg-rose-50 text-rose-800 border-rose-300 font-bold' : 'bg-rose-500/10 text-rose-300 border-rose-400/20'
+                }`}>
                   Controlado
                 </span>
               </div>
-              <p className="text-sm font-semibold text-slate-200">
-                Total Gastos: <strong className="text-white font-mono">{formatCOP(purchasesVal)}</strong>
+              <p className={`text-sm font-semibold ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
+                Total Gastos: <strong className={`font-mono ${isLight ? 'text-slate-950 font-black' : 'text-white'}`}>{formatCOP(purchasesVal)}</strong>
               </p>
-              <p className="text-[11px] text-slate-400">
+              <p className={`text-[11px] ${isLight ? 'text-slate-600 font-medium' : 'text-slate-400'}`}>
                 Adquisiciones de materias primas y pagos a proveedores nacionales.
               </p>
               <button
                 onClick={() => setActiveView('compras')}
-                className="w-full py-1.5 px-3 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 text-xs font-bold border border-rose-400/30 transition-all cursor-pointer flex items-center justify-center gap-1 mt-1"
+                className={`w-full py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 mt-1 ${
+                  isLight 
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-xs' 
+                    : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-400/30'
+                }`}
               >
                 <span>Ir al Módulo de Compras</span>
                 <ArrowDownRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-700/80 shadow-xs space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-emerald-400">
+            <div className={`p-4 rounded-xl border shadow-xs space-y-2 ${
+              isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900/90 border-slate-700/80'
+            }`}>
+              <div className="flex items-center justify-between text-xs font-bold text-emerald-600 dark:text-emerald-400">
                 <span className="flex items-center gap-1.5">
                   <i className="ri-wallet-3-line"></i>
                   <span>Tesorería & Bancos</span>
                 </span>
-                <span className="text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-400/20">
+                <span className={`text-[10px] px-2 py-0.5 rounded border ${
+                  isLight ? 'bg-emerald-50 text-emerald-900 border-emerald-300 font-bold' : 'bg-emerald-500/10 text-emerald-300 border-emerald-400/20'
+                }`}>
                   Disponible
                 </span>
               </div>
-              <p className="text-sm font-semibold text-slate-200">
-                Flujo Neto: <strong className="text-emerald-300 font-mono">+{formatCOP(salesVal - purchasesVal)}</strong>
+              <p className={`text-sm font-semibold ${isLight ? 'text-slate-800' : 'text-slate-200'}`}>
+                Flujo Neto: <strong className={`font-mono ${isLight ? 'text-emerald-800 font-black' : 'text-emerald-300'}`}>+{formatCOP(salesVal - purchasesVal)}</strong>
               </p>
-              <p className="text-[11px] text-slate-400">
+              <p className={`text-[11px] ${isLight ? 'text-slate-600 font-medium' : 'text-slate-400'}`}>
                 Superávit operacional positivo para reinversión en inventario.
               </p>
               <button
                 onClick={() => setActiveView('bancos')}
-                className="w-full py-1.5 px-3 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 text-xs font-bold border border-emerald-400/30 transition-all cursor-pointer flex items-center justify-center gap-1 mt-1"
+                className={`w-full py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 mt-1 ${
+                  isLight 
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs' 
+                    : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-400/30'
+                }`}
               >
                 <span>Conciliación Bancaria</span>
                 <i className="ri-arrow-right-line text-xs"></i>
@@ -1551,17 +1723,21 @@ export default function DashboardView({
           />
           {/* Critical stock alert banner */}
           {criticalMaterials.length > 0 && (
-            <div className="bg-gradient-to-r from-amber-600/10 via-rose-600/10 to-amber-600/10 border border-amber-500/30 p-3.5 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm">
+            <div className={`p-3.5 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-sm border ${
+              isLight 
+                ? 'bg-amber-50 border-amber-300 text-amber-950' 
+                : 'bg-gradient-to-r from-amber-600/10 via-rose-600/10 to-amber-600/10 border-amber-500/30'
+            }`}>
               <div className="flex items-start gap-2.5">
-                <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 mt-0.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <div className={`p-1.5 rounded-lg mt-0.5 ${isLight ? 'bg-amber-200 text-amber-900' : 'bg-amber-500/20 text-amber-400'}`}>
+                  <AlertTriangle className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-xs text-white uppercase tracking-wider">
+                  <h4 className={`font-black text-xs uppercase tracking-wider ${isLight ? 'text-amber-950' : 'text-white'}`}>
                     Alerta de Inventario: Stock Crítico Bajo Reorden
                   </h4>
-                  <p className="text-[11px] text-slate-300 mt-0.5">
-                    Existen <strong className="text-amber-400">{criticalMaterials.length}</strong> insumos por debajo del umbral mínimo de seguridad.
+                  <p className={`text-[11px] mt-0.5 ${isLight ? 'text-amber-900 font-semibold' : 'text-slate-300'}`}>
+                    Existen <strong className={isLight ? "text-amber-950 font-black" : "text-amber-400"}>{criticalMaterials.length}</strong> insumos por debajo del umbral mínimo de seguridad.
                   </p>
                 </div>
               </div>
@@ -1570,7 +1746,7 @@ export default function DashboardView({
                 <button
                   onClick={handleSendEmailAlert}
                   disabled={emailStatus === 'sending'}
-                  className="px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <Mail className="w-3.5 h-3.5" />
                   <span>{emailStatus === 'sending' ? 'Enviando...' : emailStatus === 'sent' ? '¡Enviado!' : 'Enviar Notificación'}</span>
@@ -1580,14 +1756,16 @@ export default function DashboardView({
           )}
 
           {/* Critical Materials Reorder Table */}
-          <div className="p-4 rounded-xl bg-slate-900 border border-white/10 shadow-xs space-y-2.5">
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+          <div className={`p-4 rounded-xl border shadow-xs space-y-2.5 ${
+            isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-slate-900 border-white/10 text-white'
+          }`}>
+            <h4 className={`text-xs uppercase tracking-wider ${isLight ? 'text-slate-950 font-black' : 'text-white font-bold'}`}>
               Control de Umbrales de Reorden (MRP)
             </h4>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-white/10 text-slate-400 font-mono">
+                  <tr className={`border-b font-mono ${isLight ? 'border-slate-200 text-slate-600 font-bold' : 'border-white/10 text-slate-400'}`}>
                     <th className="py-1.5">Insumo</th>
                     <th className="py-1.5">Stock Actual</th>
                     <th className="py-1.5">Punto de Reorden</th>
@@ -1595,19 +1773,23 @@ export default function DashboardView({
                     <th className="py-1.5 text-right">Ajustar Límite</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className={`divide-y ${isLight ? 'divide-slate-200' : 'divide-white/5'}`}>
                   {paginatedMaterialsWithStock.map((mat) => (
-                    <tr key={mat.id} className="hover:bg-white/5">
-                      <td className="py-2 font-semibold text-slate-200">{mat.name}</td>
-                      <td className="py-2 font-mono font-bold text-slate-300">{mat.currentStock.toFixed(1)} und</td>
-                      <td className="py-2 font-mono text-slate-500">{mat.limit} und</td>
+                    <tr key={mat.id} className={isLight ? "hover:bg-slate-100" : "hover:bg-white/5"}>
+                      <td className={`py-2 font-bold ${isLight ? 'text-slate-950' : 'text-slate-200'}`}>{mat.name}</td>
+                      <td className={`py-2 font-mono font-bold ${isLight ? 'text-slate-900' : 'text-slate-300'}`}>{mat.currentStock.toFixed(1)} und</td>
+                      <td className={`py-2 font-mono ${isLight ? 'text-slate-600 font-semibold' : 'text-slate-500'}`}>{mat.limit} und</td>
                       <td className="py-2">
                         {mat.isBelow ? (
-                          <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 font-bold text-[9.5px] border border-rose-500/30">
+                          <span className={`px-2 py-0.5 rounded-full font-bold text-[9.5px] border ${
+                            isLight ? 'bg-rose-100 text-rose-800 border-rose-300 font-black' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                          }`}>
                             Bajo Mínimo
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[9.5px] border border-emerald-500/30">
+                          <span className={`px-2 py-0.5 rounded-full font-bold text-[9.5px] border ${
+                            isLight ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-black' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                          }`}>
                             Óptimo
                           </span>
                         )}
@@ -1617,7 +1799,11 @@ export default function DashboardView({
                           type="number"
                           value={mat.limit}
                           onChange={(e) => handleUpdateLimit(mat.id, Number(e.target.value))}
-                          className="w-20 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-right font-mono text-xs text-white"
+                          className={`w-20 px-2 py-0.5 rounded border text-right font-mono text-xs font-bold ${
+                            isLight 
+                              ? 'bg-slate-50 border-slate-300 text-slate-950 focus:bg-white' 
+                              : 'bg-slate-800 border-slate-700 text-white'
+                          }`}
                         />
                       </td>
                     </tr>
@@ -1632,7 +1818,7 @@ export default function DashboardView({
                 totalItems={materialsWithStock.length}
                 pageSize={MRP_ITEMS_PER_PAGE}
                 onPageChange={(page) => setMrpPage(page)}
-                isDark={true}
+                isDark={!isLight}
                 itemLabel="insumos y materiales"
               />
             )}

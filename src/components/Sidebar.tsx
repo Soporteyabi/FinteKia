@@ -290,6 +290,7 @@ export default function Sidebar({
   };
 
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.navy_dark;
+  const isLight = theme === 'light_gray';
 
   // Modern structured menu categories matching Contaby design system
   const menuCategories = useMemo(() => [
@@ -428,7 +429,9 @@ export default function Sidebar({
       animate={{ width: isCollapsed ? 76 : 268 }}
     >
       {/* Brand Header with Contaby Neon Aesthetic */}
-      <div className="p-4 border-b border-white/[0.08] flex items-center justify-between min-h-[72px] bg-black/20">
+      <div className={`p-4 border-b flex items-center justify-between min-h-[72px] ${
+        isLight ? 'bg-slate-200/90 border-slate-300' : 'bg-black/20 border-white/[0.08]'
+      }`}>
         {!isCollapsed ? (
           <button
             onClick={() => setActiveView('dashboard')}
@@ -445,17 +448,23 @@ export default function Sidebar({
 
             <div className="leading-none overflow-hidden">
               <div className="flex items-center gap-1.5">
-                <h1 className="font-sans font-extrabold text-base tracking-wider text-white group-hover:text-cyan-300 transition-colors">
+                <h1 className={`font-sans font-extrabold text-base tracking-wider ${
+                  isLight ? 'text-slate-950 font-black' : 'text-white group-hover:text-cyan-300'
+                } transition-colors`}>
                   CONTABY
                 </h1>
-                <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
+                <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                  isLight ? 'bg-blue-100 text-blue-900 border-blue-300 font-black' : 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30'
+                }`}>
                   PRO
                 </span>
               </div>
-              <p className="text-[9.5px] font-mono text-slate-400 tracking-wider mt-1 flex items-center gap-1">
+              <p className={`text-[9.5px] font-mono tracking-wider mt-1 flex items-center gap-1 ${
+                isLight ? 'text-slate-700 font-bold' : 'text-slate-400'
+              }`}>
                 <span>ERP & DIAN</span>
-                <span className="text-cyan-400">·</span>
-                <span className="text-emerald-400 font-semibold">2026</span>
+                <span className={isLight ? "text-blue-600 font-black" : "text-cyan-400"}>·</span>
+                <span className={isLight ? "text-emerald-700 font-black" : "text-emerald-400 font-semibold"}>2026</span>
               </p>
             </div>
           </button>
@@ -477,7 +486,11 @@ export default function Sidebar({
           <button
             onClick={handleToggleCollapse}
             id="sidebar-collapse-btn-wide"
-            className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer border border-white/5 shrink-0"
+            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+              isLight 
+                ? 'bg-slate-300/80 hover:bg-slate-300 text-slate-900 border border-slate-300 font-black' 
+                : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/5'
+            }`}
             title="Recoger menú (clic)"
           >
             <i className="ri-menu-fold-line text-sm"></i>
@@ -486,16 +499,24 @@ export default function Sidebar({
       </div>
 
       {/* Organization / Company Selector Card */}
-      <div className="px-3 py-2.5 border-b border-white/[0.06] bg-black/10">
+      <div className={`px-3 py-2.5 border-b ${
+        isLight ? 'border-slate-300 bg-slate-200/50' : 'border-white/[0.06] bg-black/10'
+      }`}>
         {!isCollapsed ? (
           <div className="relative">
             <button
               onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
               id="company-toggle-btn"
-              className="w-full flex items-center justify-between text-left p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white transition-all text-xs border border-white/[0.06] group shadow-inner"
+              className={`w-full flex items-center justify-between text-left p-2 rounded-xl transition-all text-xs border group shadow-xs ${
+                isLight 
+                  ? 'bg-white hover:bg-slate-50 text-slate-950 border-slate-300' 
+                  : 'bg-white/[0.04] hover:bg-white/[0.08] text-white border-white/[0.06] shadow-inner'
+              }`}
             >
               <div className="flex items-center gap-2.5 truncate">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0 shadow-sm">
+                <div className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 shadow-sm ${
+                  isLight ? 'bg-slate-100 border-slate-300 text-blue-700' : 'bg-gradient-to-br from-slate-800 to-slate-900 border-cyan-500/30 text-cyan-400'
+                }`}>
                   {currentCompany.logoUrl ? (
                     <img 
                       src={currentCompany.logoUrl} 
@@ -508,25 +529,39 @@ export default function Sidebar({
                   )}
                 </div>
                 <div className="truncate min-w-0">
-                  <span className="font-bold text-white text-xs block truncate leading-tight group-hover:text-cyan-300 transition-colors">
+                  <span className={`font-black text-xs block truncate leading-tight ${
+                    isLight ? 'text-slate-950' : 'text-white group-hover:text-cyan-300'
+                  }`}>
                     {currentCompany.name}
                   </span>
-                  <span className="text-[10px] font-mono text-slate-400 block truncate leading-tight mt-0.5">
+                  <span className={`text-[10px] font-mono block truncate leading-tight mt-0.5 ${
+                    isLight ? 'text-slate-700 font-bold' : 'text-slate-400'
+                  }`}>
                     NIT: {currentCompany.nit}
                   </span>
                 </div>
               </div>
-              <i className={`ri-arrow-down-s-line text-slate-400 transition-transform ${showCompanyDropdown ? 'rotate-180 text-cyan-400' : ''}`}></i>
+              <i className={`ri-arrow-down-s-line transition-transform ${
+                isLight ? 'text-slate-700' : 'text-slate-400'
+              } ${showCompanyDropdown ? 'rotate-180 text-blue-600' : ''}`}></i>
             </button>
 
             {/* Dropdown with all registered companies */}
             {showCompanyDropdown && (
-              <div className="absolute left-0 right-0 mt-1.5 p-1.5 rounded-xl bg-[#0d1424] border border-cyan-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.8)] z-50 backdrop-blur-md">
-                <div className="flex items-center justify-between px-2 py-1 border-b border-white/5">
-                  <span className="text-[9px] text-cyan-400 uppercase font-mono font-bold tracking-wider">Organizaciones</span>
-                  <span className="text-[9px] font-mono text-slate-400">{companies.length} disp.</span>
+              <div className={`absolute left-0 right-0 mt-1.5 p-1.5 rounded-xl border shadow-2xl z-50 ${
+                isLight 
+                  ? 'bg-white border-slate-300 text-slate-900' 
+                  : 'bg-[#0d1424] border-cyan-500/30 text-white shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-md'
+              }`}>
+                <div className={`flex items-center justify-between px-2 py-1 border-b ${
+                  isLight ? 'border-slate-200' : 'border-white/5'
+                }`}>
+                  <span className={`text-[9px] uppercase font-mono font-bold tracking-wider ${
+                    isLight ? 'text-blue-700 font-black' : 'text-cyan-400'
+                  }`}>Organizaciones</span>
+                  <span className={`text-[9px] font-mono ${isLight ? 'text-slate-600 font-bold' : 'text-slate-400'}`}>{companies.length} disp.</span>
                 </div>
-                <div className="max-h-48 overflow-y-auto mt-1 space-y-1 scrollbar-thin scrollbar-thumb-white/10">
+                <div className="max-h-48 overflow-y-auto mt-1 space-y-1 scrollbar-thin scrollbar-thumb-slate-300">
                   {companies.map((co) => {
                     const isCompanyActive = co.isActive !== false;
                     const isSelected = co.id === currentCompany.id;
@@ -539,31 +574,39 @@ export default function Sidebar({
                         }}
                         className={`w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between transition-all ${
                           isSelected
-                            ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-white font-bold border border-cyan-500/30'
-                            : isCompanyActive
-                              ? 'text-slate-300 hover:text-white hover:bg-white/5'
-                              : 'text-slate-500 hover:text-slate-400 hover:bg-white/5 opacity-60'
+                            ? isLight 
+                              ? 'bg-blue-600 text-white font-black shadow-xs' 
+                              : 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-white font-bold border border-cyan-500/30'
+                            : isLight 
+                              ? 'text-slate-900 hover:bg-slate-100 font-bold' 
+                              : isCompanyActive
+                                ? 'text-slate-300 hover:text-white hover:bg-white/5'
+                                : 'text-slate-500 hover:text-slate-400 hover:bg-white/5 opacity-60'
                         }`}
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <i className={`ri-building-line text-xs ${isSelected ? 'text-cyan-400' : 'text-slate-500'}`}></i>
+                          <i className={`ri-building-line text-xs ${isSelected ? (isLight ? 'text-white' : 'text-cyan-400') : (isLight ? 'text-slate-600' : 'text-slate-500')}`}></i>
                           <div className="truncate">
-                            <span className="block truncate">{co.name}</span>
-                            <span className="text-[9px] font-mono opacity-60 block truncate">NIT: {co.nit}</span>
+                            <span className="block truncate font-bold">{co.name}</span>
+                            <span className="text-[9px] font-mono opacity-80 block truncate">NIT: {co.nit}</span>
                           </div>
                         </div>
-                        {isSelected && <i className="ri-check-line text-xs text-cyan-400 font-bold"></i>}
+                        {isSelected && <i className={`ri-check-line text-xs font-black ${isLight ? 'text-white' : 'text-cyan-400'}`}></i>}
                       </button>
                     );
                   })}
                 </div>
-                <div className="mt-1.5 pt-1.5 border-t border-white/5">
+                <div className={`mt-1.5 pt-1.5 border-t ${isLight ? 'border-slate-200' : 'border-white/5'}`}>
                   <button
                     onClick={() => {
                       onCreateCompany();
                       setShowCompanyDropdown(false);
                     }}
-                    className="w-full py-1.5 rounded-lg text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-all text-xs font-semibold flex items-center justify-center gap-1.5"
+                    className={`w-full py-1.5 rounded-lg transition-all text-xs font-bold flex items-center justify-center gap-1.5 ${
+                      isLight 
+                        ? 'bg-blue-50 text-blue-800 hover:bg-blue-100' 
+                        : 'text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10'
+                    }`}
                   >
                     <i className="ri-add-circle-line"></i> Crear Organización
                   </button>
@@ -606,17 +649,25 @@ export default function Sidebar({
               placeholder="Buscar módulo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-12 py-1.5 rounded-xl bg-black/30 border border-white/10 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-cyan-400/60 focus:ring-1 focus:ring-cyan-400/30 transition-all"
+              className={`w-full pl-8 pr-12 py-1.5 rounded-xl text-xs focus:outline-none transition-all ${
+                isLight 
+                  ? 'bg-white border border-slate-300 text-slate-950 placeholder-slate-500 focus:border-blue-500' 
+                  : 'bg-black/30 border border-white/10 text-white placeholder-slate-500 focus:border-cyan-400/60 focus:ring-1 focus:ring-cyan-400/30'
+              }`}
             />
             {searchTerm ? (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
+                className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-xs ${
+                  isLight ? 'text-slate-600 hover:text-slate-950' : 'text-slate-400 hover:text-white'
+                }`}
               >
                 <i className="ri-close-line"></i>
               </button>
             ) : (
-              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-slate-500 border border-white/10 px-1 rounded">
+              <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] font-mono px-1 rounded ${
+                isLight ? 'text-slate-600 bg-slate-100 border border-slate-300 font-bold' : 'text-slate-500 border border-white/10'
+              }`}>
                 ⌘K
               </span>
             )}
@@ -625,7 +676,9 @@ export default function Sidebar({
       )}
 
       {/* Dynamic Categorized Navigation Links */}
-      <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-3 scrollbar-thin scrollbar-thumb-white/10">
+      <nav className={`flex-1 overflow-y-auto px-2 py-2 space-y-3 scrollbar-thin ${
+        isLight ? 'scrollbar-thumb-slate-300' : 'scrollbar-thumb-white/10'
+      }`}>
         {filteredCategories.map((category) => {
           // Verify if user role has access to any item in this category
           const visibleItems = category.items.filter((item) => item.roles.includes(currentUser.role));
@@ -640,16 +693,22 @@ export default function Sidebar({
               {!isCollapsed ? (
                 <div
                   onClick={() => toggleCategory(category.id)}
-                  className="flex items-center justify-between px-2.5 py-1 text-[9px] font-extrabold tracking-wider text-slate-400 hover:text-white cursor-pointer select-none transition-colors border-b border-white/[0.04] pb-1 w-full group"
+                  className={`flex items-center justify-between px-2.5 py-1 text-[9px] font-black tracking-wider cursor-pointer select-none transition-colors border-b pb-1 w-full group ${
+                    isLight 
+                      ? 'text-slate-950 border-slate-300 hover:text-blue-700' 
+                      : 'text-slate-400 hover:text-white border-white/[0.04]'
+                  }`}
                 >
                   <div className="flex items-center gap-1.5">
                     <span className={`w-1.5 h-1.5 rounded-full ${catStyle.glow} shrink-0`} />
                     <span className="uppercase font-mono tracking-wider">{category.label}</span>
                   </div>
-                  <i className={`ri-arrow-down-s-line text-[11px] text-slate-500 group-hover:text-slate-300 transition-transform ${isCatCollapsed ? '-rotate-90' : ''}`} />
+                  <i className={`ri-arrow-down-s-line text-[11px] transition-transform ${isCatCollapsed ? '-rotate-90' : ''} ${
+                    isLight ? 'text-slate-600' : 'text-slate-500 group-hover:text-slate-300'
+                  }`} />
                 </div>
               ) : (
-                <div className="border-t border-white/5 my-2 mx-2" />
+                <div className={`border-t my-2 mx-2 ${isLight ? 'border-slate-300' : 'border-white/5'}`} />
               )}
 
               {/* Items row list */}
@@ -681,37 +740,59 @@ export default function Sidebar({
                               isCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2'
                             } ${
                               isActive && !kioskMode
-                                ? `${catStyle.activeBg} ${catStyle.activeText} border ${catStyle.activeBorder} shadow-[0_0_15px_rgba(6,182,212,0.12)] font-bold`
-                                : `text-slate-400 bg-transparent hover:bg-white/[0.04] hover:text-white ${
-                                    hoveredItem === item.id && !isCollapsed ? 'translate-x-1' : ''
-                                  }`
+                                ? isLight
+                                  ? 'bg-blue-600 text-white font-black shadow-md border border-blue-600'
+                                  : `${catStyle.activeBg} ${catStyle.activeText} border ${catStyle.activeBorder} shadow-[0_0_15px_rgba(6,182,212,0.12)] font-bold`
+                                : isLight
+                                  ? `text-slate-800 font-bold bg-transparent hover:bg-slate-200/80 hover:text-slate-950 ${
+                                      hoveredItem === item.id && !isCollapsed ? 'translate-x-1' : ''
+                                    }`
+                                  : `text-slate-400 bg-transparent hover:bg-white/[0.04] hover:text-white ${
+                                      hoveredItem === item.id && !isCollapsed ? 'translate-x-1' : ''
+                                    }`
                             }`}
                           >
                             {/* Glowing Left Indicator Bar for Active State */}
                             {isActive && !kioskMode && !isCollapsed && (
-                              <div className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />
+                              <div className={`absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full ${
+                                isLight ? 'bg-white shadow-[0_0_8px_#ffffff]' : 'bg-cyan-400 shadow-[0_0_10px_#22d3ee]'
+                              }`} />
                             )}
 
                             {/* Crisp Icon with Luminous Backplate */}
                             <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200 ${
                               isActive && !kioskMode
-                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_10px_rgba(6,182,212,0.35)]'
-                                : 'bg-slate-800/50 text-slate-400 group-hover:bg-slate-800 group-hover:text-cyan-400 group-hover:shadow-[0_0_8px_rgba(34,211,238,0.2)]'
+                                ? isLight
+                                  ? 'bg-blue-700 text-white shadow-xs'
+                                  : 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-[0_0_10px_rgba(6,182,212,0.35)]'
+                                : isLight
+                                  ? 'bg-slate-200/80 text-slate-800 border border-slate-300 group-hover:bg-slate-300 group-hover:text-slate-950'
+                                  : 'bg-slate-800/50 text-slate-400 group-hover:bg-slate-800 group-hover:text-cyan-400 group-hover:shadow-[0_0_8px_rgba(34,211,238,0.2)]'
                             }`}>
                               <i className={`${item.icon} text-base transition-transform duration-200 ${hoveredItem === item.id ? 'scale-110' : ''}`} />
                             </div>
                             
                             {!isCollapsed && (
                               <div className="flex-1 flex items-center justify-between truncate min-w-0">
-                                <span className={`truncate text-xs ${isActive ? 'text-white font-bold' : 'text-slate-300 group-hover:text-white'}`}>
+                                <span className={`truncate text-xs ${
+                                  isActive 
+                                    ? 'text-white font-black' 
+                                    : isLight 
+                                      ? 'text-slate-950 font-bold group-hover:text-blue-700' 
+                                      : 'text-slate-300 group-hover:text-white'
+                                }`}>
                                   {item.label}
                                 </span>
                                 
                                 {item.badge && (
                                   <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded ml-2 shrink-0 ${
                                     isActive 
-                                      ? 'bg-cyan-400/20 text-cyan-200 border border-cyan-400/30'
-                                      : 'bg-white/5 text-slate-400 border border-white/5'
+                                      ? isLight 
+                                        ? 'bg-white/20 text-white border border-white/30 font-black' 
+                                        : 'bg-cyan-400/20 text-cyan-200 border border-cyan-400/30'
+                                      : isLight 
+                                        ? 'bg-slate-200 text-slate-900 border border-slate-300 font-bold' 
+                                        : 'bg-white/5 text-slate-400 border border-white/5'
                                   }`}>
                                     {item.badge}
                                   </span>
@@ -721,18 +802,26 @@ export default function Sidebar({
 
                             {/* Active Right Glow Dot */}
                             {isActive && !isCollapsed && (
-                              <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee] shrink-0" />
+                              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                isLight ? 'bg-white shadow-[0_0_6px_#ffffff]' : 'bg-cyan-400 shadow-[0_0_6px_#22d3ee]'
+                              }`} />
                             )}
                           </button>
 
                           {/* Float hovering tooltip for Collapsed menu mode */}
                           {isCollapsed && hoveredItem === item.id && (
-                            <div className="absolute left-[78px] top-1/2 -translate-y-1/2 bg-[#0d1424] text-white text-xs px-3.5 py-2.5 rounded-xl border border-cyan-500/30 shadow-[0_10px_25px_rgba(0,0,0,0.8)] z-50 min-w-[150px] pointer-events-none">
+                            <div className={`absolute left-[78px] top-1/2 -translate-y-1/2 text-xs px-3.5 py-2.5 rounded-xl border shadow-xl z-50 min-w-[150px] pointer-events-none ${
+                              isLight 
+                                ? 'bg-white border-slate-300 text-slate-900 shadow-slate-400/30' 
+                                : 'bg-[#0d1424] border-cyan-500/30 text-white shadow-[0_10px_25px_rgba(0,0,0,0.8)]'
+                            }`}>
                               <div className="flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full ${catStyle.glow}`} />
-                                <p className="font-bold text-white text-xs">{item.label}</p>
+                                <p className={`font-bold text-xs ${isLight ? 'text-slate-950' : 'text-white'}`}>{item.label}</p>
                               </div>
-                              <p className="text-[8px] font-mono text-cyan-400 uppercase tracking-wider mt-0.5">
+                              <p className={`text-[8px] font-mono uppercase tracking-wider mt-0.5 ${
+                                isLight ? 'text-blue-700 font-bold' : 'text-cyan-400'
+                              }`}>
                                 {category.label}
                               </p>
                             </div>
@@ -749,33 +838,39 @@ export default function Sidebar({
       </nav>
 
       {/* Bottom Area: Kiosk Mode Trigger & User Profile Card */}
-      <div className="p-3 border-t border-white/[0.08] bg-black/25 space-y-2.5 mt-auto">
+      <div className={`p-3 border-t space-y-2.5 mt-auto ${
+        isLight ? 'border-slate-300 bg-slate-200/90 text-slate-950' : 'border-white/[0.08] bg-black/25'
+      }`}>
         
         {/* Expanded UI elements */}
         {!isCollapsed ? (
           <>
             {/* Profile widget card details with glassmorphism */}
-            <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center gap-2.5">
+            <div className={`p-2.5 rounded-xl border flex items-center gap-2.5 ${
+              isLight ? 'bg-white border-slate-300 text-slate-950 shadow-xs' : 'bg-white/[0.03] border-white/[0.06]'
+            }`}>
               <div className="relative">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 font-bold text-white flex items-center justify-center text-xs shrink-0 select-none shadow-md">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 font-bold text-white flex items-center justify-center text-xs shrink-0 select-none shadow-md">
                   {currentUser.name[0]}
                 </div>
                 <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-[#0a0f1d] shadow-[0_0_4px_#34d399]" />
               </div>
               <div className="min-w-0 flex-1 leading-normal">
-                <h4 className="text-xs font-bold text-white truncate leading-tight">{currentUser.name}</h4>
+                <h4 className={`text-xs truncate leading-tight ${isLight ? 'font-black text-slate-950' : 'font-bold text-white'}`}>{currentUser.name}</h4>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <select
                     value={currentUser.role}
                     onChange={(e) => switchCurrentUser(e.target.value as any)}
                     id="user-role-select"
                     aria-label="Rol de usuario actual"
-                    className="bg-transparent border-0 text-[10px] font-mono font-bold text-cyan-400 hover:text-cyan-300 focus:ring-0 p-0 cursor-pointer uppercase tracking-wider block"
+                    className={`bg-transparent border-0 text-[10px] font-mono font-bold focus:ring-0 p-0 cursor-pointer uppercase tracking-wider block ${
+                      isLight ? 'text-blue-700 font-black' : 'text-cyan-400 hover:text-cyan-300'
+                    }`}
                   >
-                    <option value="Admin" className="bg-[#0d1424] text-white">Admin</option>
-                    <option value="Contador" className="bg-[#0d1424] text-white">Contador</option>
-                    <option value="Vendedor" className="bg-[#0d1424] text-white">Vendedor</option>
-                    <option value="Operario" className="bg-[#0d1424] text-white">Operario</option>
+                    <option value="Admin" className={isLight ? "bg-white text-slate-950 font-bold" : "bg-[#0d1424] text-white"}>Admin</option>
+                    <option value="Contador" className={isLight ? "bg-white text-slate-950 font-bold" : "bg-[#0d1424] text-white"}>Contador</option>
+                    <option value="Vendedor" className={isLight ? "bg-white text-slate-950 font-bold" : "bg-[#0d1424] text-white"}>Vendedor</option>
+                    <option value="Operario" className={isLight ? "bg-white text-slate-950 font-bold" : "bg-[#0d1424] text-white"}>Operario</option>
                   </select>
                 </div>
               </div>
@@ -787,7 +882,11 @@ export default function Sidebar({
                   const nextIdx = (themes.indexOf(theme) + 1) % themes.length;
                   setTheme(themes[nextIdx]);
                 }}
-                className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-cyan-300 flex items-center justify-center text-xs transition-colors"
+                className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs transition-colors ${
+                  isLight 
+                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300' 
+                    : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-cyan-300'
+                }`}
                 title={`Tema actual: ${activeTheme.label}. Clic para cambiar`}
               >
                 <i className="ri-palette-line"></i>
@@ -801,13 +900,17 @@ export default function Sidebar({
             <button
               onClick={handleToggleCollapse}
               id="sidebar-expand-btn-collapsed"
-              className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-cyan-400 flex items-center justify-center cursor-pointer border border-white/5"
+              className={`w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer ${
+                isLight 
+                  ? 'bg-slate-300/80 hover:bg-slate-300 text-slate-900 border border-slate-300' 
+                  : 'bg-white/5 hover:bg-white/10 text-cyan-400 border border-white/5'
+              }`}
               title="Expandir menú"
             >
               <i className="ri-arrow-right-double-line text-base"></i>
             </button>
 
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 font-bold text-white flex items-center justify-center text-xs select-none shadow-md">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 font-bold text-white flex items-center justify-center text-xs select-none shadow-md">
               {currentUser.name[0]}
             </div>
           </div>

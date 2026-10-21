@@ -368,6 +368,7 @@ export default function InvoicingView({
   };
 
   // Filter clients and finished products
+  const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
   const isNavy = theme === 'navy_dark';
   
   const inputBg = isNavy ? 'bg-slate-950 border-slate-800 text-white' : 'bg-white border-slate-300 text-slate-900';

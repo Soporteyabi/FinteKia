@@ -21,6 +21,7 @@ interface CashFlowTrendChartProps {
   onNavigateToFacturacion?: () => void;
   onNavigateToCompras?: () => void;
   isCompact?: boolean;
+  theme?: string;
 }
 
 export default function CashFlowTrendChart({
@@ -30,8 +31,11 @@ export default function CashFlowTrendChart({
   formatCOP,
   onNavigateToFacturacion,
   onNavigateToCompras,
-  isCompact = false
+  isCompact = false,
+  theme
 }: CashFlowTrendChartProps) {
+  const isLight = theme === 'light_gray' || (typeof document !== 'undefined' && document.documentElement.classList.contains('light'));
+
   // Granularity: daily ('diario') vs weekly ('semanal') vs cumulative ('acumulado')
   const [granularity, setGranularity] = useState<'diario' | 'semanal' | 'acumulado'>('diario');
 
@@ -188,47 +192,49 @@ export default function CashFlowTrendChart({
       const acum = item?.flujoAcumulado;
 
       return (
-        <div className="rounded-xl p-3 bg-slate-950/95 border border-slate-700/80 shadow-2xl backdrop-blur-md text-xs space-y-2 min-w-[230px] z-50">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 font-bold">
-            <span className="font-mono text-cyan-300">{label}</span>
-            <span className="text-[10.5px] text-slate-400 font-sans">{item?.fullDate || currentMonthName}</span>
+        <div className={`rounded-xl p-3 border shadow-2xl backdrop-blur-md text-xs space-y-2 min-w-[230px] z-50 ${
+          isLight ? 'bg-white border-slate-300 text-slate-900 shadow-xl' : 'bg-slate-950/95 border-slate-700/80 text-white'
+        }`}>
+          <div className={`flex items-center justify-between border-b pb-1.5 font-bold ${isLight ? 'border-slate-200' : 'border-slate-800'}`}>
+            <span className={`font-mono ${isLight ? 'text-blue-600 font-black' : 'text-cyan-300'}`}>{label}</span>
+            <span className={`text-[10.5px] font-sans ${isLight ? 'text-slate-600 font-semibold' : 'text-slate-400'}`}>{item?.fullDate || currentMonthName}</span>
           </div>
 
           <div className="space-y-1.5">
             {showFacturacion && (
-              <div className="flex items-center justify-between text-sky-300">
+              <div className={`flex items-center justify-between ${isLight ? 'text-sky-800 font-semibold' : 'text-sky-300'}`}>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-sky-400 shrink-0" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-sky-500 shrink-0" />
                   <span>Facturación:</span>
                 </span>
-                <span className="font-mono font-bold">{formatCOP(fact)}</span>
+                <span className="font-mono font-black">{formatCOP(fact)}</span>
               </div>
             )}
 
             {showGastos && (
-              <div className="flex items-center justify-between text-rose-300">
+              <div className={`flex items-center justify-between ${isLight ? 'text-rose-800 font-semibold' : 'text-rose-300'}`}>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shrink-0" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
                   <span>Gastos / Compras:</span>
                 </span>
-                <span className="font-mono font-bold">{formatCOP(gast)}</span>
+                <span className="font-mono font-black">{formatCOP(gast)}</span>
               </div>
             )}
 
             {showFlujoOperativo && (
-              <div className="border-t border-slate-800/90 pt-1.5 flex items-center justify-between font-bold">
-                <span className="flex items-center gap-1.5 text-slate-200">
-                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${flujo >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+              <div className={`border-t pt-1.5 flex items-center justify-between font-bold ${isLight ? 'border-slate-200' : 'border-slate-800/90'}`}>
+                <span className={`flex items-center gap-1.5 ${isLight ? 'text-slate-900' : 'text-slate-200'}`}>
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${flujo >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                   <span>Flujo Operativo:</span>
                 </span>
-                <span className={`font-mono ${flujo >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                <span className={`font-mono font-black ${flujo >= 0 ? (isLight ? 'text-emerald-700' : 'text-emerald-400') : (isLight ? 'text-rose-700' : 'text-rose-400')}`}>
                   {flujo >= 0 ? '+' : ''}{formatCOP(flujo)}
                 </span>
               </div>
             )}
 
             {granularity === 'acumulado' && acum !== undefined && (
-              <div className="flex items-center justify-between text-purple-300 pt-0.5 border-t border-slate-800/60 font-semibold">
+              <div className={`flex items-center justify-between pt-0.5 border-t font-semibold ${isLight ? 'border-slate-200 text-purple-800' : 'border-slate-800/60 text-purple-300'}`}>
                 <span>Flujo Acumulado:</span>
                 <span className="font-mono font-bold">{formatCOP(acum)}</span>
               </div>
@@ -236,10 +242,12 @@ export default function CashFlowTrendChart({
           </div>
 
           {/* Status pill inside tooltip */}
-          <div className="pt-1 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
+          <div className={`pt-1 border-t flex items-center justify-between text-[10px] ${isLight ? 'border-slate-200 text-slate-600' : 'border-slate-800/80 text-slate-400'}`}>
             <span>Balance:</span>
-            <span className={`font-bold px-1.5 py-0.5 rounded text-[9.5px] ${
-              flujo >= 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+            <span className={`font-bold px-1.5 py-0.5 rounded text-[9.5px] border ${
+              flujo >= 0 
+                ? (isLight ? 'bg-emerald-100 text-emerald-950 border-emerald-300 font-black' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30')
+                : (isLight ? 'bg-rose-100 text-rose-950 border-rose-300 font-black' : 'bg-rose-500/20 text-rose-300 border-rose-500/30')
             }`}>
               {flujo >= 0 ? 'Superávit Operativo' : 'Déficit Diario'}
             </span>
@@ -252,8 +260,14 @@ export default function CashFlowTrendChart({
 
   return (
     <div 
-      className="rounded-2xl p-5 sm:p-6 text-white space-y-4"
-      style={{
+      className={`rounded-2xl p-5 sm:p-6 space-y-4 ${
+        isLight ? 'bg-white border-2 border-slate-300 text-slate-900 shadow-sm' : 'text-white'
+      }`}
+      style={isLight ? {
+        background: '#ffffff',
+        border: '1.5px solid #cbd5e1',
+        boxShadow: '0 4px 15px rgba(15, 23, 42, 0.08)'
+      } : {
         background: 'linear-gradient(145deg, #07172f 0%, #051021 60%, #030a17 100%)',
         border: '1.5px solid rgba(226, 232, 240, 0.35)',
         boxShadow: 'inset 0 1.5px 2px rgba(255, 255, 255, 0.25), 0 12px 30px -8px rgba(0, 0, 0, 0.8), 0 0 25px rgba(56, 189, 248, 0.15)'
@@ -262,20 +276,28 @@ export default function CashFlowTrendChart({
       {/* ======================================================== */}
       {/* HEADER: Title & Granularity Switchers                    */}
       {/* ======================================================== */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 pb-3 border-b border-slate-700/60">
+      <div className={`flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 pb-3 border-b ${
+        isLight ? 'border-slate-300' : 'border-slate-700/60'
+      }`}>
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-400/30 flex items-center justify-center text-sm shadow-[0_0_10px_rgba(56,189,248,0.3)]">
-              <TrendingUp className="w-4 h-4 text-sky-300" />
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${
+              isLight ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-sky-500/20 text-sky-400 border border-sky-400/30 shadow-[0_0_10px_rgba(56,189,248,0.3)]'
+            }`}>
+              <TrendingUp className={`w-4 h-4 ${isLight ? 'text-blue-700' : 'text-sky-300'}`} />
             </div>
-            <h3 className="font-extrabold text-base sm:text-lg tracking-tight text-white flex items-center gap-2">
+            <h3 className={`font-black text-base sm:text-lg tracking-tight flex items-center gap-2 ${
+              isLight ? 'text-slate-950 font-black' : 'text-white font-extrabold'
+            }`}>
               <span>Tendencia de Facturación y Gastos</span>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-cyan-300 border border-blue-400/30">
+              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                isLight ? 'bg-blue-50 text-blue-900 border-blue-300 font-black' : 'bg-blue-500/20 text-cyan-300 border-blue-400/30'
+              }`}>
                 {currentMonthName}
               </span>
             </h3>
           </div>
-          <p className="text-xs text-slate-300/80 mt-1">
+          <p className={`text-xs mt-1 ${isLight ? 'text-slate-700 font-semibold' : 'text-slate-300/80'}`}>
             Visualización analítica de ingresos, egresos y flujo de caja operativo neto (recharts)
           </p>
         </div>
@@ -283,13 +305,15 @@ export default function CashFlowTrendChart({
         {/* Granularity & Filter Pills */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Granularity selector */}
-          <div className="flex items-center gap-1 bg-slate-900/95 p-1 rounded-xl border border-slate-700 text-xs shadow-inner">
+          <div className={`flex items-center gap-1 p-1 rounded-xl border text-xs ${
+            isLight ? 'bg-slate-100 border-slate-300' : 'bg-slate-900/95 border-slate-700 shadow-inner'
+          }`}>
             <button
               onClick={() => setGranularity('diario')}
               className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                 granularity === 'diario'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5'
+                  ? 'bg-blue-600 text-white shadow-xs font-black'
+                  : isLight ? 'text-slate-700 hover:text-slate-950 hover:bg-slate-200 font-bold' : 'text-slate-300 hover:text-white hover:bg-white/5'
               }`}
             >
               Día a Día
@@ -298,8 +322,8 @@ export default function CashFlowTrendChart({
               onClick={() => setGranularity('semanal')}
               className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                 granularity === 'semanal'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5'
+                  ? 'bg-blue-600 text-white shadow-xs font-black'
+                  : isLight ? 'text-slate-700 hover:text-slate-950 hover:bg-slate-200 font-bold' : 'text-slate-300 hover:text-white hover:bg-white/5'
               }`}
             >
               Por Semanas
@@ -308,8 +332,8 @@ export default function CashFlowTrendChart({
               onClick={() => setGranularity('acumulado')}
               className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                 granularity === 'acumulado'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5'
+                  ? 'bg-purple-600 text-white shadow-xs font-black'
+                  : isLight ? 'text-slate-700 hover:text-slate-950 hover:bg-slate-200 font-bold' : 'text-slate-300 hover:text-white hover:bg-white/5'
               }`}
             >
               Flujo Acumulado
@@ -320,7 +344,9 @@ export default function CashFlowTrendChart({
           {onNavigateToFacturacion && (
             <button
               onClick={onNavigateToFacturacion}
-              className="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-xs font-semibold border border-sky-500/30 transition-all cursor-pointer flex items-center gap-1"
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                isLight ? 'bg-blue-50 text-blue-900 border-blue-300 hover:bg-blue-100' : 'bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border-sky-500/30'
+              }`}
             >
               <span>Facturación</span>
               <ArrowUpRight className="w-3 h-3" />
@@ -329,7 +355,9 @@ export default function CashFlowTrendChart({
           {onNavigateToCompras && (
             <button
               onClick={onNavigateToCompras}
-              className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold border border-rose-500/30 transition-all cursor-pointer flex items-center gap-1"
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                isLight ? 'bg-rose-50 text-rose-900 border-rose-300 hover:bg-rose-100' : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border-rose-500/30'
+              }`}
             >
               <span>Gastos</span>
               <ArrowDownRight className="w-3 h-3" />
