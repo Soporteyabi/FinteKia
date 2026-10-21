@@ -2256,6 +2256,7 @@ export default function App() {
                   vouchers={activeVouchers}
                   inventory={activeInventory}
                   products={activeProducts}
+                  theme={currentThemeId}
                 />
               )}
 
