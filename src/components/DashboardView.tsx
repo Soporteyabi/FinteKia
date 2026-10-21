@@ -843,32 +843,19 @@ export default function DashboardView({
               <div className="max-w-2xl">
                 <span 
                   className={`text-xs font-black tracking-[0.2em] uppercase font-mono block ${
-                    isLight ? 'text-slate-700' : ''
+                    isLight ? 'text-slate-700' : 'text-slate-300 drop-shadow-sm'
                   }`}
-                  style={isLight ? {} : {
-                    background: 'linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 50%, #94A3B8 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))'
-                  }}
                 >
                   Bienvenido a
                 </span>
                 
-                {/* FINTEKIA: Raised Metallic Lettering (Black in light mode, Silver Chrome in dark mode) */}
+                {/* FINTEKIA: High-contrast title that never gets covered by unclipped background boxes */}
                 <h2 
-                  className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight mt-1 font-sans select-none"
-                  style={isLight ? {
-                    background: 'linear-gradient(180deg, #020617 0%, #0f172a 45%, #1e293b 80%, #020617 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))'
-                  } : {
-                    background: 'linear-gradient(180deg, #FFFFFF 0%, #F1F5F9 28%, #CBD5E1 48%, #64748B 52%, #CBD5E1 70%, #FFFFFF 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    filter: 'drop-shadow(0 1.5px 0 #FFFFFF) drop-shadow(0 3px 0 #0a1728) drop-shadow(0 6px 12px rgba(0,0,0,0.9)) drop-shadow(0 0 25px rgba(56,189,248,0.4))'
-                  }}
+                  className={`text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight mt-1 font-sans select-none ${
+                    isLight 
+                      ? 'text-slate-950' 
+                      : 'text-white drop-shadow-[0_3px_12px_rgba(0,0,0,0.9)]'
+                  }`}
                 >
                   FinteKia
                 </h2>
@@ -907,14 +894,8 @@ export default function DashboardView({
                     </div>
                     <span 
                       className={`text-[9.5px] font-mono font-black tracking-widest ${
-                        isLight ? 'text-slate-950 font-black' : ''
+                        isLight ? 'text-slate-950 font-black' : 'text-slate-200 drop-shadow-sm'
                       }`}
-                      style={isLight ? {} : {
-                        background: 'linear-gradient(180deg, #FFFFFF 0%, #CBD5E1 55%, #94A3B8 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))'
-                      }}
                     >
                       FINTEKIA LIVE
                     </span>
@@ -986,14 +967,8 @@ export default function DashboardView({
                     <div className="flex items-center gap-2 min-w-0">
                       <span 
                         className={`text-xs tracking-tight truncate ${
-                          isLight ? 'text-slate-950 font-black' : 'font-bold'
+                          isLight ? 'text-slate-950 font-black' : 'text-slate-100 font-bold'
                         }`}
-                        style={isLight ? {} : {
-                          background: 'linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 60%, #CBD5E1 100%)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.8))'
-                        }}
                       >
                         Tarjetas Financieras Protegidas
                       </span>
