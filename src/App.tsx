@@ -31,6 +31,8 @@ import AlanubeConfigView from './components/AlanubeConfigView';
 import DatabaseView from './components/DatabaseView';
 import SecurityBackupView from './components/SecurityBackupView';
 import LoginView from './components/LoginView';
+import ModuleNavigationHeader from './components/ModuleNavigationHeader';
+import { VIEW_METADATA_MAP, CONNECTED_MODULES_MAP } from './utils/navigationConfig';
 import { isDateInLockedPeriod } from './lib/fiscalPeriodManager';
 
 export default function App() {
@@ -1327,6 +1329,30 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Intelligent Navigation History & Inter-Module Traversal
+  const [navHistory, setNavHistory] = useState<string[]>([]);
+
+  const navigateToView = (view: string) => {
+    if (view === state.activeView) return;
+    setNavHistory((prev) => {
+      if (prev.length > 0 && prev[prev.length - 1] === state.activeView) {
+        return prev;
+      }
+      return [...prev.slice(-15), state.activeView];
+    });
+    setState((prev) => ({ ...prev, activeView: view }));
+  };
+
+  const handleGoBack = () => {
+    if (navHistory.length === 0) {
+      setState((prev) => ({ ...prev, activeView: 'dashboard' }));
+      return;
+    }
+    const prevView = navHistory[navHistory.length - 1];
+    setNavHistory((prev) => prev.slice(0, prev.length - 1));
+    setState((prev) => ({ ...prev, activeView: prevView }));
+  };
+
   // Authentication Gate for Render deployment
   if (authLoading && !erpUser) {
     return (
@@ -1358,7 +1384,7 @@ export default function App() {
         <div className="flex items-center gap-2.5 shrink-0">
           {/* Logo & Brand Title */}
           <button
-            onClick={() => setState((prev) => ({ ...prev, activeView: 'dashboard' }))}
+            onClick={() => navigateToView('dashboard')}
             className="flex items-center gap-2.5 text-left cursor-pointer group transition-all"
             title="Ir al Menú Principal de Tarjetas"
           >
@@ -1376,22 +1402,6 @@ export default function App() {
               </p>
             </div>
           </button>
-
-          {/* Quick 'Volver al Menú' Button (when in sub-views) */}
-          {state.activeView !== 'dashboard' && (
-            <button
-              onClick={() => setState((prev) => ({ ...prev, activeView: 'dashboard' }))}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 border ${
-                isLight 
-                  ? 'bg-blue-50 hover:bg-blue-600 text-blue-900 hover:text-white border-blue-300' 
-                  : 'bg-blue-600/10 hover:bg-blue-600 text-blue-600 dark:text-cyan-400 hover:text-white border-blue-500/25 hover:border-blue-500'
-              }`}
-              title="Regresar al menú principal"
-            >
-              <i className="ri-arrow-left-line text-xs"></i>
-              <span className="hidden md:inline">Menú</span>
-            </button>
-          )}
 
           {/* Organization Switcher Dropdown */}
           <div className="relative">
@@ -1965,24 +1975,16 @@ export default function App() {
       {/* Main Workspace (Full width, no sidebar!) */}
       <main className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6">
           
-          {/* Breadcrumb back to menu bar when viewing any module */}
+          {/* Smart Breadcrumb & Inter-Module Navigation Header */}
           {state.activeView !== 'dashboard' && !state.kioskMode && (
-            <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/5">
-              <button
-                onClick={() => setState((prev) => ({ ...prev, activeView: 'dashboard' }))}
-                className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-cyan-400 hover:text-blue-700 dark:hover:text-cyan-300 transition-colors cursor-pointer group"
-              >
-                <i className="ri-arrow-left-line group-hover:-translate-x-1 transition-transform"></i>
-                <i className="ri-layout-grid-line"></i>
-                <span>Volver al Menú Principal (Portal)</span>
-              </button>
-              
-              <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400">
-                <span>FinteKia</span>
-                <span>/</span>
-                <span className="text-slate-800 dark:text-white font-bold uppercase">{state.activeView.replace('_', ' ')}</span>
-              </div>
-            </div>
+            <ModuleNavigationHeader
+              activeView={state.activeView}
+              previousView={navHistory.length > 0 ? navHistory[navHistory.length - 1] : null}
+              onGoBack={handleGoBack}
+              onNavigateToView={navigateToView}
+              activeCompanyName={activeCompany.name}
+              theme={currentThemeId}
+            />
           )}
           
           {state.kioskMode ? (
@@ -2001,7 +2003,7 @@ export default function App() {
                   vouchers={activeVouchers}
                   terceros={activeTerceros}
                   products={activeProducts}
-                  setActiveView={(v) => setState((prev) => ({ ...prev, activeView: v }))}
+                  setActiveView={navigateToView}
                   onQuickAction={() => {}}
                   formatCOP={formatCOP}
                   theme={currentThemeId}
@@ -2030,7 +2032,7 @@ export default function App() {
                   onUpdateServiceOrder={handleUpdateTechOrder}
                   onUpdateServiceOrderStatus={handleUpdateTechOrderStatus}
                   onAddProduct={handleAddProduct}
-                  setActiveView={(v) => setState((prev) => ({ ...prev, activeView: v }))}
+                  setActiveView={navigateToView}
                   currentCompany={activeCompany}
                   onUpdateCompany={handleUpdateCompany}
                   theme={currentThemeId}
@@ -2057,7 +2059,7 @@ export default function App() {
                   addProduct={handleAddProduct}
                   updateProduct={handleUpdateProduct}
                   deleteProduct={handleDeleteProduct}
-                  setActiveView={(v) => setState((prev) => ({ ...prev, activeView: v }))}
+                  setActiveView={navigateToView}
                   theme={currentThemeId}
                 />
               )}
@@ -2093,11 +2095,11 @@ export default function App() {
                   addInventoryMovement={handleAddInventoryMovement}
                   theme={currentThemeId}
                   updateCompany={handleUpdateCompany}
-                  onOpenAlanubeConfig={() => setState((prev) => ({ ...prev, activeView: 'alanube_config' }))}
+                  onOpenAlanubeConfig={() => navigateToView('alanube_config')}
                   addTercero={handleAddTercero}
                   currentUser={state.currentUser}
-                  onReturnToMenu={() => setState((prev) => ({ ...prev, activeView: 'dashboard' }))}
-                  setActiveView={(v) => setState((prev) => ({ ...prev, activeView: v }))}
+                  onReturnToMenu={() => navigateToView('dashboard')}
+                  setActiveView={navigateToView}
                 />
               )}
 
@@ -2355,8 +2357,8 @@ export default function App() {
                   updateCompany={handleUpdateCompany}
                   theme={currentThemeId}
                   initialTab={(state.activeView === 'dian_habilitacion' || state.activeView === 'habilitacion') ? 'habilitation' : 'credentials'}
-                  onNavigateToInvoicing={() => setState((prev) => ({ ...prev, activeView: 'facturacion' }))}
-                  onReturnToMenu={() => setState((prev) => ({ ...prev, activeView: 'dashboard' }))}
+                  onNavigateToInvoicing={() => navigateToView('facturacion')}
+                  onReturnToMenu={() => navigateToView('dashboard')}
                 />
               )}
 
@@ -2369,7 +2371,7 @@ export default function App() {
                   state={state}
                   setState={setState}
                   theme={currentThemeId}
-                  onNavigateToView={(view) => setState(prev => ({ ...prev, activeView: view }))}
+                  onNavigateToView={navigateToView}
                 />
               )}
             </>

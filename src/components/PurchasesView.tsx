@@ -1278,12 +1278,32 @@ export default function PurchasesView({
           </div>
 
           {/* Submits buttons footer */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+            {(purchaseLines.length > 0 || selectedProvider) ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (purchaseLines.length === 0 || window.confirm('¿Desea limpiar el formulario de compra actual y permanecer en este módulo?')) {
+                    setPurchaseLines([]);
+                    setSelectedProvider('');
+                    setSelectedWarehouse('');
+                    setReferenceInvoice('');
+                    toast.info('Formulario de compra restablecido. Permaneces en el módulo de Compras.', 'Formulario Limpio');
+                  }
+                }}
+                className="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-1.5 cursor-pointer py-2 px-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                title="Limpiar campos y permanecer en el módulo de Compras"
+              >
+                <i className="ri-refresh-line text-xs"></i>
+                <span>Limpiar Formulario</span>
+              </button>
+            ) : <div />}
+
             <button
               onClick={handleSavePurchase}
-              className="bg-blue-650 hover:bg-blue-600 text-white font-semibold text-xs px-6 py-3 rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+              className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-6 py-3 rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <i className="ri-save-line text-xs animate-pulse"></i>
+              <i className="ri-save-line text-xs"></i>
               Asentar Registro de Compra
             </button>
           </div>

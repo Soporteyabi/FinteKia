@@ -978,24 +978,10 @@ export default function InvoicingView({
             </div>
           )}
 
-          {/* Top Encabezado Visible & Retorno al Menú Principal */}
+          {/* Encabezado del Módulo de Facturación */}
           <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 shadow-xl text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              {/* Botón Destacado: Volver al Menú Principal */}
-              <button
-                type="button"
-                onClick={onReturnToMenu || (() => setActiveView?.('dashboard'))}
-                className="px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 cursor-pointer shadow-lg hover:shadow-indigo-500/25 transition-all transform active:scale-95 shrink-0"
-                id="btn-invoicing-return-to-menu"
-                title="Regresar al Menú Principal"
-              >
-                <i className="ri-arrow-left-line text-base font-bold"></i>
-                <i className="ri-layout-grid-line"></i>
-                <span>Volver al Menú</span>
-              </button>
-
-              <div className="border-l border-slate-700/80 pl-3">
-                <div className="flex items-center gap-2 flex-wrap">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="font-display font-extrabold text-base sm:text-lg text-white tracking-tight flex items-center gap-2">
                     <i className="ri-file-text-line text-indigo-400"></i>
                     <span>Facturación Electrónica DIAN</span>
@@ -1024,10 +1010,42 @@ export default function InvoicingView({
                   <span>Res. DIAN Nº <strong className="font-mono text-slate-200">{activeBillingConfig.resolutionNumber || '187640000099'}</strong></span>
                 </p>
               </div>
-            </div>
 
-            {/* Quick Actions & Admin Tools Menu */}
+            {/* Quick Actions, Inter-Module Connections & Admin Tools Menu */}
             <div className="flex items-center gap-2 flex-wrap shrink-0">
+              {/* Quick Inter-Module Navigation Links */}
+              {setActiveView && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveView('cartera')}
+                    className="px-2.5 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                    title="Consultar Cuentas por Cobrar de clientes en Cartera"
+                  >
+                    <i className="ri-wallet-3-line text-xs"></i>
+                    <span className="hidden xl:inline">Cartera CxC</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveView('bodegas')}
+                    className="px-2.5 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                    title="Consultar existencias y lotes en Bodegas"
+                  >
+                    <i className="ri-archive-line text-xs"></i>
+                    <span className="hidden xl:inline">Bodegas</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveView('terceros')}
+                    className="px-2.5 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                    title="Fichas de Clientes y Proveedores"
+                  >
+                    <i className="ri-user-star-line text-xs"></i>
+                    <span className="hidden xl:inline">Clientes</span>
+                  </button>
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={() => exportInvoicesToExcel(vouchers, terceros, products, currentCompany?.name)}
@@ -2006,6 +2024,28 @@ export default function InvoicingView({
                     <i className="ri-shield-check-fill text-emerald-400"></i>
                     <span>Transmisión vía <strong>{activeBillingConfig.providerName}</strong> · CUFE automático</span>
                   </div>
+
+                  {/* Cancel / Reset Form without leaving module */}
+                  {(invoiceLines.length > 0 || selectedClient) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (invoiceLines.length === 0 || window.confirm('¿Desea restablecer el formulario de factura y empezar uno nuevo sin salir de este módulo?')) {
+                          setInvoiceLines([]);
+                          setSelectedClient('');
+                          setDiscountPercent(0);
+                          setRetefuentePercent(0);
+                          toast.info('Formulario de factura restablecido. Permaneces en el módulo de Facturación.', 'Formulario Limpio');
+                        }
+                      }}
+                      className="w-full mt-2.5 py-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer border border-slate-700/50"
+                      title="Borrar campos del formulario y empezar de nuevo sin salir de Facturación"
+                      id="btn-clear-invoice-form"
+                    >
+                      <i className="ri-refresh-line text-xs"></i>
+                      <span>Limpiar Formulario (Permanecer en Facturación)</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
