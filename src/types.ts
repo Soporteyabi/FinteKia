@@ -42,6 +42,31 @@ export interface InvoiceDesignConfig {
   showSignatures?: boolean; // Firmas al pie: Emisor (Firma autorizada) y Aceptación (Recibí conforme)
 }
 
+export interface SmtpConfig {
+  host: string;
+  port: number;
+  secure: boolean; // true for 465 (SSL), false for 587 (TLS)
+  user: string;
+  password?: string;
+  fromEmail: string;
+  fromName: string;
+  replyTo?: string;
+  preset?: 'gmail' | 'office365' | 'sendgrid' | 'mailgun' | 'custom';
+  autoSendOnInvoiceCreation?: boolean;
+}
+
+export interface InvoiceEmailLog {
+  id: string;
+  invoiceNumber: string;
+  clientName: string;
+  clientEmail: string;
+  subject: string;
+  sentAt: string;
+  status: 'enviado' | 'error' | 'simulado';
+  attachments: string[]; // e.g. ['FE-101.pdf', 'AttachedDocument_FE-101.xml']
+  errorMessage?: string;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -61,6 +86,7 @@ export interface Company {
   enableTechServices?: boolean;
   billingConfig?: ElectronicBillingConfig; // Configuración de Facturación Electrónica vía Tercero
   invoiceDesign?: InvoiceDesignConfig; // Configuración visual personalizada de Factura y Logotipo
+  smtpConfig?: SmtpConfig; // Configuración de Servidor de Correo Saliente (SMTP) para Facturas DIAN
   payrollParameters: {
     smmlv: number;
     auxTransporte: number;

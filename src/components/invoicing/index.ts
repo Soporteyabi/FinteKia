@@ -4,4 +4,5 @@ export { default as JsonPayloadModal } from './JsonPayloadModal';
 export { default as QuickClientModal } from './QuickClientModal';
 export { default as DianHabilitationAssistant } from './DianHabilitationAssistant';
 export { default as InvoiceDesignModal, DEFAULT_INVOICE_DESIGN } from './InvoiceDesignModal';
-
+export { default as InvoiceEmailModal } from './InvoiceEmailModal';
+export { default as SmtpConfigModal } from './SmtpConfigModal';

@@ -4,7 +4,7 @@ import { Tercero } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import { ConfirmModal } from './ConfirmModal';
 import Pagination from './Pagination';
-import { calculateDIANDV, formatNITWithDV } from '../lib/dianUtils';
+import { calculateDIANDV, formatNITWithDV, validateNIT, NITValidationResult } from '../lib/dianUtils';
 import { exportTercerosToExcel } from '../utils/excelExport';
 
 interface TercerosViewProps {
@@ -38,6 +38,10 @@ export default function TercerosView({
   const [selectedTerceroDetail, setSelectedTerceroDetail] = useState<Tercero | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Tercero | null>(null);
 
+  // MEJORA 4: Auditoría Masiva de NIT y Dígito de Verificación (DV)
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [auditFilter, setAuditFilter] = useState<'all' | 'inconsistentes' | 'sin_dv' | 'validos'>('inconsistentes');
+
   // Form Field States
   const [formName, setFormName] = useState('');
   const [formNit, setFormNit] = useState('');
@@ -51,10 +55,12 @@ export default function TercerosView({
   const [formRegimen, setFormRegimen] = useState<'responsable' | 'no_responsable' | 'exento' | 'simple'>('no_responsable');
   const [formResponsabilidadFiscal, setFormResponsabilidadFiscal] = useState<string>('R-99-PN');
   
-  // Computed DV for the form
-  const computedDV = useMemo(() => {
-    return calculateDIANDV(formNit);
+  // Real-time NIT Validation for the form
+  const formNitValidation = useMemo(() => {
+    return validateNIT(formNit);
   }, [formNit]);
+
+  const computedDV = formNitValidation.expectedDv;
   
   // Custom Role specific fields
   const [formEmployeeCargo, setFormEmployeeCargo] = useState('');
@@ -115,7 +121,7 @@ export default function TercerosView({
     setIsFormOpen(true);
   };
 
-  // Handle Form Submit
+  // Handle Form Submit with automatic DV normalization
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formNit.trim()) {
@@ -123,10 +129,18 @@ export default function TercerosView({
       return;
     }
 
+    // Auto-normalize NIT using the certified DIAN algorithm
+    const normalizedNit = formNitValidation.formattedOfficial;
+    const certifiedDv = String(formNitValidation.expectedDv);
+
+    if (!formNitValidation.isValid && formNit.includes('-')) {
+      toast.info(`Se corrigió y normalizó el Dígito de Verificación oficial DIAN (-${certifiedDv}) para ${formName}.`);
+    }
+
     const payload = {
-      name: formName,
-      nit: formNit,
-      dv: String(calculateDIANDV(formNit)),
+      name: formName.trim(),
+      nit: normalizedNit,
+      dv: certifiedDv,
       type: formType,
       roles: formRoles,
       city: formCity,
@@ -147,10 +161,10 @@ export default function TercerosView({
         ...payload,
         id: editingTercero.id
       });
-      toast.success(`Tercero ${formName} actualizado con éxito.`, "Actualizado");
+      toast.success(`Tercero ${formName} actualizado con éxito con NIT validado (${normalizedNit}).`, "Actualizado");
     } else {
       addTercero(payload);
-      toast.success(`Nuevo Tercero ${formName} registrado con éxito.`, "Registrado");
+      toast.success(`Nuevo Tercero ${formName} registrado con éxito con NIT validado (${normalizedNit}).`, "Registrado");
     }
 
     setIsFormOpen(false);
@@ -202,6 +216,73 @@ export default function TercerosView({
   const totalPayrollCost = terceros
     .filter(t => t.roles.includes('empleado') && t.employeeSalary)
     .reduce((acc, current) => acc + (current.employeeSalary || 0), 0);
+
+  // MEJORA 4: Auditoría DIAN en tiempo real para todos los Terceros
+  const auditAnalysis = useMemo(() => {
+    return terceros.map(ter => {
+      const validation = validateNIT(ter.nit);
+      return {
+        tercero: ter,
+        validation
+      };
+    });
+  }, [terceros]);
+
+  const totalInconsistent = useMemo(() => {
+    return auditAnalysis.filter(a => a.validation.status === 'invalido').length;
+  }, [auditAnalysis]);
+
+  const totalMissingDv = useMemo(() => {
+    return auditAnalysis.filter(a => a.validation.status === 'sin_dv').length;
+  }, [auditAnalysis]);
+
+  const totalValidDv = useMemo(() => {
+    return auditAnalysis.filter(a => a.validation.status === 'valido').length;
+  }, [auditAnalysis]);
+
+  const totalErrors = totalInconsistent + totalMissingDv;
+
+  const handleFixSingleTercero = (ter: Tercero) => {
+    const val = validateNIT(ter.nit);
+    const correctedNit = val.formattedOfficial;
+    const correctedDv = String(val.expectedDv);
+
+    updateTercero({
+      ...ter,
+      nit: correctedNit,
+      dv: correctedDv
+    });
+
+    toast.success(`NIT de ${ter.name} corregido a ${correctedNit} (DV: -${correctedDv}).`, 'DV Corregido');
+  };
+
+  const handleFixAllInconsistencies = () => {
+    let fixCount = 0;
+    auditAnalysis.forEach(({ tercero, validation }) => {
+      if (!validation.isValid) {
+        updateTercero({
+          ...tercero,
+          nit: validation.formattedOfficial,
+          dv: String(validation.expectedDv)
+        });
+        fixCount++;
+      }
+    });
+
+    toast.success(
+      `Se normalizaron ${fixCount} terceros con su Dígito de Verificación oficial DIAN.`,
+      'Auditoría DIAN Aplicada'
+    );
+  };
+
+  const filteredAuditList = useMemo(() => {
+    return auditAnalysis.filter(item => {
+      if (auditFilter === 'inconsistentes') return item.validation.status === 'invalido';
+      if (auditFilter === 'sin_dv') return item.validation.status === 'sin_dv';
+      if (auditFilter === 'validos') return item.validation.status === 'valido';
+      return true;
+    });
+  }, [auditAnalysis, auditFilter]);
 
   return (
     <div className="space-y-6">
@@ -469,6 +550,30 @@ export default function TercerosView({
               </button>
 
               <button
+                type="button"
+                onClick={() => setShowAuditModal(true)}
+                className={`font-semibold text-xs px-3.5 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5 shrink-0 cursor-pointer border ${
+                  totalErrors > 0 
+                    ? 'bg-amber-600/25 hover:bg-amber-600 text-amber-300 hover:text-white border-amber-500/40' 
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                }`}
+                title="Auditoría automática de Dígitos de Verificación (DV) según la DIAN"
+                id="audit-dian-nit-btn"
+              >
+                <i className="ri-shield-check-line text-sm"></i>
+                <span>Auditoría DV DIAN</span>
+                {totalErrors > 0 ? (
+                  <span className="px-1.5 py-0.2 rounded-full bg-rose-500/80 text-white font-mono text-[10px] font-bold">
+                    {totalErrors}
+                  </span>
+                ) : (
+                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-[10px] font-bold">
+                    ✓ 100%
+                  </span>
+                )}
+              </button>
+
+              <button
                 onClick={handleOpenCreateForm}
                 className="bg-blue-650 hover:bg-blue-600 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
               >
@@ -511,7 +616,56 @@ export default function TercerosView({
                             </div>
                           </div>
                         </td>
-                        <td className={`py-3.5 px-4 font-mono font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{ter.nit}</td>
+                        <td className="py-3.5 px-4 font-mono">
+                          <span className={`font-bold block text-xs ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                            {ter.nit}
+                          </span>
+                          {(() => {
+                            const val = validateNIT(ter.nit);
+                            if (val.status === 'valido') {
+                              return (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded-full border border-emerald-500/20 mt-0.5">
+                                  ✓ DV -{val.expectedDv} OK
+                                </span>
+                              );
+                            }
+                            if (val.status === 'invalido') {
+                              return (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-400 bg-rose-500/10 px-1.5 py-0.2 rounded-full border border-rose-500/20">
+                                    ⚠️ DV -{val.currentDv} ≠ -{val.expectedDv}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleFixSingleTercero(ter)}
+                                    className="text-[9px] font-bold text-blue-400 hover:text-white underline cursor-pointer"
+                                    title={`Corregir a ${val.formattedOfficial}`}
+                                  >
+                                    Corregir
+                                  </button>
+                                </div>
+                              );
+                            }
+                            if (val.status === 'sin_dv') {
+                              return (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded-full border border-amber-500/20">
+                                    ⚠️ Sin DV (-{val.expectedDv})
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleFixSingleTercero(ter)}
+                                    className="text-[9px] font-bold text-blue-400 hover:text-white underline cursor-pointer"
+                                    title={`Asignar Dígito de Verificación oficial (-${val.expectedDv})`}
+                                  >
+                                    Asignar
+                                  </button>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </td>
                         <td className={`py-3.5 px-4 capitalize ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>{ter.type}</td>
                         <td className="py-3.5 px-4 text-center">
                           <div className="flex gap-1 justify-center flex-wrap">
@@ -663,8 +817,17 @@ export default function TercerosView({
                       NIT / Identificación
                     </label>
                     {formNit.trim() && (
-                      <span className="text-[10px] font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200 font-bold">
-                        DV DIAN: -{computedDV}
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border font-bold flex items-center gap-1 ${
+                        formNitValidation.status === 'valido'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : formNitValidation.status === 'invalido'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}>
+                        {formNitValidation.status === 'valido' && <i className="ri-checkbox-circle-fill"></i>}
+                        {formNitValidation.status === 'invalido' && <i className="ri-error-warning-fill"></i>}
+                        {formNitValidation.status === 'sin_dv' && <i className="ri-information-fill"></i>}
+                        {formNitValidation.message}
                       </span>
                     )}
                   </div>
@@ -672,20 +835,35 @@ export default function TercerosView({
                     <input
                       type="text"
                       required
-                      placeholder="ej. 901482394"
+                      placeholder="ej. 901482394 o 901482394-1"
                       value={formNit}
                       onChange={(e) => setFormNit(e.target.value)}
-                      className="flex-1 text-xs bg-slate-50 border border-slate-200 focus:border-blue-500 rounded-xl px-3 py-2.5 font-mono font-extrabold text-slate-900"
+                      className={`flex-1 text-xs bg-slate-50 border rounded-xl px-3 py-2.5 font-mono font-extrabold text-slate-900 transition-colors ${
+                        formNit.trim() && formNitValidation.status === 'invalido'
+                          ? 'border-rose-400 focus:border-rose-500 bg-rose-50/20'
+                          : formNit.trim() && formNitValidation.status === 'valido'
+                          ? 'border-emerald-400 focus:border-emerald-500 bg-emerald-50/20'
+                          : 'border-slate-200 focus:border-blue-500'
+                      }`}
                     />
                     <button
                       type="button"
-                      onClick={() => setFormNit(formatNITWithDV(formNit))}
-                      className="px-2.5 py-1 text-[11px] font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl border border-blue-200 cursor-pointer transition-colors shrink-0"
-                      title="Aplicar formato estándar con Dígito de Verificación"
+                      onClick={() => setFormNit(formNitValidation.formattedOfficial)}
+                      className={`px-3 py-1 text-[11px] font-semibold rounded-xl border cursor-pointer transition-colors shrink-0 flex items-center gap-1 ${
+                        formNitValidation.status === 'invalido'
+                          ? 'bg-rose-100 hover:bg-rose-200 text-rose-800 border-rose-300 font-bold'
+                          : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
+                      }`}
+                      title="Asignar o corregir automáticamente con el Dígito de Verificación oficial DIAN"
                     >
-                      + Aplicar DV
+                      <i className="ri-magic-line"></i>
+                      {formNitValidation.status === 'invalido' ? `Corregir a -${formNitValidation.expectedDv}` : `+ Aplicar DV (-${formNitValidation.expectedDv})`}
                     </button>
                   </div>
+                  <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                    <i className="ri-shield-check-line text-blue-500"></i>
+                    Algoritmo oficial DIAN Módulo 11 (Art. 555-2 del Estatuto Tributario).
+                  </p>
                 </div>
 
                 {/* Type of partner */}
@@ -920,6 +1098,285 @@ export default function TercerosView({
               </div>
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* MEJORA 4: Modal de Auditoría DIAN - Dígito de Verificación */}
+      {showAuditModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-scale-in">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-150 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-blue-900 via-slate-900 to-indigo-950 text-white">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400 text-2xl shadow-inner">
+                  <i className="ri-shield-check-fill"></i>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-display font-bold text-white tracking-tight">
+                      Auditoría de Dígito de Verificación DIAN
+                    </h3>
+                    <span className="text-[10px] font-mono bg-blue-500/30 text-blue-200 px-2.5 py-0.5 rounded-full border border-blue-400/30 font-semibold uppercase tracking-wider">
+                      Art. 555-2 E.T.
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-200/80 mt-0.5">
+                    Validación algorítmica Módulo 11 para expedición de facturación electrónica y medios magnéticos
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAuditModal(false)}
+                className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <i className="ri-close-line text-lg"></i>
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-800 dark:text-slate-100">
+              
+              {/* Metric Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-slate-50 dark:bg-slate-850 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Terceros Auditados
+                  </span>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-2xl font-black font-display text-slate-900 dark:text-white">
+                      {auditAnalysis.length}
+                    </span>
+                    <span className="text-xs text-slate-500">en directorio</span>
+                  </div>
+                </div>
+
+                <div className="bg-emerald-50/60 dark:bg-emerald-950/20 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800/40">
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                    Dígito Válido (100% OK)
+                  </span>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-2xl font-black font-display text-emerald-600 dark:text-emerald-400">
+                      {totalValidDv}
+                    </span>
+                    <span className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
+                      ({auditAnalysis.length > 0 ? Math.round((totalValidDv / auditAnalysis.length) * 100) : 0}%)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-rose-50/60 dark:bg-rose-950/20 p-4 rounded-2xl border border-rose-200 dark:border-rose-800/40">
+                  <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">
+                    DV Erróneo / Inconsistente
+                  </span>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-2xl font-black font-display text-rose-600 dark:text-rose-400">
+                      {totalInconsistent}
+                    </span>
+                    <span className="text-xs text-rose-700 dark:text-rose-300 font-medium">discrepancias</span>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50/60 dark:bg-amber-950/20 p-4 rounded-2xl border border-amber-200 dark:border-amber-800/40">
+                  <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+                    Sin Dígito Asignado
+                  </span>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-2xl font-black font-display text-amber-600 dark:text-amber-400">
+                      {totalMissingDv}
+                    </span>
+                    <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">pendientes</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Banner or All-Good Alert */}
+              {totalErrors > 0 ? (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 border border-amber-300 dark:border-amber-700/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center text-xl shrink-0">
+                      <i className="ri-alert-line"></i>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">
+                        Se detectaron {totalErrors} tercero(s) con inconsistencias de Dígito de Verificación
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Los documentos electrónicos emitidos a NITs con DV incorrecto serán rechazados por la DIAN. Corríjalos automáticamente en un clic.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleFixAllInconsistencies}
+                    className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                  >
+                    <i className="ri-magic-fill text-sm"></i>
+                    Corregir Todo ({totalErrors}) con 1-Clic
+                  </button>
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xl shrink-0">
+                    <i className="ri-checkbox-circle-fill"></i>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                      Directorio 100% Homologado y Verificado
+                    </p>
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                      Todos los terceros cuentan con un Dígito de Verificación matemáticamente exacto según el algoritmo Módulo 11 de la DIAN.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Filter Tabs */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                  <button
+                    onClick={() => setAuditFilter('inconsistentes')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      auditFilter === 'inconsistentes'
+                        ? 'bg-rose-500 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    DV Erróneos ({totalInconsistent})
+                  </button>
+                  <button
+                    onClick={() => setAuditFilter('sin_dv')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      auditFilter === 'sin_dv'
+                        ? 'bg-amber-500 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Sin DV ({totalMissingDv})
+                  </button>
+                  <button
+                    onClick={() => setAuditFilter('validos')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      auditFilter === 'validos'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Válidos ({totalValidDv})
+                  </button>
+                  <button
+                    onClick={() => setAuditFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      auditFilter === 'all'
+                        ? 'bg-slate-900 text-white dark:bg-slate-700 shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Todos ({auditAnalysis.length})
+                  </button>
+                </div>
+
+                <span className="text-[11px] text-slate-400">
+                  Mostrando {filteredAuditList.length} registros
+                </span>
+              </div>
+
+              {/* Discrepancy Table */}
+              <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">Tercero / Razón Social</th>
+                      <th className="py-3 px-4">NIT Registrado</th>
+                      <th className="py-3 px-4">Diagnóstico DIAN</th>
+                      <th className="py-3 px-4">DV Oficial Esperado</th>
+                      <th className="py-3 px-4 text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {filteredAuditList.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-slate-400">
+                          <i className="ri-checkbox-circle-line text-2xl text-emerald-500 block mb-1"></i>
+                          No hay registros en esta categoría de auditoría.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredAuditList.map(({ tercero, validation }) => (
+                        <tr
+                          key={tercero.id}
+                          className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                        >
+                          <td className="py-3 px-4">
+                            <p className="font-bold text-slate-900 dark:text-white">
+                              {tercero.name}
+                            </p>
+                            <p className="text-[10px] text-slate-400 capitalize">
+                              {tercero.city} • {tercero.roles.join(', ')}
+                            </p>
+                          </td>
+                          <td className="py-3 px-4 font-mono font-bold text-slate-800 dark:text-slate-200">
+                            {tercero.nit}
+                          </td>
+                          <td className="py-3 px-4">
+                            {validation.status === 'valido' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                <i className="ri-check-line"></i> Conforme
+                              </span>
+                            )}
+                            {validation.status === 'invalido' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-800 animate-pulse">
+                                <i className="ri-close-line"></i> DV Erróneo (-{validation.providedDv})
+                              </span>
+                            )}
+                            {validation.status === 'sin_dv' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                <i className="ri-alert-line"></i> Sin DV
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="font-mono font-bold text-xs bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300">
+                              -{validation.expectedDv}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {!validation.isValid ? (
+                              <button
+                                onClick={() => handleFixSingleTercero(tercero)}
+                                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg shadow-sm transition-all inline-flex items-center gap-1 cursor-pointer"
+                                title={`Corregir a ${validation.formattedOfficial}`}
+                              >
+                                <i className="ri-magic-line"></i>
+                                {validation.status === 'invalido' ? `Corregir a -${validation.expectedDv}` : `Asignar -${validation.expectedDv}`}
+                              </button>
+                            ) : (
+                              <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
+                                <i className="ri-check-double-line"></i> Verificado
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                <i className="ri-information-line text-blue-500"></i>
+                La validación DIAN no modifica el número base del documento, únicamente homogeniza y corrige el Dígito de Verificación.
+              </span>
+              <button
+                onClick={() => setShowAuditModal(false)}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-700 dark:hover:bg-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                Cerrar Auditoría
+              </button>
+            </div>
           </div>
         </div>
       )}

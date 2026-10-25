@@ -12,7 +12,9 @@ import {
   JsonPayloadModal,
   QuickClientModal,
   DianHabilitationAssistant,
-  InvoiceDesignModal
+  InvoiceDesignModal,
+  InvoiceEmailModal,
+  SmtpConfigModal
 } from './invoicing';
 
 interface InvoicingViewProps {
@@ -104,6 +106,30 @@ export default function InvoicingView({
   const [showAdminToolsDropdown, setShowAdminToolsDropdown] = useState(false);
   const [activeInvoicingTab, setActiveInvoicingTab] = useState<'pos' | 'historial' | 'config_dian'>('pos');
   const isAdminOrAccountant = !currentUser || !currentUser.role || currentUser.role === 'Admin' || currentUser.role === 'Contador';
+
+  // MEJORA 3: Email Notification & SMTP States
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [selectedEmailInvoice, setSelectedEmailInvoice] = useState<Voucher | null>(null);
+  const [showSmtpModal, setShowSmtpModal] = useState(false);
+  const [sentInvoicesMap, setSentInvoicesMap] = useState<Record<string, { sentAt: string; to: string }>>(() => {
+    try {
+      const raw = localStorage.getItem('fintekia_sent_invoices_map');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const refreshSentInvoicesMap = (invoiceNo: string) => {
+    try {
+      const raw = localStorage.getItem('fintekia_sent_invoices_map');
+      if (raw) {
+        setSentInvoicesMap(JSON.parse(raw));
+      }
+    } catch {
+      // Ignored
+    }
+  };
 
   // Active Billing Config
   const activeBillingConfig = currentCompany?.billingConfig || {
@@ -811,6 +837,33 @@ export default function InvoicingView({
       setTransmissionSuccessMsg(`¡Factura ${nextNumber} transmitida y autorizada exitosamente mediante el Proveedor Tecnológico ${activeBillingConfig.providerName}! Validación DIAN y CUFE confirmados.`);
       setTimeout(() => setTransmissionSuccessMsg(null), 6000);
 
+      // Prompt or auto-open email notification if auto-send is configured
+      if (currentCompany?.smtpConfig?.autoSendOnInvoiceCreation !== false && activeBillingConfig.autoSendEmail !== false) {
+        const createdVoucher: Voucher = {
+          id: `inv-${Date.now()}`,
+          number: nextNumber,
+          type: 'venta',
+          companyId: currentCompany.id,
+          concept: `Factura Electrónica No. ${nextNumber}`,
+          thirdPartyId: selectedClient,
+          total: Math.round(finalTotal),
+          date: invoiceDate,
+          dueDate: calculatedDueDate,
+          lines: ledgerLines as any,
+          status: 'aprobado',
+          billingProviderData: {
+            providerName: activeBillingConfig.providerName,
+            transactionId: txId,
+            cufe: cufeHex,
+            providerStatus: 'procesado_exitoso',
+            dianValidationStatus: 'aprobado_dian',
+            receivedAt: new Date().toISOString()
+          }
+        };
+        setSelectedEmailInvoice(createdVoucher);
+        setShowEmailModal(true);
+      }
+
       // Reset Form
       setInvoiceLines([]);
       setSelectedClient('');
@@ -1076,6 +1129,19 @@ export default function InvoicingView({
                           <div>
                             <div className="font-semibold">Estructura JSON Oficial</div>
                             <div className="text-[10px] text-slate-400">Inspeccionar payload para el proveedor</div>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => { setShowSmtpModal(true); setShowAdminToolsDropdown(false); }}
+                          className="w-full text-left px-3 py-2 rounded-xl hover:bg-emerald-600/20 hover:text-emerald-300 flex items-center gap-2.5 transition-colors cursor-pointer"
+                          id="open-smtp-config-btn"
+                        >
+                          <i className="ri-mail-settings-line text-emerald-400 text-sm"></i>
+                          <div>
+                            <div className="font-semibold">Servidor de Correo (SMTP)</div>
+                            <div className="text-[10px] text-slate-400">Host, puerto, credenciales y plantillas</div>
                           </div>
                         </button>
 
@@ -2046,13 +2112,22 @@ export default function InvoicingView({
                         >
                           {/* Row 1: Invoice #, Date, Status */}
                           <div className="flex items-center justify-between gap-1.5">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-mono font-bold text-indigo-400 text-xs">
                                 {v.number}
                               </span>
                               <span className="text-[10px] text-slate-400 font-mono">
                                 {v.date}
                               </span>
+                              {sentInvoicesMap[v.number] && (
+                                <span 
+                                  className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30 flex items-center gap-0.5"
+                                  title={`Enviado por correo a ${sentInvoicesMap[v.number].to} (${new Date(sentInvoicesMap[v.number].sentAt).toLocaleDateString('es-CO')})`}
+                                >
+                                  <i className="ri-mail-check-line text-[10px] text-blue-400"></i>
+                                  <span>Enviado</span>
+                                </span>
+                              )}
                             </div>
                             <span 
                               className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 shrink-0"
@@ -2093,6 +2168,20 @@ export default function InvoicingView({
                               >
                                 <i className="ri-printer-line"></i>
                                 <span>Imprimir</span>
+                              </button>
+
+                              {/* Enviar Correo Electrónico DIAN */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedEmailInvoice(v);
+                                  setShowEmailModal(true);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white transition-all text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                                title="Enviar factura electrónica por correo al cliente (PDF y AttachedDocument XML UBL 2.1)"
+                              >
+                                <i className="ri-mail-send-line"></i>
+                                <span>Correo</span>
                               </button>
 
                               {/* WhatsApp */}
@@ -2334,6 +2423,39 @@ export default function InvoicingView({
             if (updateCompany) updateCompany(updatedCo);
           }}
           formatCOP={formatCOP}
+        />
+      )}
+
+      {/* MEJORA 3: Modal de Envío de Factura por Correo Electrónico (Notificador DIAN / AttachedDocument XML + PDF) */}
+      {showEmailModal && (
+        <InvoiceEmailModal
+          isOpen={showEmailModal}
+          onClose={() => {
+            setShowEmailModal(false);
+            setSelectedEmailInvoice(null);
+          }}
+          invoice={selectedEmailInvoice}
+          currentCompany={currentCompany}
+          terceros={terceros}
+          onOpenSmtpConfig={() => setShowSmtpModal(true)}
+          onInvoiceSent={(invNum) => refreshSentInvoicesMap(invNum)}
+        />
+      )}
+
+      {/* MEJORA 3: Modal de Configuración Servidor SMTP y Bitácora de Envíos */}
+      {showSmtpModal && (
+        <SmtpConfigModal
+          isOpen={showSmtpModal}
+          onClose={() => setShowSmtpModal(false)}
+          currentCompany={currentCompany}
+          onSaveSmtpConfig={(updatedSmtp) => {
+            if (updateCompany) {
+              updateCompany({
+                ...currentCompany,
+                smtpConfig: updatedSmtp
+              });
+            }
+          }}
         />
       )}
     </div>
