@@ -2228,6 +2228,7 @@ export default function App() {
                   puc={state.puc}
                   addVoucher={handleAddVoucher}
                   theme={currentThemeId}
+                  currentCompany={activeCompany}
                 />
               )}
 

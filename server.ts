@@ -488,6 +488,167 @@ async function startServer() {
     }
   });
 
+  // --- AUTO-BACKUP SCHEDULER & RETENTION POLICY ---
+  interface AutoBackupConfig {
+    enabled: boolean;
+    frequency: '6h' | 'daily' | 'weekly';
+    retentionCount: number;
+    lastRun: string | null;
+    lastStatus: 'success' | 'failed' | 'idle';
+    lastError?: string;
+  }
+
+  let autoBackupConfig: AutoBackupConfig = {
+    enabled: true,
+    frequency: 'daily',
+    retentionCount: 20,
+    lastRun: null,
+    lastStatus: 'idle',
+  };
+
+  // Helper to execute auto-backup with retention pruning
+  async function executeAutoBackupRoutine(triggerType = 'programado') {
+    try {
+      const erp = await getErpData();
+      const timestamp = new Date().toISOString();
+      const payloadString = JSON.stringify(erp);
+      const checksum = crypto.createHash("sha256").update(payloadString).digest("hex");
+
+      const filename = `snapshot_auto_${Date.now()}_${timestamp.substring(0, 10)}.json`;
+      const filePath = path.join(BACKUPS_DIR, filename);
+
+      const snapshot = {
+        id: `snap_auto_${Date.now()}`,
+        timestamp,
+        filename,
+        createdAtFormatted: new Date().toLocaleString("es-CO"),
+        createdBy: `FinteKia Auto-Scheduler (${triggerType})`,
+        sizeBytes: Buffer.byteLength(payloadString, "utf8"),
+        checksumSha256: checksum,
+        version: "2026.2",
+        stats: {
+          companiesCount: erp.companies?.length || 0,
+          vouchersCount: erp.vouchers?.length || 0,
+          tercerosCount: erp.terceros?.length || 0,
+          productsCount: erp.products?.length || 0,
+          bankAccountsCount: erp.bankAccounts?.length || 0,
+          usersCount: erp.extraState?.users?.length || 0,
+        },
+        storageLocation: "server_snapshot"
+      };
+
+      fs.writeFileSync(filePath, JSON.stringify({ meta: snapshot, data: erp }, null, 2), "utf8");
+
+      // Prune snapshots beyond retention count
+      try {
+        const allFiles = fs.readdirSync(BACKUPS_DIR).filter(f => f.endsWith(".json"));
+        if (allFiles.length > autoBackupConfig.retentionCount) {
+          const fileStats = allFiles.map(file => ({
+            file,
+            birthtime: fs.statSync(path.join(BACKUPS_DIR, file)).birthtimeMs
+          })).sort((a, b) => a.birthtime - b.birthtime);
+
+          const toDelete = fileStats.slice(0, allFiles.length - autoBackupConfig.retentionCount);
+          for (const item of toDelete) {
+            fs.unlinkSync(path.join(BACKUPS_DIR, item.file));
+            console.log(`[Auto-Backup] Pruned old snapshot under retention policy: ${item.file}`);
+          }
+        }
+      } catch (pruneErr) {
+        console.warn("[Auto-Backup] Retention pruning warning:", pruneErr);
+      }
+
+      autoBackupConfig.lastRun = timestamp;
+      autoBackupConfig.lastStatus = 'success';
+      autoBackupConfig.lastError = undefined;
+      console.log(`[Auto-Backup] Routine executed successfully: ${filename}`);
+      return snapshot;
+    } catch (err: any) {
+      console.error("[Auto-Backup] Routine failure:", err);
+      autoBackupConfig.lastStatus = 'failed';
+      autoBackupConfig.lastError = err.message || 'Error desconocido';
+      throw err;
+    }
+  }
+
+  // Periodic timer check (every 10 minutes)
+  const AUTO_BACKUP_CHECK_INTERVAL = 10 * 60 * 1000;
+  setInterval(async () => {
+    if (!autoBackupConfig.enabled) return;
+
+    const now = Date.now();
+    const lastRunTime = autoBackupConfig.lastRun ? new Date(autoBackupConfig.lastRun).getTime() : 0;
+    const diffMs = now - lastRunTime;
+
+    let targetIntervalMs = 24 * 60 * 60 * 1000; // default daily
+    if (autoBackupConfig.frequency === '6h') {
+      targetIntervalMs = 6 * 60 * 60 * 1000;
+    } else if (autoBackupConfig.frequency === 'weekly') {
+      targetIntervalMs = 7 * 24 * 60 * 60 * 1000;
+    }
+
+    if (diffMs >= targetIntervalMs) {
+      console.log(`[Auto-Backup] Triggering scheduled backup (Interval: ${autoBackupConfig.frequency})...`);
+      try {
+        await executeAutoBackupRoutine('cron_interval');
+      } catch (e) {
+        console.error('[Auto-Backup] Scheduled run failed:', e);
+      }
+    }
+  }, AUTO_BACKUP_CHECK_INTERVAL);
+
+  // Auto-backup configuration endpoints
+  app.get("/api/backup/auto-schedule", (_req, res) => {
+    const nextIntervalMs = autoBackupConfig.frequency === '6h' 
+      ? 6 * 3600 * 1000 
+      : autoBackupConfig.frequency === 'weekly' 
+        ? 7 * 86400 * 1000 
+        : 86400 * 1000;
+
+    const lastTime = autoBackupConfig.lastRun ? new Date(autoBackupConfig.lastRun).getTime() : Date.now();
+    const nextRun = new Date(lastTime + nextIntervalMs).toISOString();
+
+    res.json({
+      success: true,
+      config: autoBackupConfig,
+      nextScheduledRun: autoBackupConfig.enabled ? nextRun : null,
+      retentionLimit: autoBackupConfig.retentionCount
+    });
+  });
+
+  app.post("/api/backup/auto-schedule", (req, res) => {
+    try {
+      const { enabled, frequency, retentionCount } = req.body;
+      if (typeof enabled === 'boolean') autoBackupConfig.enabled = enabled;
+      if (['6h', 'daily', 'weekly'].includes(frequency)) autoBackupConfig.frequency = frequency;
+      if (typeof retentionCount === 'number' && retentionCount >= 5 && retentionCount <= 100) {
+        autoBackupConfig.retentionCount = retentionCount;
+      }
+
+      res.json({
+        success: true,
+        message: "Configuración de respaldos automáticos actualizada con éxito.",
+        config: autoBackupConfig
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to update auto-backup config" });
+    }
+  });
+
+  app.post("/api/backup/trigger-auto-backup", async (_req, res) => {
+    try {
+      const snapshot = await executeAutoBackupRoutine('ejecucion_manual');
+      res.json({
+        success: true,
+        message: "Ciclo de respaldo automático ejecutado satisfactoriamente.",
+        snapshot,
+        config: autoBackupConfig
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to trigger auto backup" });
+    }
+  });
+
   // Get raw Supabase SQL script
   app.get("/api/db/schema-sql", (_req, res) => {
     try {

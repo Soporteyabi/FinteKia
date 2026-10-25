@@ -38,6 +38,73 @@ export default function SecurityBackupView({
   // Local safety net status
   const [localBackupInfo, setLocalBackupInfo] = useState<{ exists: boolean; timestamp?: string; sizeKb?: number }>({ exists: false });
 
+  // Auto-backup scheduler configuration state
+  const [autoBackupConfig, setAutoBackupConfig] = useState<{
+    enabled: boolean;
+    frequency: '6h' | 'daily' | 'weekly';
+    retentionCount: number;
+    lastRun: string | null;
+    lastStatus: string;
+    lastError?: string;
+  }>({
+    enabled: true,
+    frequency: 'daily',
+    retentionCount: 20,
+    lastRun: null,
+    lastStatus: 'idle'
+  });
+  const [nextScheduledRun, setNextScheduledRun] = useState<string | null>(null);
+  const [savingAutoConfig, setSavingAutoConfig] = useState<boolean>(false);
+  const [triggeringAutoBackup, setTriggeringAutoBackup] = useState<boolean>(false);
+
+  const fetchAutoConfig = async () => {
+    try {
+      const res = await fetch('/api/backup/auto-schedule');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.config) setAutoBackupConfig(data.config);
+        if (data.nextScheduledRun) setNextScheduledRun(data.nextScheduledRun);
+      }
+    } catch (e) {
+      console.error('Error fetching auto backup config:', e);
+    }
+  };
+
+  const handleSaveAutoConfig = async () => {
+    try {
+      setSavingAutoConfig(true);
+      const res = await fetch('/api/backup/auto-schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(autoBackupConfig)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al guardar');
+      toast.success('Programación de respaldos automáticos actualizada con éxito.', 'Configuración Guardada');
+      fetchAutoConfig();
+    } catch (err: any) {
+      toast.error(err.message || 'Error al guardar configuración', 'Fallo');
+    } finally {
+      setSavingAutoConfig(false);
+    }
+  };
+
+  const handleTriggerAutoBackup = async () => {
+    try {
+      setTriggeringAutoBackup(true);
+      const res = await fetch('/api/backup/trigger-auto-backup', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al ejecutar respaldo');
+      toast.success('Ciclo de respaldo automático ejecutado satisfactoriamente.', 'Snapshot Creado');
+      fetchSnapshots();
+      fetchAutoConfig();
+    } catch (err: any) {
+      toast.error(err.message || 'Error al ejecutar ciclo automático', 'Fallo');
+    } finally {
+      setTriggeringAutoBackup(false);
+    }
+  };
+
   // Load server snapshots
   const fetchSnapshots = async () => {
     try {
@@ -76,6 +143,7 @@ export default function SecurityBackupView({
   useEffect(() => {
     fetchSnapshots();
     checkLocalBackup();
+    fetchAutoConfig();
   }, []);
 
   // 1. Download Full Cryptographic Backup File (.json)
@@ -555,6 +623,195 @@ export default function SecurityBackupView({
               </div>
             </div>
 
+          </div>
+
+          {/* MEJORA 1: PROGRAMACIÓN AUTOMÁTICA DE RESPALDOS & POLÍTICA DE RETENCIÓN */}
+          <div className={`p-6 rounded-3xl border shadow-sm space-y-4 ${
+            isLight ? 'bg-white border-slate-300' : 'bg-slate-900/80 border-slate-800'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg">
+                  <i className="ri-timer-flash-line"></i>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className={`font-black text-sm ${isLight ? 'text-slate-950' : 'text-white'}`}>
+                      Programación Automática de Respaldos (Auto-Scheduler)
+                    </h3>
+                    <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold uppercase font-mono border ${
+                      autoBackupConfig.enabled 
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300' 
+                        : 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400'
+                    }`}>
+                      {autoBackupConfig.enabled ? '● Activo en Servidor' : '○ En Pausa'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Ejecuta snapshots automáticos en segundo plano sin intervención del usuario y purga archivos viejos según la política de retención.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleTriggerAutoBackup}
+                  disabled={triggeringAutoBackup}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    isLight ? 'bg-slate-100 hover:bg-slate-200 text-slate-800' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  }`}
+                  title="Forzar un ciclo de respaldo automático ahora mismo"
+                >
+                  <i className={`ri-play-circle-line text-sm ${triggeringAutoBackup ? 'animate-spin' : 'text-emerald-500'}`}></i>
+                  <span>{triggeringAutoBackup ? 'Ejecutando...' : 'Ejecutar Ciclo Ahora'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Scheduler Controls Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+              
+              {/* 1. Activar / Desactivar */}
+              <div className={`p-4 rounded-2xl border space-y-2 ${
+                isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/40 border-slate-700/60'
+              }`}>
+                <span className="text-[10px] font-black uppercase text-slate-500 block">1. Estado del Programador</span>
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                    {autoBackupConfig.enabled ? 'Respaldos Automáticos Habilitados' : 'Respaldos Automáticos Deshabilitados'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAutoBackupConfig(prev => ({ ...prev, enabled: !prev.enabled }))}
+                    className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer p-0.5 ${
+                      autoBackupConfig.enabled ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                      autoBackupConfig.enabled ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 leading-snug">
+                  Mantiene el proceso del servidor generando copias continuas sin necesidad de que el administrador esté conectado.
+                </p>
+              </div>
+
+              {/* 2. Frecuencia */}
+              <div className={`p-4 rounded-2xl border space-y-2 ${
+                isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/40 border-slate-700/60'
+              }`}>
+                <span className="text-[10px] font-black uppercase text-slate-500 block">2. Frecuencia de Ejecución</span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setAutoBackupConfig(prev => ({ ...prev, frequency: '6h' }))}
+                    className={`py-1.5 px-2 rounded-xl text-[11px] font-black border transition-all cursor-pointer ${
+                      autoBackupConfig.frequency === '6h'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                        : isLight ? 'bg-white text-slate-800 border-slate-200 hover:bg-slate-100' : 'bg-slate-900 text-slate-300 border-slate-700'
+                    }`}
+                  >
+                    Cada 6 Horas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAutoBackupConfig(prev => ({ ...prev, frequency: 'daily' }))}
+                    className={`py-1.5 px-2 rounded-xl text-[11px] font-black border transition-all cursor-pointer ${
+                      autoBackupConfig.frequency === 'daily'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                        : isLight ? 'bg-white text-slate-800 border-slate-200 hover:bg-slate-100' : 'bg-slate-900 text-slate-300 border-slate-700'
+                    }`}
+                  >
+                    Diario (24h)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAutoBackupConfig(prev => ({ ...prev, frequency: 'weekly' }))}
+                    className={`py-1.5 px-2 rounded-xl text-[11px] font-black border transition-all cursor-pointer ${
+                      autoBackupConfig.frequency === 'weekly'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                        : isLight ? 'bg-white text-slate-800 border-slate-200 hover:bg-slate-100' : 'bg-slate-900 text-slate-300 border-slate-700'
+                    }`}
+                  >
+                    Semanal
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 leading-snug">
+                  Recomendado para empresas con alto flujo diario de facturas y movimientos contables.
+                </p>
+              </div>
+
+              {/* 3. Política de Retención */}
+              <div className={`p-4 rounded-2xl border space-y-2 ${
+                isLight ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/40 border-slate-700/60'
+              }`}>
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black uppercase text-slate-500">3. Política de Retención</span>
+                  <span className="text-xs font-mono font-black text-blue-600 dark:text-cyan-400">
+                    {autoBackupConfig.retentionCount} snapshots máx.
+                  </span>
+                </div>
+                <div className="flex gap-1.5">
+                  {[10, 20, 30, 50].map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      onClick={() => setAutoBackupConfig(prev => ({ ...prev, retentionCount: count }))}
+                      className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                        autoBackupConfig.retentionCount === count
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : isLight ? 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100' : 'bg-slate-900 text-slate-300 border-slate-700'
+                      }`}
+                    >
+                      {count}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-500 leading-snug">
+                  Los respaldos que superen este número se purgan automáticamente liberando espacio en disco.
+                </p>
+              </div>
+
+            </div>
+
+            {/* Live Status Bar & Save Button */}
+            <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
+              isLight ? 'bg-slate-100 border-slate-200 text-slate-800' : 'bg-slate-950 border-slate-800 text-slate-300'
+            }`}>
+              <div className="flex flex-wrap items-center gap-4 text-[11px] font-mono">
+                <div>
+                  <span className="text-slate-500 mr-1.5">Última Ejecución:</span>
+                  <strong className="text-slate-900 dark:text-white">
+                    {autoBackupConfig.lastRun ? new Date(autoBackupConfig.lastRun).toLocaleString('es-CO') : 'Pendiente de inicio'}
+                  </strong>
+                </div>
+                {nextScheduledRun && autoBackupConfig.enabled && (
+                  <div>
+                    <span className="text-slate-500 mr-1.5">Próximo Ciclo:</span>
+                    <strong className="text-emerald-600 dark:text-emerald-400">
+                      {new Date(nextScheduledRun).toLocaleString('es-CO')}
+                    </strong>
+                  </div>
+                )}
+                <div>
+                  <span className="text-slate-500 mr-1.5">Snapshots en Servidor:</span>
+                  <strong className="text-blue-600 dark:text-cyan-400">
+                    {serverSnapshots.length} archivados
+                  </strong>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveAutoConfig}
+                disabled={savingAutoConfig}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <i className={`ri-save-line ${savingAutoConfig ? 'animate-spin' : ''}`}></i>
+                <span>{savingAutoConfig ? 'Guardando...' : 'Guardar Programación'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Server Snapshots Table */}

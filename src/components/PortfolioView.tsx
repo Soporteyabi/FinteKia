@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from "../context/ToastContext";
-import { Voucher, Tercero, BankAccount, PucAccount } from '../types';
+import { Voucher, Tercero, BankAccount, PucAccount, Company } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import Pagination from './Pagination';
 import { exportPortfolioToExcel } from '../utils/excelExport';
@@ -31,7 +31,16 @@ import {
   Undo2,
   BadgeAlert,
   Download,
-  X
+  X,
+  BellRing,
+  Send,
+  MessageSquare,
+  MessageCircle,
+  Mail,
+  Copy,
+  Check,
+  ExternalLink,
+  PhoneCall
 } from 'lucide-react';
 
 interface PortfolioViewProps {
@@ -49,6 +58,7 @@ interface PortfolioViewProps {
     items?: any[];
   }) => void;
   theme?: 'slate_gray' | 'zinc_classic' | 'navy_dark' | 'steel_sage' | 'light_gray';
+  currentCompany?: Company;
 }
 
 export default function PortfolioView({
@@ -57,19 +67,87 @@ export default function PortfolioView({
   bankAccounts,
   puc,
   addVoucher,
-  theme = 'slate_gray'
+  theme = 'slate_gray',
+  currentCompany
 }: PortfolioViewProps) {
   
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
   const isDark = theme !== 'light_gray';
 
-  // Navigation Tabs: 'cxc' (clientes), 'cxp' (proveedores), 'reporte' (antiguedad)
-  const [activeTab, setActiveTab] = useState<'cxc' | 'cxp' | 'reporte'>('cxc');
+  // Navigation Tabs: 'cxc' (clientes), 'cxp' (proveedores), 'reporte' (antiguedad), 'cobranza' (notificaciones y recordatorios)
+  const [activeTab, setActiveTab] = useState<'cxc' | 'cxp' | 'reporte' | 'cobranza'>('cxc');
   
   // Filtering & Searching States
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pendiente' | 'vencido' | 'saldado'>('all');
   const [selectedThirdPartyId, setSelectedThirdPartyId] = useState<string>('all');
+
+  // MEJORA 2: Collection Management & Notifications State
+  const [showCollectionModal, setShowCollectionModal] = useState(false);
+  const [collectionItem, setCollectionItem] = useState<{
+    id: string;
+    invoiceNo: string;
+    thirdPartyId: string;
+    thirdPartyName: string;
+    thirdPartyNit: string;
+    thirdPartyPhone?: string;
+    thirdPartyEmail?: string;
+    total: number;
+    balance: number;
+    dueDate: string;
+    daysOverdue: number;
+  } | null>(null);
+
+  const [collectionTone, setCollectionTone] = useState<'preventivo' | 'informativo' | 'formal' | 'critico'>('informativo');
+  const [collectionChannel, setCollectionChannel] = useState<'whatsapp' | 'email'>('whatsapp');
+  const [customCollectionMessage, setCustomCollectionMessage] = useState<string>('');
+  const [commitmentDate, setCommitmentDate] = useState<string>('');
+  const [commitmentNotes, setCommitmentNotes] = useState<string>('');
+  const [copiedMessage, setCopiedMessage] = useState<boolean>(false);
+
+  // Pipeline filter inside 'cobranza' tab
+  const [collectionPipelineFilter, setCollectionPipelineFilter] = useState<'all' | 'por_vencer' | 'mora_leve' | 'mora_media' | 'mora_critica'>('all');
+
+  // Collection Action Logs (stored in localStorage)
+  const [collectionLogs, setCollectionLogs] = useState<{
+    id: string;
+    invoiceNo: string;
+    thirdPartyName: string;
+    date: string;
+    channel: 'whatsapp' | 'email' | 'llamada';
+    tone: 'preventivo' | 'informativo' | 'formal' | 'critico';
+    amount: number;
+    commitmentDate?: string;
+    notes?: string;
+    status: string;
+  }[]>(() => {
+    try {
+      const saved = localStorage.getItem('fintekia_collection_logs');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const saveCollectionLog = (entry: {
+    invoiceNo: string;
+    thirdPartyName: string;
+    channel: 'whatsapp' | 'email' | 'llamada';
+    tone: 'preventivo' | 'informativo' | 'formal' | 'critico';
+    amount: number;
+    commitmentDate?: string;
+    notes?: string;
+    status: string;
+  }) => {
+    const newLog = {
+      ...entry,
+      id: `col-${Date.now()}`,
+      date: new Date().toISOString()
+    };
+    const updated = [newLog, ...collectionLogs].slice(0, 100);
+    setCollectionLogs(updated);
+    localStorage.setItem('fintekia_collection_logs', JSON.stringify(updated));
+  };
 
   // Pagination states (15 per page)
   const [cxcPage, setCxcPage] = useState(1);
@@ -147,6 +225,202 @@ export default function PortfolioView({
     const dueDate = new Date(issueDate);
     dueDate.setDate(dueDate.getDate() + 30);
     return dueDate.toISOString().substring(0, 10);
+  };
+
+  // MEJORA 2: Template message generator for Collections & Reminders
+  const generateCollectionMessage = (
+    item: {
+      invoiceNo: string;
+      thirdPartyName: string;
+      thirdPartyNit?: string;
+      balance: number;
+      dueDate: string;
+      daysOverdue: number;
+    },
+    tone: 'preventivo' | 'informativo' | 'formal' | 'critico',
+    channel: 'whatsapp' | 'email'
+  ): string => {
+    const companyName = currentCompany?.name || 'FinteKia ERP';
+    const bankDetails = bankAccounts && bankAccounts.length > 0
+      ? bankAccounts.map(b => `• ${b.bankName || b.name}: Nro. ${b.accountNumber} (${b.name})`).join('\n')
+      : '• Bancolombia Cta Ahorros: 123-456789-01 a nombre de la empresa.';
+
+    if (tone === 'preventivo') {
+      return channel === 'whatsapp'
+        ? `👋 Cordial saludo, *${item.thirdPartyName}*.\n\n` +
+          `Desde el área de cartera de *${companyName}*, nos permitimos informarle que su Factura de Venta *No. ${item.invoiceNo}* por valor de *${formatCOP(item.balance)}* vencerá el próximo *${item.dueDate}*.\n\n` +
+          `Agradecemos programar su transferencia bancaria a:\n${bankDetails}\n\n` +
+          `Favor remitir el comprobante a este chat o al correo contable. ¡Agradecemos su puntual preferencia!`
+        : `Estimado(a) ${item.thirdPartyName},\n\n` +
+          `Reciba un cordial saludo de ${companyName}.\n\n` +
+          `Le recordamos que su Factura Electrónica No. ${item.invoiceNo} por valor de ${formatCOP(item.balance)} tiene fecha de vencimiento el ${item.dueDate}.\n\n` +
+          `Para facilitar su gestión, compartimos nuestras cuentas bancarias autorizadas:\n${bankDetails}\n\n` +
+          `Una vez efectuada la transacción, agradecemos adjuntar el soporte de pago correspondiente.\n\nAtentamente,\nDepartamento de Cartera y Cobranzas\n${companyName}`;
+    }
+
+    if (tone === 'informativo') {
+      const moraText = item.daysOverdue > 0 ? `registra ${item.daysOverdue} días de vencimiento` : `ha cumplido su fecha límite`;
+      return channel === 'whatsapp'
+        ? `🔔 Estimado(a) *${item.thirdPartyName}*.\n\n` +
+          `Nos comunicamos de *${companyName}* para recordarle que su Factura de Venta *No. ${item.invoiceNo}* con saldo pendiente de *${formatCOP(item.balance)}* (Vencida el ${item.dueDate}) ${moraText}.\n\n` +
+          `Agradecemos efectuar el pago a las siguientes cuentas:\n${bankDetails}\n\n` +
+          `Si ya efectuó el abono o cancelación, por favor compártanos el soporte para actualizar su estado de cuenta de inmediato.`
+        : `Estimado(a) ${item.thirdPartyName},\n\n` +
+          `Por medio de la presente, nos permitimos recordarle el saldo vencido de la Factura No. ${item.invoiceNo} por un importe de ${formatCOP(item.balance)}, la cual ${moraText} (Vencimiento: ${item.dueDate}).\n\n` +
+          `Agradecemos su pronta regularización mediante transferencia a:\n${bankDetails}\n\n` +
+          `Favor remitir el soporte bancario a la mayor brevedad.\n\nCordialmente,\nÁrea de Cartera\n${companyName}`;
+    }
+
+    if (tone === 'formal') {
+      return channel === 'whatsapp'
+        ? `⚠️ *SEGUNDO REQUERIMIENTO DE PAGO*\n\n` +
+          `Señor(es) *${item.thirdPartyName}*:\n` +
+          `De manera atenta solicitamos la cancelación del saldo en mora por valor de *${formatCOP(item.balance)}* correspondiente a la Factura *No. ${item.invoiceNo}*, la cual presenta *${item.daysOverdue} días de mora* (Venció: ${item.dueDate}).\n\n` +
+          `Para evitar la suspensión de futuros despachos o causación de intereses comerciales, le rogamos normalizar la obligación a las siguientes cuentas:\n${bankDetails}\n\n` +
+          `Agradecemos su colaboración y respuesta inmediata con el comprobante de pago.`
+        : `SEGUNDO AVISO DE COBRANZA - FACTURA No. ${item.invoiceNo}\n\n` +
+          `Apreciado(a) ${item.thirdPartyName},\n\n` +
+          `Revisando nuestros registros contables, observamos que la Factura No. ${item.invoiceNo} por valor de ${formatCOP(item.balance)} presenta ${item.daysOverdue} días de mora acumulada (Fecha límite: ${item.dueDate}).\n\n` +
+          `Con el fin de evitar afectaciones en su línea de crédito comercial o generación de intereses de mora, solicitamos efectuar la transferencia a:\n${bankDetails}\n\n` +
+          `Por favor remita el soporte correspondiente de forma prioritaria.\n\nAtentamente,\nDirección de Crédito y Cartera\n${companyName}`;
+    }
+
+    // Crítico / Prejudicial
+    return channel === 'whatsapp'
+      ? `🛑 *NOTIFICACIÓN DE COBRO PREJUDICIAL / URGENTE*\n\n` +
+        `Atención: *${item.thirdPartyName}* (NIT: ${item.thirdPartyNit || 'S/N'})\n` +
+        `Factura: *No. ${item.invoiceNo}*\n` +
+        `Saldo en mora crítica: *${formatCOP(item.balance)}* (${item.daysOverdue} días de vencimiento).\n\n` +
+        `Le informamos que de no recibir el pago o un acuerdo formal dentro de las próximas 48 horas, su cuenta será trasladada al departamento jurídico y se procederá al reporte en centrales de riesgo financiero, además de la suspensión definitiva de pedidos.\n\n` +
+        `Cuentas autorizadas para evitar trámite legal:\n${bankDetails}\n\n` +
+        `Comuníquese urgentemente para reportar su pago.`
+      : `NOTIFICACIÓN PREJUDICIAL - CARTERA EN MORA CRÍTICA - FACTURA ${item.invoiceNo}\n\n` +
+        `Señores:\n${item.thirdPartyName}\nNIT: ${item.thirdPartyNit || 'S/N'}\n\n` +
+        `Por medio de la presente se le notifica formalmente que la obligación comercial amparada en la Factura de Venta No. ${item.invoiceNo} por valor de ${formatCOP(item.balance)} registra ${item.daysOverdue} días de mora sin regularización.\n\n` +
+        `Le concedemos un plazo perentorio de 48 horas para consignar en las cuentas autorizadas:\n${bankDetails}\n\n` +
+        `El no cumplimiento obligará al inicio de acciones legales de cobro ejecutivo y reporte negativo en centrales de riesgo.\n\nAtentamente,\nDepartamento Jurídico y Cartera\n${companyName}`;
+  };
+
+  const openCollectionModal = (inv: {
+    id: string;
+    invoiceNo: string;
+    thirdPartyId: string;
+    thirdPartyName: string;
+    thirdPartyNit: string;
+    total: number;
+    balance: number;
+    dueDate: string;
+    daysOverdue: number;
+  }, preferredTone?: 'preventivo' | 'informativo' | 'formal' | 'critico') => {
+    const thirdParty = terceros.find(t => t.id === inv.thirdPartyId);
+    let resolvedTone: 'preventivo' | 'informativo' | 'formal' | 'critico' = preferredTone || 'informativo';
+    
+    if (!preferredTone) {
+      if (inv.daysOverdue === 0) {
+        resolvedTone = 'preventivo';
+      } else if (inv.daysOverdue <= 15) {
+        resolvedTone = 'informativo';
+      } else if (inv.daysOverdue <= 45) {
+        resolvedTone = 'formal';
+      } else {
+        resolvedTone = 'critico';
+      }
+    }
+
+    const itemData = {
+      ...inv,
+      thirdPartyPhone: thirdParty?.phone,
+      thirdPartyEmail: thirdParty?.email
+    };
+
+    setCollectionItem(itemData);
+    setCollectionTone(resolvedTone);
+    setCollectionChannel('whatsapp');
+    setCustomCollectionMessage(generateCollectionMessage(itemData, resolvedTone, 'whatsapp'));
+    setCommitmentDate('');
+    setCommitmentNotes('');
+    setCopiedMessage(false);
+    setShowCollectionModal(true);
+  };
+
+  const handleSendWhatsApp = () => {
+    if (!collectionItem) return;
+    const phone = collectionItem.thirdPartyPhone ? collectionItem.thirdPartyPhone.replace(/\D/g, '') : '';
+    const cleanPhone = phone.startsWith('57') ? phone : `57${phone}`;
+
+    if (!cleanPhone || cleanPhone === '57') {
+      toast.error('El cliente no tiene un teléfono o celular configurado en su ficha de Terceros.');
+      return;
+    }
+
+    saveCollectionLog({
+      invoiceNo: collectionItem.invoiceNo,
+      thirdPartyName: collectionItem.thirdPartyName,
+      channel: 'whatsapp',
+      tone: collectionTone,
+      amount: collectionItem.balance,
+      commitmentDate: commitmentDate || undefined,
+      notes: commitmentNotes || undefined,
+      status: 'Enviado por WhatsApp'
+    });
+
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(customCollectionMessage)}`, '_blank');
+    toast.success(`Recordatorio de cobranza por WhatsApp preparado para ${collectionItem.thirdPartyName}`);
+  };
+
+  const handleSendEmail = () => {
+    if (!collectionItem) return;
+    const email = collectionItem.thirdPartyEmail;
+    if (!email) {
+      toast.error('El cliente no tiene correo electrónico configurado en su ficha de Terceros.');
+      return;
+    }
+
+    saveCollectionLog({
+      invoiceNo: collectionItem.invoiceNo,
+      thirdPartyName: collectionItem.thirdPartyName,
+      channel: 'email',
+      tone: collectionTone,
+      amount: collectionItem.balance,
+      commitmentDate: commitmentDate || undefined,
+      notes: commitmentNotes || undefined,
+      status: 'Enviado por Email'
+    });
+
+    const subject = encodeURIComponent(`Recordatorio de Pago Factura No. ${collectionItem.invoiceNo} - ${currentCompany?.name || 'FinteKia'}`);
+    const body = encodeURIComponent(customCollectionMessage);
+    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    toast.success(`Correo de cobro preparado para ${email}`);
+  };
+
+  const handleCopyMessage = () => {
+    if (!customCollectionMessage) return;
+    navigator.clipboard.writeText(customCollectionMessage);
+    setCopiedMessage(true);
+    setTimeout(() => setCopiedMessage(false), 2500);
+    toast.success('Mensaje copiado al portapapeles');
+  };
+
+  const handleSaveCommitment = () => {
+    if (!collectionItem) return;
+    if (!commitmentDate && !commitmentNotes) {
+      toast.error('Ingrese una fecha de compromiso o una nota de gestión.');
+      return;
+    }
+
+    saveCollectionLog({
+      invoiceNo: collectionItem.invoiceNo,
+      thirdPartyName: collectionItem.thirdPartyName,
+      channel: 'llamada',
+      tone: collectionTone,
+      amount: collectionItem.balance,
+      commitmentDate: commitmentDate || undefined,
+      notes: commitmentNotes || 'Compromiso de pago registrado en gestión.',
+      status: 'Compromiso Agendado'
+    });
+
+    toast.success(`Compromiso de pago guardado para la Factura ${collectionItem.invoiceNo}`);
+    setShowCollectionModal(false);
   };
 
   // PORTFOLIO STATS COMPUTING UNIT (Real-time dynamic parsing of general double entries)
@@ -979,10 +1253,26 @@ export default function PortfolioView({
           >
             <Clock className="w-4 h-4" /> Edad y Vencimiento de Cartera
           </button>
+
+          <button
+            onClick={() => setActiveTab('cobranza')}
+            className={`px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-all text-xs border cursor-pointer relative ${
+              activeTab === 'cobranza'
+                ? 'bg-emerald-600/15 border-emerald-500/50 text-emerald-400 shadow-sm'
+                : 'bg-zinc-950/20 border-transparent text-slate-400 hover:text-white'
+            }`}
+          >
+            <BellRing className="w-4 h-4 text-emerald-400" /> Centro de Cobranza & Alertas
+            {totalOverdueCxC > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[9px] font-mono font-bold">
+                Mora
+              </span>
+            )}
+          </button>
         </div>
 
         {/* FILTER TOOLS */}
-        {activeTab !== 'reporte' && (
+        {activeTab !== 'reporte' && activeTab !== 'cobranza' && (
           <div className="flex flex-wrap gap-2 text-xs">
             {/* Search Box */}
             <div className="relative">
@@ -1105,6 +1395,17 @@ export default function PortfolioView({
                               ) : (
                                 <span className="text-emerald-400 text-[10px] font-bold">✓ Cobrado</span>
                               )}
+                              {/* Notificar / Cobranza Modal Launcher */}
+                              {item.balance > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => openCollectionModal(item)}
+                                  className="p-1 rounded text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                                  title="Gestionar Cobranza, Mensajes y Acuerdos de Pago"
+                                >
+                                  <BellRing className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1122,7 +1423,7 @@ export default function PortfolioView({
                               {(() => {
                                 const cObj = terceros.find(t => t.id === item.thirdPartyId);
                                 if (cObj?.phone && item.balance > 0) {
-                                  const text = `Hola ${cObj.name}, le recordamos el saldo pendiente de ${formatCOP(item.balance)} de la Factura ${item.invoiceNo} (Vencimiento: ${item.dueDate}). Agradecemos su gestión de pago.`;
+                                  const text = generateCollectionMessage(item, item.daysOverdue > 15 ? 'formal' : item.daysOverdue > 0 ? 'informativo' : 'preventivo', 'whatsapp');
                                   const cleanPhone = cObj.phone.replace(/\D/g, '');
                                   const phone = cleanPhone.startsWith('57') ? cleanPhone : `57${cleanPhone}`;
                                   return (
@@ -1131,9 +1432,19 @@ export default function PortfolioView({
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="p-1 rounded text-emerald-500 hover:text-emerald-400 hover:bg-slate-800 transition-colors inline-flex items-center"
-                                      title="Enviar recordatorio por WhatsApp"
+                                      title="Enviar recordatorio rápido por WhatsApp"
+                                      onClick={() => {
+                                        saveCollectionLog({
+                                          invoiceNo: item.invoiceNo,
+                                          thirdPartyName: item.thirdPartyName,
+                                          channel: 'whatsapp',
+                                          tone: item.daysOverdue > 15 ? 'formal' : item.daysOverdue > 0 ? 'informativo' : 'preventivo',
+                                          amount: item.balance,
+                                          status: 'Enviado por WhatsApp Rápido'
+                                        });
+                                      }}
                                     >
-                                      <Receipt className="w-3.5 h-3.5" />
+                                      <MessageCircle className="w-3.5 h-3.5" />
                                     </a>
                                   );
                                 }
@@ -1457,6 +1768,434 @@ export default function PortfolioView({
 
           </div>
         )}
+
+        {/* WORKSPACE TAB 4: MEJORA 2 - CENTRO DE NOTIFICACIONES Y COBRANZA AUTOMATIZADA */}
+        {activeTab === 'cobranza' && (() => {
+          const outstandingCxC = cxcList.filter(item => item.balance > 0);
+          const porVencerItems = outstandingCxC.filter(i => i.daysOverdue === 0);
+          const moraLeveItems = outstandingCxC.filter(i => i.daysOverdue >= 1 && i.daysOverdue <= 15);
+          const moraMediaItems = outstandingCxC.filter(i => i.daysOverdue >= 16 && i.daysOverdue <= 45);
+          const moraCriticaItems = outstandingCxC.filter(i => i.daysOverdue > 45);
+
+          const totalPorVencer = porVencerItems.reduce((acc, i) => acc + i.balance, 0);
+          const totalMoraLeve = moraLeveItems.reduce((acc, i) => acc + i.balance, 0);
+          const totalMoraMedia = moraMediaItems.reduce((acc, i) => acc + i.balance, 0);
+          const totalMoraCritica = moraCriticaItems.reduce((acc, i) => acc + i.balance, 0);
+
+          const pipelineItems = outstandingCxC.filter(item => {
+            if (collectionPipelineFilter === 'por_vencer') return item.daysOverdue === 0;
+            if (collectionPipelineFilter === 'mora_leve') return item.daysOverdue >= 1 && item.daysOverdue <= 15;
+            if (collectionPipelineFilter === 'mora_media') return item.daysOverdue >= 16 && item.daysOverdue <= 45;
+            if (collectionPipelineFilter === 'mora_critica') return item.daysOverdue > 45;
+            return true;
+          });
+
+          return (
+            <div className="space-y-6 animate-fade-in">
+              {/* Executive Header Banner */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-zinc-900 to-indigo-950/30 border border-emerald-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-[10px] font-bold">
+                    <BellRing className="w-3.5 h-3.5" /> Módulo de Cobranza & Cartera Inteligente
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-white font-display">
+                    Centro de Notificaciones y Pipeline de Cobro
+                  </h3>
+                  <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
+                    Supervise facturas en riesgo de vencimiento o mora, envíe recordatorios con plantillas adaptadas al canal (WhatsApp / Email) e incorpore cuentas bancarias y bitácora de compromisos de pago.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="text-right">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Total en Cobranza</span>
+                    <span className="text-lg font-mono font-black text-emerald-400">
+                      {formatCOP(totalCxCAsset)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pipeline Metric Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* 1. Por Vencer */}
+                <div 
+                  onClick={() => setCollectionPipelineFilter(collectionPipelineFilter === 'por_vencer' ? 'all' : 'por_vencer')}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none ${
+                    collectionPipelineFilter === 'por_vencer'
+                      ? 'bg-blue-600/15 border-blue-500/60 shadow-md ring-1 ring-blue-500/40'
+                      : 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase text-blue-400 mb-1">
+                    <span>1. Preventivo</span>
+                    <span className="px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-300 font-mono text-[9px]">
+                      {porVencerItems.length}
+                    </span>
+                  </div>
+                  <p className="text-base font-mono font-bold text-white">
+                    {formatCOP(totalPorVencer)}
+                  </p>
+                  <p className="text-[9.5px] text-slate-400 mt-1">
+                    Al día / Por vencer
+                  </p>
+                </div>
+
+                {/* 2. Mora Leve */}
+                <div 
+                  onClick={() => setCollectionPipelineFilter(collectionPipelineFilter === 'mora_leve' ? 'all' : 'mora_leve')}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none ${
+                    collectionPipelineFilter === 'mora_leve'
+                      ? 'bg-yellow-600/15 border-yellow-500/60 shadow-md ring-1 ring-yellow-500/40'
+                      : 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase text-yellow-400 mb-1">
+                    <span>2. Mora Leve</span>
+                    <span className="px-1.5 py-0.2 rounded-full bg-yellow-500/20 text-yellow-300 font-mono text-[9px]">
+                      {moraLeveItems.length}
+                    </span>
+                  </div>
+                  <p className="text-base font-mono font-bold text-yellow-300">
+                    {formatCOP(totalMoraLeve)}
+                  </p>
+                  <p className="text-[9.5px] text-slate-400 mt-1">
+                    1 a 15 días de vencida
+                  </p>
+                </div>
+
+                {/* 3. Mora Media */}
+                <div 
+                  onClick={() => setCollectionPipelineFilter(collectionPipelineFilter === 'mora_media' ? 'all' : 'mora_media')}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none ${
+                    collectionPipelineFilter === 'mora_media'
+                      ? 'bg-amber-600/15 border-amber-500/60 shadow-md ring-1 ring-amber-500/40'
+                      : 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase text-amber-400 mb-1">
+                    <span>3. Mora Media</span>
+                    <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 font-mono text-[9px]">
+                      {moraMediaItems.length}
+                    </span>
+                  </div>
+                  <p className="text-base font-mono font-bold text-amber-300">
+                    {formatCOP(totalMoraMedia)}
+                  </p>
+                  <p className="text-[9.5px] text-slate-400 mt-1">
+                    16 a 45 días de vencida
+                  </p>
+                </div>
+
+                {/* 4. Mora Crítica */}
+                <div 
+                  onClick={() => setCollectionPipelineFilter(collectionPipelineFilter === 'mora_critica' ? 'all' : 'mora_critica')}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none ${
+                    collectionPipelineFilter === 'mora_critica'
+                      ? 'bg-rose-600/15 border-rose-500/60 shadow-md ring-1 ring-rose-500/40'
+                      : 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-[10px] font-bold uppercase text-rose-400 mb-1">
+                    <span>4. Prejudicial</span>
+                    <span className="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 font-mono text-[9px]">
+                      {moraCriticaItems.length}
+                    </span>
+                  </div>
+                  <p className="text-base font-mono font-bold text-rose-400">
+                    {formatCOP(totalMoraCritica)}
+                  </p>
+                  <p className="text-[9.5px] text-slate-400 mt-1">
+                    Más de 45 días de mora
+                  </p>
+                </div>
+              </div>
+
+              {/* Pipeline Tab Filters */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 pb-2">
+                <div className="flex flex-wrap gap-1.5 text-xs">
+                  <button
+                    onClick={() => setCollectionPipelineFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      collectionPipelineFilter === 'all'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-zinc-900 text-slate-400 hover:text-white border border-zinc-800'
+                    }`}
+                  >
+                    Todas ({outstandingCxC.length})
+                  </button>
+                  <button
+                    onClick={() => setCollectionPipelineFilter('por_vencer')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      collectionPipelineFilter === 'por_vencer'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-zinc-900 text-slate-400 hover:text-white border border-zinc-800'
+                    }`}
+                  >
+                    Preventivo ({porVencerItems.length})
+                  </button>
+                  <button
+                    onClick={() => setCollectionPipelineFilter('mora_leve')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      collectionPipelineFilter === 'mora_leve'
+                        ? 'bg-yellow-600 text-white shadow-sm'
+                        : 'bg-zinc-900 text-slate-400 hover:text-white border border-zinc-800'
+                    }`}
+                  >
+                    Mora Leve ({moraLeveItems.length})
+                  </button>
+                  <button
+                    onClick={() => setCollectionPipelineFilter('mora_media')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      collectionPipelineFilter === 'mora_media'
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'bg-zinc-900 text-slate-400 hover:text-white border border-zinc-800'
+                    }`}
+                  >
+                    Mora Media ({moraMediaItems.length})
+                  </button>
+                  <button
+                    onClick={() => setCollectionPipelineFilter('mora_critica')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      collectionPipelineFilter === 'mora_critica'
+                        ? 'bg-rose-600 text-white shadow-sm'
+                        : 'bg-zinc-900 text-slate-400 hover:text-white border border-zinc-800'
+                    }`}
+                  >
+                    Prejudicial (+45d) ({moraCriticaItems.length})
+                  </button>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  Mostrando {pipelineItems.length} {pipelineItems.length === 1 ? 'factura pendiente' : 'facturas pendientes'}
+                </span>
+              </div>
+
+              {/* Table of Invoices to Collect */}
+              <div className={`rounded-2xl border shadow-sm overflow-hidden ${activeTheme.cardStyles}`}>
+                {pipelineItems.length === 0 ? (
+                  <div className="p-12 text-center text-slate-400 select-none">
+                    <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
+                    <h4 className="font-display font-medium text-white text-sm">
+                      Sin facturas en este segmento de cobranza
+                    </h4>
+                    <p className="max-w-md mx-auto text-xs mt-1 text-slate-400">
+                      Excelente gestión de cartera. No hay cuentas por cobrar pendientes bajo el filtro seleccionado.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-white/5 bg-zinc-950/40 text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
+                          <th className="py-3 px-4">Factura No.</th>
+                          <th className="py-3 px-4">Cliente / Contacto</th>
+                          <th className="py-3 px-4">Vence el</th>
+                          <th className="py-3 px-4 text-center">Estado / Mora</th>
+                          <th className="py-3 px-4 text-right">Saldo a Cobrar</th>
+                          <th className="py-3 px-4 text-center">Canales</th>
+                          <th className="py-3 px-4 text-center">Acciones de Cobro</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 text-slate-300 font-medium">
+                        {pipelineItems.map((item) => {
+                          const thirdParty = terceros.find(t => t.id === item.thirdPartyId);
+                          const hasPhone = !!thirdParty?.phone;
+                          const hasEmail = !!thirdParty?.email;
+
+                          let toneBadge = (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/25">
+                              Preventivo (Al Día)
+                            </span>
+                          );
+                          if (item.daysOverdue > 45) {
+                            toneBadge = (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                Prejudicial ({item.daysOverdue}d mora)
+                              </span>
+                            );
+                          } else if (item.daysOverdue > 15) {
+                            toneBadge = (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                Formal ({item.daysOverdue}d mora)
+                              </span>
+                            );
+                          } else if (item.daysOverdue > 0) {
+                            toneBadge = (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
+                                Leve ({item.daysOverdue}d mora)
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                              <td className="py-3.5 px-4 font-mono font-bold text-white">
+                                <span className="text-emerald-400">{item.invoiceNo}</span>
+                                <span className="block text-[10px] text-slate-400 font-sans">Emisión: {item.date}</span>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <span className="text-white font-bold block">{item.thirdPartyName}</span>
+                                <span className="text-[10px] text-slate-400 font-mono block">NIT: {item.thirdPartyNit}</span>
+                                {(hasPhone || hasEmail) && (
+                                  <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400">
+                                    {hasPhone && <span className="flex items-center gap-0.5"><MessageCircle className="w-3 h-3 text-emerald-400" /> {thirdParty?.phone}</span>}
+                                    {hasEmail && <span className="flex items-center gap-0.5"><Mail className="w-3 h-3 text-indigo-400" /> {thirdParty?.email}</span>}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3.5 px-4 font-mono text-[11px] text-slate-300">
+                                {item.dueDate}
+                              </td>
+                              <td className="py-3.5 px-4 text-center select-none">
+                                {toneBadge}
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono font-extrabold text-emerald-400 text-sm">
+                                {formatCOP(item.balance)}
+                              </td>
+                              <td className="py-3.5 px-4 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  {hasPhone ? (
+                                    <span className="p-1 rounded bg-emerald-500/10 text-emerald-400" title="Teléfono / WhatsApp disponible">
+                                      <MessageCircle className="w-3.5 h-3.5" />
+                                    </span>
+                                  ) : (
+                                    <span className="p-1 rounded bg-zinc-800 text-zinc-500" title="Sin teléfono configurado">
+                                      <MessageCircle className="w-3.5 h-3.5" />
+                                    </span>
+                                  )}
+                                  {hasEmail ? (
+                                    <span className="p-1 rounded bg-indigo-500/10 text-indigo-400" title="Correo configurado">
+                                      <Mail className="w-3.5 h-3.5" />
+                                    </span>
+                                  ) : (
+                                    <span className="p-1 rounded bg-zinc-800 text-zinc-500" title="Sin correo configurado">
+                                      <Mail className="w-3.5 h-3.5" />
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3.5 px-4 text-center">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => openCollectionModal(item)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                                    title="Abrir gestor de cobranza con plantilla de recordatorio"
+                                  >
+                                    <BellRing className="w-3.5 h-3.5" /> Notificar
+                                  </button>
+                                  {hasPhone && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const cleanPhone = thirdParty.phone!.replace(/\D/g, '');
+                                        const phone = cleanPhone.startsWith('57') ? cleanPhone : `57${cleanPhone}`;
+                                        const defaultTone = item.daysOverdue > 15 ? 'formal' : item.daysOverdue > 0 ? 'informativo' : 'preventivo';
+                                        const msg = generateCollectionMessage(item, defaultTone, 'whatsapp');
+                                        saveCollectionLog({
+                                          invoiceNo: item.invoiceNo,
+                                          thirdPartyName: item.thirdPartyName,
+                                          channel: 'whatsapp',
+                                          tone: defaultTone,
+                                          amount: item.balance,
+                                          status: 'Enviado por WhatsApp Rápido'
+                                        });
+                                        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+                                      }}
+                                      className="p-1.5 rounded-lg bg-zinc-800 hover:bg-emerald-600/30 text-emerald-400 transition-colors cursor-pointer"
+                                      title="WhatsApp Express"
+                                    >
+                                      <MessageCircle className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Bitácora de Compromisos de Pago & Historial de Notificaciones */}
+              <div className={`p-4 sm:p-5 rounded-2xl border shadow-sm space-y-3 ${activeTheme.cardStyles}`}>
+                <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-indigo-400" />
+                    <h4 className="font-bold text-sm text-white font-display">
+                      Bitácora de Gestión de Cobranzas y Acuerdos de Pago
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    {collectionLogs.length} {collectionLogs.length === 1 ? 'registro' : 'registros'} guardados
+                  </span>
+                </div>
+
+                {collectionLogs.length === 0 ? (
+                  <div className="p-6 text-center text-slate-500 text-xs">
+                    <Clock className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                    No hay gestiones de cobro registradas todavía. Al presionar "Notificar" o guardar compromisos de pago en cualquiera de las facturas, se generará la trazabilidad automáticamente aquí.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto max-h-72">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-white/5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                          <th className="py-2 px-3">Fecha/Hora</th>
+                          <th className="py-2 px-3">Factura</th>
+                          <th className="py-2 px-3">Cliente</th>
+                          <th className="py-2 px-3">Canal & Tono</th>
+                          <th className="py-2 px-3 text-right">Monto</th>
+                          <th className="py-2 px-3">Compromiso de Pago</th>
+                          <th className="py-2 px-3">Notas</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                        {collectionLogs.slice(0, 15).map(log => (
+                          <tr key={log.id} className="hover:bg-white/5">
+                            <td className="py-2 px-3 font-mono text-[10px] text-slate-400">
+                              {new Date(log.date).toLocaleDateString('es-CO')} {new Date(log.date).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="py-2 px-3 font-mono font-bold text-emerald-400">
+                              {log.invoiceNo}
+                            </td>
+                            <td className="py-2 px-3 text-white font-semibold">
+                              {log.thirdPartyName}
+                            </td>
+                            <td className="py-2 px-3">
+                              <span className="inline-flex items-center gap-1 text-[10px]">
+                                {log.channel === 'whatsapp' && <MessageCircle className="w-3 h-3 text-emerald-400" />}
+                                {log.channel === 'email' && <Mail className="w-3 h-3 text-indigo-400" />}
+                                {log.channel === 'llamada' && <PhoneCall className="w-3 h-3 text-amber-400" />}
+                                <span className="capitalize">{log.channel}</span> · <span className="uppercase text-[9px] text-slate-400 font-mono font-bold">{log.tone}</span>
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-slate-200">
+                              {formatCOP(log.amount)}
+                            </td>
+                            <td className="py-2 px-3 font-mono text-[11px]">
+                              {log.commitmentDate ? (
+                                <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                  {log.commitmentDate}
+                                </span>
+                              ) : (
+                                <span className="text-slate-500">—</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3 text-slate-400 text-[11px] max-w-xs truncate" title={log.notes}>
+                              {log.notes || log.status}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
         
       </div>
 
@@ -1655,6 +2394,285 @@ export default function PortfolioView({
                 </div>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: MEJORA 2 - GESTOR DE COBRANZA Y NOTIFICACIONES */}
+      {showCollectionModal && collectionItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-2xl w-full space-y-4 shadow-2xl text-slate-100 flex flex-col max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-600/30">
+                  <BellRing className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base text-white">
+                    Gestor de Cobranza & Recordatorios
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Factura <strong className="text-emerald-400 font-mono">{collectionItem.invoiceNo}</strong> · {collectionItem.thirdPartyName}
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowCollectionModal(false)}
+                className="text-slate-400 hover:text-white p-1 cursor-pointer transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Invoice & Client Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 rounded-2xl bg-slate-950 border border-slate-800 text-xs">
+              <div>
+                <span className="text-[9.5px] uppercase font-bold text-slate-500 block">Saldo Pendiente</span>
+                <span className="text-sm font-mono font-black text-emerald-400">
+                  {formatCOP(collectionItem.balance)}
+                </span>
+              </div>
+              <div>
+                <span className="text-[9.5px] uppercase font-bold text-slate-500 block">Fecha Vencimiento</span>
+                <span className="font-mono text-slate-200">
+                  {collectionItem.dueDate}
+                </span>
+              </div>
+              <div>
+                <span className="text-[9.5px] uppercase font-bold text-slate-500 block">Estado / Mora</span>
+                <span className={`font-bold font-mono text-xs ${collectionItem.daysOverdue > 0 ? 'text-rose-400' : 'text-blue-400'}`}>
+                  {collectionItem.daysOverdue > 0 ? `${collectionItem.daysOverdue} días mora` : 'Al Día'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[9.5px] uppercase font-bold text-slate-500 block">NIT / Teléfono</span>
+                <span className="text-[10px] text-slate-300 font-mono truncate block" title={collectionItem.thirdPartyPhone || 'Sin teléfono'}>
+                  {collectionItem.thirdPartyPhone || 'Sin teléfono'}
+                </span>
+              </div>
+            </div>
+
+            {/* Tone Selector */}
+            <div className="space-y-1.5">
+              <label className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 block">
+                Seleccione el Tono de Cobro:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCollectionTone('preventivo');
+                    setCustomCollectionMessage(generateCollectionMessage(collectionItem, 'preventivo', collectionChannel));
+                  }}
+                  className={`py-2 px-2.5 rounded-xl border text-center font-bold transition-all cursor-pointer text-[11px] ${
+                    collectionTone === 'preventivo'
+                      ? 'bg-blue-600/20 border-blue-500 text-blue-300 shadow-sm ring-1 ring-blue-500/40'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  1. Preventivo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCollectionTone('informativo');
+                    setCustomCollectionMessage(generateCollectionMessage(collectionItem, 'informativo', collectionChannel));
+                  }}
+                  className={`py-2 px-2.5 rounded-xl border text-center font-bold transition-all cursor-pointer text-[11px] ${
+                    collectionTone === 'informativo'
+                      ? 'bg-yellow-600/20 border-yellow-500 text-yellow-300 shadow-sm ring-1 ring-yellow-500/40'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  2. Informativo (1-15d)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCollectionTone('formal');
+                    setCustomCollectionMessage(generateCollectionMessage(collectionItem, 'formal', collectionChannel));
+                  }}
+                  className={`py-2 px-2.5 rounded-xl border text-center font-bold transition-all cursor-pointer text-[11px] ${
+                    collectionTone === 'formal'
+                      ? 'bg-amber-600/20 border-amber-500 text-amber-300 shadow-sm ring-1 ring-amber-500/40'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  3. Formal (16-45d)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCollectionTone('critico');
+                    setCustomCollectionMessage(generateCollectionMessage(collectionItem, 'critico', collectionChannel));
+                  }}
+                  className={`py-2 px-2.5 rounded-xl border text-center font-bold transition-all cursor-pointer text-[11px] ${
+                    collectionTone === 'critico'
+                      ? 'bg-rose-600/20 border-rose-500 text-rose-300 shadow-sm ring-1 ring-rose-500/40'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  4. Prejudicial (+45d)
+                </button>
+              </div>
+            </div>
+
+            {/* Channel Switcher */}
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800">
+              <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                Canal de Notificación:
+              </span>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCollectionChannel('whatsapp');
+                    setCustomCollectionMessage(generateCollectionMessage(collectionItem, collectionTone, 'whatsapp'));
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    collectionChannel === 'whatsapp'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  <MessageCircle className="w-3.5 h-3.5 text-emerald-300" /> WhatsApp
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCollectionChannel('email');
+                    setCustomCollectionMessage(generateCollectionMessage(collectionItem, collectionTone, 'email'));
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    collectionChannel === 'email'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                  }`}
+                >
+                  <Mail className="w-3.5 h-3.5 text-indigo-300" /> Correo Electrónico
+                </button>
+              </div>
+            </div>
+
+            {/* Editable Message Box */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <label className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                  Plantilla de Mensaje (Editable):
+                </label>
+                <button
+                  type="button"
+                  onClick={handleCopyMessage}
+                  className="text-slate-400 hover:text-white inline-flex items-center gap-1 text-[11px] font-semibold cursor-pointer"
+                >
+                  {copiedMessage ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-emerald-400">Copiado</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copiar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <textarea
+                value={customCollectionMessage}
+                onChange={(e) => setCustomCollectionMessage(e.target.value)}
+                rows={6}
+                className="w-full bg-slate-950 border border-slate-700 rounded-2xl p-3 text-xs text-slate-100 font-mono leading-relaxed focus:outline-none focus:border-emerald-500 resize-none shadow-inner"
+              />
+              <p className="text-[10px] text-slate-400">
+                💡 Incluye automáticamente el saldo, días de mora y los datos de cuentas bancarias autorizadas de la empresa activa.
+              </p>
+            </div>
+
+            {/* Payment Commitment Accordion / Inputs */}
+            <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-400" /> Registrar Compromiso de Pago (Acuerdo Telefónico o Presencial)
+                </span>
+                <span className="text-[10px] text-slate-400">Opcional</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                    Fecha Promesa de Pago:
+                  </label>
+                  <input
+                    type="date"
+                    value={commitmentDate}
+                    onChange={(e) => setCommitmentDate(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                    Notas de la Gestión:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: Cliente cancela 50% el viernes..."
+                    value={commitmentNotes}
+                    onChange={(e) => setCommitmentNotes(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={handleSaveCommitment}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold cursor-pointer transition-colors inline-flex items-center gap-1"
+                >
+                  <Check className="w-3.5 h-3.5 text-indigo-400" /> Guardar Compromiso en Bitácora
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowCollectionModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Cerrar
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyMessage}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" /> Copiar Mensaje
+                </button>
+
+                {collectionChannel === 'whatsapp' ? (
+                  <button
+                    type="button"
+                    onClick={handleSendWhatsApp}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-600/30"
+                  >
+                    <MessageCircle className="w-4 h-4" /> Abrir WhatsApp & Registrar
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSendEmail}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-600/30"
+                  >
+                    <Mail className="w-4 h-4" /> Enviar por Correo & Registrar
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
