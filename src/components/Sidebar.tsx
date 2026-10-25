@@ -347,6 +347,7 @@ export default function Sidebar({
       label: 'CONTABILIDAD & PUC',
       items: [
         { id: 'comprobantes', label: 'Libro Diario PUC', icon: 'ri-booklet-line', badge: 'PUC', roles: ['Admin', 'Contador'] },
+        { id: 'cierre_periodos', label: 'Cierre de Periodos', icon: 'ri-shield-keyhole-line', badge: 'BLOQUEO', roles: ['Admin', 'Contador'] },
         { id: 'bancos', label: 'Bancos & Conciliación', icon: 'ri-bank-card-line', roles: ['Admin', 'Contador'] },
         { id: 'impuestos', label: 'Impuestos & Retenciones', icon: 'ri-scales-3-line', roles: ['Admin', 'Contador'] },
         { id: 'presupuestos', label: 'Presupuestos Activos', icon: 'ri-pie-chart-2-line', roles: ['Admin', 'Contador'] },

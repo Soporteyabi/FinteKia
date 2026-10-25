@@ -633,25 +633,28 @@ export const getInitialState = (): AppState => {
             });
           }
 
-          // Ensure products, warehouses, and orders have companyId backfilled
+          // Ensure products, warehouses, and orders have companyId backfilled correctly
+          const primaryCoId = parsed.currentCompanyId || parsed.companies?.[0]?.id || 'co-1';
           if (parsed.products) {
             parsed.products.forEach((p: any) => {
               if (!p.companyId) {
-                p.companyId = (p.id.startsWith('p-t') || p.id.startsWith('p-s')) ? 'co-1' : 'co-2';
+                const isLegacyBakery = ['p-1', 'p-2', 'p-3', 'p-4', 'p-5', 'p-6', 'p-7'].includes(p.id);
+                p.companyId = isLegacyBakery ? 'co-2' : primaryCoId;
               }
             });
           }
           if (parsed.warehouses) {
             parsed.warehouses.forEach((w: any) => {
               if (!w.companyId) {
-                w.companyId = (w.id === 'wh-3' || w.id === 'wh-4') ? 'co-1' : 'co-2';
+                const isLegacyBakeryWh = w.id === 'wh-1' || w.id === 'wh-2';
+                w.companyId = isLegacyBakeryWh ? 'co-2' : primaryCoId;
               }
             });
           }
           if (parsed.bankAccounts) {
             parsed.bankAccounts.forEach((ba: any) => {
               if (!ba.companyId) {
-                ba.companyId = ba.id === 'ba-2' ? 'co-2' : 'co-1';
+                ba.companyId = ba.id === 'ba-2' ? 'co-2' : primaryCoId;
               }
             });
           }

@@ -1,10 +1,18 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from "../context/ToastContext";
-import { Voucher, PucAccount, CostCenter, Tercero, Company } from '../types';
+import { Voucher, PucAccount, CostCenter, Tercero, Company, FiscalPeriod } from '../types';
 import { THEMES_MAP } from './Sidebar';
 import Pagination from './Pagination';
 import VoucherPrintModal from './VoucherPrintModal';
+import FiscalPeriodClosingModal from './FiscalPeriodClosingModal';
 import { exportVouchersToExcel } from '../utils/excelExport';
+import {
+  getFiscalPeriods,
+  lockFiscalPeriod,
+  unlockFiscalPeriod,
+  setPeriodPreClose,
+  isDateInLockedPeriod
+} from '../lib/fiscalPeriodManager';
 
 interface VouchersViewProps {
   currentCompany?: Company;
@@ -20,8 +28,10 @@ interface VouchersViewProps {
     total: number; 
     lines: any[]; 
     items?: any[];
+    date?: string;
   }) => void;
   theme?: 'slate_gray' | 'zinc_classic' | 'navy_dark' | 'steel_sage' | 'light_gray';
+  initialTab?: 'diario' | 'balance_comprobacion' | 'pyg' | 'cierre';
 }
 
 // Prefill templates for quick accounting posting
@@ -75,11 +85,18 @@ export default function VouchersView({
   costCenters,
   terceros,
   addVoucher,
-  theme = 'slate_gray'
+  theme = 'slate_gray',
+  initialTab
 }: VouchersViewProps) {
   const [showCreator, setShowCreator] = useState(false);
   const [selectedVoucherForPrint, setSelectedVoucherForPrint] = useState<Voucher | null>(null);
-  const [accountingModuleTab, setAccountingModuleTab] = useState<'diario' | 'balance_comprobacion' | 'pyg' | 'cierre'>('diario');
+  const [accountingModuleTab, setAccountingModuleTab] = useState<'diario' | 'balance_comprobacion' | 'pyg' | 'cierre'>(initialTab || 'diario');
+
+  useEffect(() => {
+    if (initialTab) {
+      setAccountingModuleTab(initialTab);
+    }
+  }, [initialTab]);
   const [vType, setVType] = useState<Voucher['type']>('diario');
   const [vConcept, setVConcept] = useState('');
   const [vThirdId, setVThirdId] = useState('');
@@ -95,6 +112,192 @@ export default function VouchersView({
     currency: 'COP',
     period: 2026,
     payrollParameters: { smmlv: 1423500, auxTransporte: 172000 }
+  };
+
+  // MEJORA 5: Gestión de Periodos Fiscales y Bloqueo Contable
+  const currentFiscalYear = activeCompany.period || new Date().getFullYear();
+  const [selectedFiscalYear, setSelectedFiscalYear] = useState<number>(currentFiscalYear);
+  const [fiscalPeriods, setFiscalPeriods] = useState<FiscalPeriod[]>(() => {
+    return getFiscalPeriods(activeCompany.id, currentFiscalYear);
+  });
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>(() => {
+    const currentM = new Date().getMonth() + 1;
+    const mStr = currentM < 10 ? `0${currentM}` : `${currentM}`;
+    return `${currentFiscalYear}-${mStr}`;
+  });
+
+  // Modals for Period Locking & Unlocking
+  const [showLockModal, setShowLockModal] = useState(false);
+  const [lockNotes, setLockNotes] = useState('');
+  const [generateClosingVoucherOnLock, setGenerateClosingVoucherOnLock] = useState(false);
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [unlockReason, setUnlockReason] = useState('');
+  const [periodCertificateToView, setPeriodCertificateToView] = useState<FiscalPeriod | null>(null);
+
+  // Reload periods when company or year changes
+  useEffect(() => {
+    const p = getFiscalPeriods(activeCompany.id, selectedFiscalYear);
+    setFiscalPeriods(p);
+    const currentM = new Date().getMonth() + 1;
+    const mStr = currentM < 10 ? `0${currentM}` : `${currentM}`;
+    setSelectedPeriodId(`${selectedFiscalYear}-${mStr}`);
+  }, [activeCompany.id, selectedFiscalYear]);
+
+  // Selected period object
+  const activePeriod = useMemo(() => {
+    return fiscalPeriods.find(p => p.id === selectedPeriodId) || fiscalPeriods[0] || null;
+  }, [fiscalPeriods, selectedPeriodId]);
+
+  // Live check if the date in the creator is in a locked period
+  const vDateLockCheck = useMemo(() => {
+    return isDateInLockedPeriod(vDate, activeCompany.id);
+  }, [vDate, activeCompany.id, fiscalPeriods]);
+
+  // Monthly stats calculation for the active period
+  const activePeriodStats = useMemo(() => {
+    if (!selectedPeriodId) {
+      return { totalVouchers: 0, totalDebit: 0, totalCredit: 0, ingresos: 0, costos: 0, gastos: 0, netIncome: 0, balanced: true };
+    }
+    const periodVouchers = vouchers.filter(v => (v.date || '').startsWith(selectedPeriodId));
+    let totalDebit = 0;
+    let totalCredit = 0;
+    let ingresos = 0;
+    let costos = 0;
+    let gastos = 0;
+
+    periodVouchers.forEach(v => {
+      (v.lines || []).forEach(l => {
+        totalDebit += l.debit || 0;
+        totalCredit += l.credit || 0;
+        if (l.accountCode.startsWith('4')) {
+          ingresos += (l.credit || 0) - (l.debit || 0);
+        } else if (l.accountCode.startsWith('6')) {
+          costos += (l.debit || 0) - (l.credit || 0);
+        } else if (l.accountCode.startsWith('5')) {
+          gastos += (l.debit || 0) - (l.credit || 0);
+        }
+      });
+    });
+
+    const netIncome = ingresos - (costos + gastos);
+    const balanced = totalDebit === totalCredit;
+
+    return {
+      totalVouchers: periodVouchers.length,
+      totalDebit,
+      totalCredit,
+      ingresos: Math.max(0, ingresos),
+      costos: Math.max(0, costos),
+      gastos: Math.max(0, gastos),
+      netIncome,
+      balanced
+    };
+  }, [vouchers, selectedPeriodId]);
+
+  // Handlers for period locking & unlocking
+  const handleLockPeriod = () => {
+    if (!activePeriod) return;
+    let closingVoucherNum: string | undefined = undefined;
+
+    // Optionally generate closing voucher
+    if (generateClosingVoucherOnLock && (activePeriodStats.ingresos > 0 || activePeriodStats.costos > 0 || activePeriodStats.gastos > 0)) {
+      closingVoucherNum = `CIERRE-${activePeriod.id}`;
+      const closingLines: any[] = [];
+      if (activePeriodStats.ingresos > 0) {
+        closingLines.push({
+          accountCode: '413505',
+          description: `Cancelación cuentas de ingresos mes ${activePeriod.monthName}`,
+          debit: activePeriodStats.ingresos,
+          credit: 0
+        });
+      }
+      const totalEg = activePeriodStats.costos + activePeriodStats.gastos;
+      if (totalEg > 0) {
+        closingLines.push({
+          accountCode: '510506',
+          description: `Cancelación cuentas de gastos/costos mes ${activePeriod.monthName}`,
+          debit: 0,
+          credit: totalEg
+        });
+      }
+      if (activePeriodStats.netIncome >= 0) {
+        closingLines.push({
+          accountCode: '360505',
+          description: `Traslado Utilidad Neta mes ${activePeriod.monthName}`,
+          debit: 0,
+          credit: activePeriodStats.netIncome
+        });
+      } else {
+        closingLines.push({
+          accountCode: '361005',
+          description: `Traslado Pérdida Neta mes ${activePeriod.monthName}`,
+          debit: Math.abs(activePeriodStats.netIncome),
+          credit: 0
+        });
+      }
+
+      addVoucher({
+        number: closingVoucherNum,
+        type: 'ajuste',
+        concept: `Cierre Contable Mensual Definitivo Periodo ${activePeriod.monthName}`,
+        thirdPartyId: terceros[0]?.id || 'empresa',
+        total: Math.max(activePeriodStats.ingresos, totalEg),
+        lines: closingLines,
+        date: `${activePeriod.id}-28`
+      });
+    }
+
+    const updated = lockFiscalPeriod(
+      activeCompany.id,
+      selectedFiscalYear,
+      activePeriod.id,
+      'Contador General (Carlos Vélez)',
+      lockNotes,
+      {
+        totalVouchers: activePeriodStats.totalVouchers,
+        totalDebit: activePeriodStats.totalDebit,
+        totalCredit: activePeriodStats.totalCredit,
+        netIncome: activePeriodStats.netIncome,
+        closingVoucherNumber: closingVoucherNum
+      }
+    );
+    setFiscalPeriods(updated);
+    setShowLockModal(false);
+    setLockNotes('');
+    setGenerateClosingVoucherOnLock(false);
+    toast.success(`Periodo ${activePeriod.monthName} CERRADO y BLOQUEADO con éxito. No se permitirán modificaciones extemporáneas.`, 'Periodo Bloqueado');
+  };
+
+  const handleUnlockPeriod = () => {
+    if (!activePeriod) return;
+    if (!unlockReason.trim()) {
+      toast.warning('Debe ingresar un motivo formal de auditoría para reabrir el periodo contable.');
+      return;
+    }
+
+    const updated = unlockFiscalPeriod(
+      activeCompany.id,
+      selectedFiscalYear,
+      activePeriod.id,
+      'Contador General (Carlos Vélez)',
+      unlockReason
+    );
+    setFiscalPeriods(updated);
+    setShowUnlockModal(false);
+    setUnlockReason('');
+    toast.info(`Periodo ${activePeriod.monthName} reabierto con éxito. Registrado en auditoría.`, 'Periodo Reabierto');
+  };
+
+  const handleTogglePreClose = () => {
+    if (!activePeriod) return;
+    const updated = setPeriodPreClose(
+      activeCompany.id,
+      selectedFiscalYear,
+      activePeriod.id,
+      'Contador General (Carlos Vélez)'
+    );
+    setFiscalPeriods(updated);
+    toast.info(`Estado del periodo ${activePeriod.monthName} actualizado a ${activePeriod.status === 'pre-cierre' ? 'Abierto' : 'Pre-Cierre'}.`);
   };
 
   // State to support expanded details breakdown for specific vouchers
@@ -160,6 +363,15 @@ export default function VouchersView({
   const totalCredits = lines.reduce((acc, l) => acc + l.credit, 0);
 
   const saveVoucher = () => {
+    // Validate period lock
+    if (vDateLockCheck.isLocked) {
+      toast.error(
+        vDateLockCheck.reason || 'El periodo contable para esta fecha está CERRADO y BLOQUEADO por auditoría. No se permiten registros extemporáneos.',
+        'Periodo Bloqueado'
+      );
+      return;
+    }
+
     if (!vConcept.trim()) {
       toast.warning("Por favor configure el concepto general del comprobante contable.", "Concepto Requerido");
       return;
@@ -195,7 +407,8 @@ export default function VouchersView({
       concept: vConcept,
       thirdPartyId: vThirdId || terceros[0]?.id || '',
       total: totalDebits,
-      lines: finalLines
+      lines: finalLines,
+      date: vDate
     });
 
     toast.success(`Comprobante ${nextNumber} guardado y balanceado con éxito.`, "Comprobante Guardado");
@@ -652,15 +865,37 @@ export default function VouchersView({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fecha Contable</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fecha Contable</label>
+                  {vDateLockCheck.isLocked && (
+                    <span className="text-[9px] font-bold font-mono bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                      <i className="ri-lock-line"></i> Periodo Bloqueado
+                    </span>
+                  )}
+                </div>
                 <input
                   type="date"
                   value={vDate}
                   onChange={(e) => setVDate(e.target.value)}
-                  className="w-full text-xs font-semibold bg-zinc-950 border border-zinc-800 text-slate-100 rounded-xl px-3 py-2.5 outline-none focus:border-blue-500"
+                  className={`w-full text-xs font-semibold bg-zinc-950 border text-slate-100 rounded-xl px-3 py-2.5 outline-none transition-colors ${
+                    vDateLockCheck.isLocked ? 'border-rose-500 bg-rose-950/20 text-rose-200' : 'border-zinc-800 focus:border-blue-500'
+                  }`}
                 />
               </div>
             </div>
+
+            {/* Locked Period Warning Banner */}
+            {vDateLockCheck.isLocked && (
+              <div className="p-3.5 bg-rose-950/40 border border-rose-800/60 rounded-xl flex items-center gap-3 text-rose-200 text-xs animate-fade-in">
+                <i className="ri-error-warning-fill text-rose-400 text-lg shrink-0"></i>
+                <div className="flex-1">
+                  <p className="font-bold">Periodo Fiscal Cerrado ({vDateLockCheck.period?.monthName})</p>
+                  <p className="text-[11px] text-rose-300/80 mt-0.5">
+                    {vDateLockCheck.reason || 'Este mes fue cerrado y blindado por auditoría contable. Seleccione otra fecha o solicite la reapertura formal del periodo.'}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-1.5 col-span-1">
@@ -1364,56 +1599,624 @@ export default function VouchersView({
         </div>
       )}
 
-      {/* SUBPESTAÑA 4: CIERRE CONTABLE OFICIAL */}
+      {/* SUBPESTAÑA 4: CIERRE CONTABLE MENSUAL & BLOQUEO DE PERIODOS FISCALES */}
       {accountingModuleTab === 'cierre' && (
         <div className="space-y-6 animate-fade-in text-xs font-sans">
           
+          {/* Main Container Card */}
           <div className={`p-6 border rounded-2xl shadow-sm space-y-6 ${activeTheme.cardStyles}`}>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/5 pb-4">
-              <div>
-                <h3 className="font-display font-black text-base text-white flex items-center gap-2">
-                  <i className="ri-shield-keyhole-line text-amber-400 text-lg"></i> Asistente Oficial de Cierre Contable
+            
+            {/* Header with Title and Year Selector */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-white/5 pb-5">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                    Art. 134 D. 2649 / DUR 2420 NIIF • Inalterabilidad Contable
+                  </span>
+                </div>
+                <h3 className="font-display font-black text-lg text-white flex items-center gap-2.5">
+                  <i className="ri-shield-keyhole-line text-amber-400 text-xl"></i>
+                  Cierre Contable Mensual & Bloqueo de Periodos Fiscales
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Proceso anual obligatorio bajo normativa colombiana. Cancela las cuentas temporales de resultado (4, 5, 6) contra la cuenta 5905 (Ganancias y Pérdidas) y traslada el resultado a cuentas patrimoniales (3605 Utilidad o 3610 Pérdida).
+                <p className="text-xs text-slate-400 max-w-2xl">
+                  Audite balances mensuales, ejecute el cierre definitivo y bloquee periodos contra inserción de facturas o asientos extemporáneos para asegurar el cumplimiento tributario ante la DIAN.
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleGenerateClosingVoucher}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-600/20 transition-all cursor-pointer"
-              >
-                <i className="ri-lock-password-line text-sm"></i> Generar Asiento de Cierre Oficial
-              </button>
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Year Selector Pills */}
+                <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10">
+                  {[2026, 2025].map(yr => (
+                    <button
+                      key={yr}
+                      type="button"
+                      onClick={() => setSelectedFiscalYear(yr)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        selectedFiscalYear === yr
+                          ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Año {yr}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Annual Closing Voucher button */}
+                <button
+                  type="button"
+                  onClick={handleGenerateClosingVoucher}
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-600/20 transition-all cursor-pointer"
+                  title="Generar asiento anual de cancelación de cuentas de resultado (5905)"
+                >
+                  <i className="ri-sparkling-line"></i> Asiento Anual 5905
+                </button>
+              </div>
             </div>
 
-            {/* Diagnostic Box */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cuentas de Ingreso a Cancelar (4)</span>
-                <span className="text-lg font-black font-mono text-emerald-400 block">{formatCOP(pygData.ingresos)}</span>
-                <span className="text-[10px] text-slate-500">Se debitarán para dejarlas en $0</span>
+            {/* Annual Overview KPI Ribbon */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="p-3.5 bg-rose-950/20 border border-rose-800/40 rounded-xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl shrink-0">
+                  <i className="ri-lock-2-line"></i>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-rose-300 uppercase tracking-wider block">
+                    Meses Bloqueados
+                  </span>
+                  <span className="text-xl font-black font-mono text-rose-400">
+                    {fiscalPeriods.filter(p => p.status === 'cerrado_bloqueado').length}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block">de 12 cerrados</span>
+                </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cuentas de Gastos/Costos a Cancelar (5 & 6)</span>
-                <span className="text-lg font-black font-mono text-rose-400 block">{formatCOP(pygData.costos + pygData.gastos)}</span>
-                <span className="text-[10px] text-slate-500">Se acreditarán para dejarlas en $0</span>
+              <div className="p-3.5 bg-amber-950/20 border border-amber-800/40 rounded-xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl shrink-0">
+                  <i className="ri-time-line"></i>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider block">
+                    En Pre-Cierre
+                  </span>
+                  <span className="text-xl font-black font-mono text-amber-400">
+                    {fiscalPeriods.filter(p => p.status === 'pre-cierre').length}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block">en auditoría previa</span>
+                </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Resultado a Trasladar a Patrimonio</span>
-                <span className={`text-lg font-black font-mono block ${pygData.utilidadOperacional >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
-                  {formatCOP(pygData.utilidadOperacional)}
+              <div className="p-3.5 bg-emerald-950/20 border border-emerald-800/40 rounded-xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl shrink-0">
+                  <i className="ri-lock-unlock-line"></i>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">
+                    Meses Abiertos
+                  </span>
+                  <span className="text-xl font-black font-mono text-emerald-400">
+                    {fiscalPeriods.filter(p => p.status === 'abierto').length}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block">operación activa</span>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-blue-950/20 border border-blue-800/40 rounded-xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center text-xl shrink-0">
+                  <i className="ri-scales-3-line"></i>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-blue-300 uppercase tracking-wider block">
+                    Partida Doble Ejercicio
+                  </span>
+                  <span className="text-xs font-black text-emerald-400 block mt-1 flex items-center gap-1">
+                    <i className="ri-checkbox-circle-fill"></i> 100% CUADRADA
+                  </span>
+                  <span className="text-[10px] text-slate-400 block">Diferencia $0</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 12-Month Interactive Grid */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                  Calendario de Periodos Fiscales ({selectedFiscalYear})
                 </span>
-                <span className="text-[10px] text-slate-500">
-                  {pygData.utilidadOperacional >= 0 ? 'Acredita cuenta 360505 (Utilidad)' : 'Debita cuenta 361005 (Pérdida)'}
+                <span className="text-[10px] text-slate-400">
+                  Haga clic en un mes para inspeccionar, auditar o cambiar su estado de bloqueo
                 </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+                {fiscalPeriods.map(period => {
+                  const isSelected = period.id === selectedPeriodId;
+                  const monthVouchers = vouchers.filter(v => (v.date || '').startsWith(period.id));
+                  
+                  return (
+                    <button
+                      key={period.id}
+                      type="button"
+                      onClick={() => setSelectedPeriodId(period.id)}
+                      className={`p-3 rounded-2xl text-left transition-all cursor-pointer relative border ${
+                        isSelected
+                          ? 'bg-blue-600/20 border-blue-500 shadow-md ring-2 ring-blue-500/30'
+                          : period.status === 'cerrado_bloqueado'
+                          ? 'bg-rose-950/20 border-rose-900/40 hover:border-rose-700/60'
+                          : period.status === 'pre-cierre'
+                          ? 'bg-amber-950/20 border-amber-900/40 hover:border-amber-700/60'
+                          : 'bg-black/30 border-white/5 hover:border-white/20'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="font-bold text-xs text-white">
+                          {period.monthName.split(' ')[0]}
+                        </span>
+                        {period.status === 'cerrado_bloqueado' && (
+                          <span className="w-5 h-5 rounded-md bg-rose-500/20 text-rose-400 flex items-center justify-center text-xs" title="Periodo Bloqueado">
+                            <i className="ri-lock-fill"></i>
+                          </span>
+                        )}
+                        {period.status === 'pre-cierre' && (
+                          <span className="w-5 h-5 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs" title="En Pre-Cierre">
+                            <i className="ri-time-line"></i>
+                          </span>
+                        )}
+                        {period.status === 'abierto' && (
+                          <span className="w-5 h-5 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs" title="Periodo Abierto">
+                            <i className="ri-lock-unlock-line"></i>
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-0.5 text-[10px]">
+                        <p className="text-slate-400 font-mono">
+                          {monthVouchers.length} asientos
+                        </p>
+                        <p className={`font-mono font-bold ${
+                          period.status === 'cerrado_bloqueado'
+                            ? 'text-rose-400'
+                            : period.status === 'pre-cierre'
+                            ? 'text-amber-400'
+                            : 'text-emerald-400'
+                        }`}>
+                          {period.status === 'cerrado_bloqueado' ? 'BLOQUEADO' : period.status === 'pre-cierre' ? 'PRE-CIERRE' : 'ABIERTO'}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Selected Month Detail Workspace */}
+            {activePeriod && (
+              <div className="p-5 rounded-2xl bg-black/40 border border-white/10 space-y-5 animate-scale-in">
+                
+                {/* Active Period Header & Action Controls */}
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-white/10 pb-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-base font-bold text-white flex items-center gap-2">
+                        <span>{activePeriod.monthName}</span>
+                      </h4>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                        activePeriod.status === 'cerrado_bloqueado'
+                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                          : activePeriod.status === 'pre-cierre'
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                          : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                      }`}>
+                        {activePeriod.status === 'cerrado_bloqueado' && '🔒 Cerrado y Bloqueado'}
+                        {activePeriod.status === 'pre-cierre' && '🟡 En Fase de Pre-Cierre'}
+                        {activePeriod.status === 'abierto' && '🟢 Abierto para Movimientos'}
+                      </span>
+                    </div>
+
+                    {activePeriod.status === 'cerrado_bloqueado' && (
+                      <p className="text-[11px] text-rose-300/80 flex items-center gap-1.5">
+                        <i className="ri-shield-check-fill text-rose-400"></i>
+                        Cerrado por {activePeriod.closedBy || 'Contador General'} el {activePeriod.closedAt ? new Date(activePeriod.closedAt).toLocaleString('es-CO') : 'Fecha registrada'}. Ningún usuario puede ingresar o editar documentos con fecha en este mes.
+                      </p>
+                    )}
+                    {activePeriod.status === 'pre-cierre' && (
+                      <p className="text-[11px] text-amber-300/80 flex items-center gap-1.5">
+                        <i className="ri-information-line text-amber-400"></i>
+                        Periodo en revisión y conciliación contable. Se recomienda no emitir comprobantes adicionales.
+                      </p>
+                    )}
+                    {activePeriod.status === 'abierto' && (
+                      <p className="text-[11px] text-slate-400">
+                        Periodo regular en operación. Puede asentar comprobantes de diario, egreso, ingreso y facturación con fecha en este mes.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Actions for this Month */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {activePeriod.status === 'abierto' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleTogglePreClose}
+                          className="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <i className="ri-time-line"></i> Poner en Pre-Cierre
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowLockModal(true)}
+                          className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-rose-600/30 transition-all cursor-pointer"
+                        >
+                          <i className="ri-lock-line"></i> Cerrar y Bloquear Periodo
+                        </button>
+                      </>
+                    )}
+
+                    {activePeriod.status === 'pre-cierre' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleTogglePreClose}
+                          className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <i className="ri-arrow-go-back-line"></i> Reabrir a Ordinario
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowLockModal(true)}
+                          className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-rose-600/30 transition-all cursor-pointer"
+                        >
+                          <i className="ri-lock-line"></i> Confirmar Cierre y Bloquear
+                        </button>
+                      </>
+                    )}
+
+                    {activePeriod.status === 'cerrado_bloqueado' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setPeriodCertificateToView(activePeriod)}
+                          className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                        >
+                          <i className="ri-file-text-line"></i> Acta Oficial de Cierre
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowUnlockModal(true)}
+                          className="px-3.5 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <i className="ri-lock-unlock-line"></i> Reabrir Periodo (Desbloquear)
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4 Detailed KPI Cards for this Month */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="p-3 bg-black/30 border border-white/5 rounded-xl">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                      Comprobantes del Mes
+                    </span>
+                    <span className="text-xl font-black font-mono text-white mt-1 block">
+                      {activePeriodStats.totalVouchers}
+                    </span>
+                    <span className="text-[10px] text-slate-500">asentados</span>
+                  </div>
+
+                  <div className="p-3 bg-black/30 border border-white/5 rounded-xl">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                      Cargos (Débitos)
+                    </span>
+                    <span className="text-xl font-black font-mono text-blue-400 mt-1 block">
+                      {formatCOP(activePeriodStats.totalDebit)}
+                    </span>
+                    <span className="text-[10px] text-slate-500">en libros</span>
+                  </div>
+
+                  <div className="p-3 bg-black/30 border border-white/5 rounded-xl">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                      Abonos (Créditos)
+                    </span>
+                    <span className="text-xl font-black font-mono text-rose-400 mt-1 block">
+                      {formatCOP(activePeriodStats.totalCredit)}
+                    </span>
+                    <span className="text-[10px] text-slate-500">en libros</span>
+                  </div>
+
+                  <div className="p-3 bg-black/30 border border-white/5 rounded-xl">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                      Resultado Neto del Mes
+                    </span>
+                    <span className={`text-xl font-black font-mono mt-1 block ${
+                      activePeriodStats.netIncome >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                    }`}>
+                      {formatCOP(activePeriodStats.netIncome)}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {activePeriodStats.netIncome >= 0 ? 'Utilidad mensual' : 'Pérdida mensual'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Pre-Closing Checklist (Lista de Chequeo Obligatoria) */}
+                <div className="p-4 bg-black/20 rounded-xl border border-white/5 space-y-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-300 block flex items-center gap-2">
+                    <i className="ri-task-line text-blue-400"></i>
+                    Lista de Chequeo Obligatoria de Cierre Mensual
+                  </span>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div className="flex items-start gap-2.5 p-2.5 bg-black/30 rounded-lg border border-white/5">
+                      <i className={`ri-checkbox-circle-fill text-base shrink-0 ${activePeriodStats.balanced ? 'text-emerald-400' : 'text-rose-500'}`}></i>
+                      <div>
+                        <p className="font-bold text-white">Partida Doble Balanceada</p>
+                        <p className="text-[11px] text-slate-400">
+                          {activePeriodStats.balanced
+                            ? 'Débitos y Créditos son matemáticamente iguales. Diferencia: $0.'
+                            : `Descuadre detectado: Débitos ${formatCOP(activePeriodStats.totalDebit)} vs Créditos ${formatCOP(activePeriodStats.totalCredit)}.`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 p-2.5 bg-black/30 rounded-lg border border-white/5">
+                      <i className="ri-checkbox-circle-fill text-base text-emerald-400 shrink-0"></i>
+                      <div>
+                        <p className="font-bold text-white">Comprobantes Procesados</p>
+                        <p className="text-[11px] text-slate-400">
+                          Todos los {activePeriodStats.totalVouchers} asientos con fecha en {activePeriod.monthName} están en firme.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 p-2.5 bg-black/30 rounded-lg border border-white/5">
+                      <i className="ri-checkbox-circle-fill text-base text-emerald-400 shrink-0"></i>
+                      <div>
+                        <p className="font-bold text-white">Causación de Ingresos y Gastos</p>
+                        <p className="text-[11px] text-slate-400">
+                          Ingresos: {formatCOP(activePeriodStats.ingresos)} | Costos/Gastos: {formatCOP(activePeriodStats.costos + activePeriodStats.gastos)}.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5 p-2.5 bg-black/30 rounded-lg border border-white/5">
+                      <i className={`ri-shield-fill text-base shrink-0 ${
+                        activePeriod.status === 'cerrado_bloqueado' ? 'text-rose-400' : 'text-amber-400'
+                      }`}></i>
+                      <div>
+                        <p className="font-bold text-white">Blindaje Anti-Extemporáneo</p>
+                        <p className="text-[11px] text-slate-400">
+                          {activePeriod.status === 'cerrado_bloqueado'
+                            ? 'Activo: El sistema rechaza cualquier comprobante nuevo en este mes.'
+                            : 'Pendiente de bloqueo formal.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Audit Trail Logs */}
+                {activePeriod.auditLogs && activePeriod.auditLogs.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-white/5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                      Trazabilidad & Registro de Auditoría del Periodo
+                    </span>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                      {activePeriod.auditLogs.map(log => (
+                        <div key={log.id} className="p-2.5 bg-black/30 rounded-lg border border-white/5 flex items-center justify-between text-[11px]">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-[9.5px] font-bold uppercase ${
+                              log.action === 'cierre_definitivo'
+                                ? 'bg-rose-500/20 text-rose-300'
+                                : log.action === 'desbloqueo'
+                                ? 'bg-amber-500/20 text-amber-300'
+                                : 'bg-blue-500/20 text-blue-300'
+                            }`}>
+                              {log.action.replace('_', ' ')}
+                            </span>
+                            <span className="font-semibold text-slate-200">{log.user}</span>
+                            {log.reason && (
+                              <span className="text-slate-400 italic">"{log.reason}"</span>
+                            )}
+                          </div>
+                          <span className="text-slate-500 font-mono text-[10px]">
+                            {new Date(log.timestamp).toLocaleString('es-CO')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            )}
+
+            {/* Diagnostic Box for Annual 5905 Result Canceling */}
+            <div className="border-t border-white/5 pt-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-white text-xs uppercase tracking-wider">
+                    Cancelación Anual de Cuentas Temporales (Art. 38 Ley 43/90)
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    Cierre acumulado del ejercicio fiscal para trasladar a cuentas de patrimonio (3605 Utilidad o 3610 Pérdida)
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cuentas de Ingreso (4)</span>
+                  <span className="text-lg font-black font-mono text-emerald-400 block">{formatCOP(pygData.ingresos)}</span>
+                  <span className="text-[10px] text-slate-500">Se debitarán contra 5905</span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cuentas de Gastos/Costos (5 & 6)</span>
+                  <span className="text-lg font-black font-mono text-rose-400 block">{formatCOP(pygData.costos + pygData.gastos)}</span>
+                  <span className="text-[10px] text-slate-500">Se acreditarán contra 5905</span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Resultado Neto del Ejercicio</span>
+                  <span className={`text-lg font-black font-mono block ${pygData.utilidadOperacional >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
+                    {formatCOP(pygData.utilidadOperacional)}
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    {pygData.utilidadOperacional >= 0 ? 'Acredita 360505 (Utilidad)' : 'Debita 361005 (Pérdida)'}
+                  </span>
+                </div>
               </div>
             </div>
 
           </div>
+
+          {/* Modal de Bloqueo de Periodo */}
+          {showLockModal && activePeriod && (
+            <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-slate-900 border border-slate-800 text-white rounded-3xl p-6 max-w-lg w-full space-y-5 shadow-2xl animate-scale-in">
+                <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-2xl border border-rose-500/30 shrink-0">
+                    <i className="ri-lock-2-line"></i>
+                  </div>
+                  <div>
+                    <h4 className="font-display font-bold text-base text-white">
+                      Cerrar y Bloquear {activePeriod.monthName}
+                    </h4>
+                    <p className="text-xs text-slate-400">
+                      Auditoría Contable & Bloqueo Preventivo
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-xs text-slate-300">
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <i className="ri-alert-line"></i> Advertencia de Bloqueo Contable
+                    </p>
+                    <p className="text-[11px] text-amber-300/90 mt-1">
+                      Al bloquear este periodo fiscal, ningún usuario (incluyendo administradores y auxiliares) podrá crear, editar o asentar comprobantes contables o facturas con fecha en este mes, garantizando la inalterabilidad ante la DIAN.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Observaciones de Cierre (Opcional)
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Ej. Conciliación bancaria al 100%, arqueo de caja sin novedades, retenciones consolidadas..."
+                      value={lockNotes}
+                      onChange={(e) => setLockNotes(e.target.value)}
+                      className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-rose-500"
+                    />
+                  </div>
+
+                  <label className="flex items-start gap-2.5 p-3 bg-slate-800/40 border border-slate-700/60 rounded-xl cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={generateClosingVoucherOnLock}
+                      onChange={(e) => setGenerateClosingVoucherOnLock(e.target.checked)}
+                      className="mt-0.5 rounded text-blue-600 focus:ring-0 cursor-pointer"
+                    />
+                    <div className="text-[11px]">
+                      <span className="font-bold text-white block">Generar asiento contable de cierre mensual (5905)</span>
+                      <span className="text-slate-400">Cancela los saldos de ingresos y egresos del mes contra la cuenta de ganancias y pérdidas.</span>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowLockModal(false)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLockPeriod}
+                    className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-rose-600/30 transition-all cursor-pointer"
+                  >
+                    <i className="ri-lock-fill"></i> Confirmar Cierre y Bloqueo
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal de Desbloqueo / Reapertura con Justificación Formal */}
+          {showUnlockModal && activePeriod && (
+            <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-slate-900 border border-slate-800 text-white rounded-3xl p-6 max-w-lg w-full space-y-5 shadow-2xl animate-scale-in">
+                <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl border border-amber-500/30 shrink-0">
+                    <i className="ri-lock-unlock-line"></i>
+                  </div>
+                  <div>
+                    <h4 className="font-display font-bold text-base text-white">
+                      Reapertura del Periodo {activePeriod.monthName}
+                    </h4>
+                    <p className="text-xs text-slate-400">
+                      Justificación Formal para Auditoría y Revisoría Fiscal
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-xs text-slate-300">
+                  <p className="text-[11px] text-slate-400">
+                    Para reabrir un periodo fiscal previamente bloqueado, la normatividad contable exige consignar el motivo justificado de la reapertura en la bitácora de auditoría.
+                  </p>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                      Motivo de Reapertura (Requerido) *
+                    </label>
+                    <textarea
+                      rows={3}
+                      required
+                      placeholder="Ej. Solicitud de Revisor Fiscal para ajuste en causación de provisión de cartera..."
+                      value={unlockReason}
+                      onChange={(e) => setUnlockReason(e.target.value)}
+                      className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowUnlockModal(false)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUnlockPeriod}
+                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/30 transition-all cursor-pointer"
+                  >
+                    <i className="ri-lock-unlock-fill"></i> Confirmar Reapertura
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal de Acta / Certificado Oficial de Cierre */}
+          {periodCertificateToView && (
+            <FiscalPeriodClosingModal
+              isOpen={true}
+              onClose={() => setPeriodCertificateToView(null)}
+              period={periodCertificateToView}
+              company={activeCompany}
+              monthlyStats={activePeriodStats}
+              puc={puc}
+            />
+          )}
 
         </div>
       )}

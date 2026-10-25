@@ -306,11 +306,19 @@ export default function WarehousesAndPlantView({
     };
 
     if (editingWh) {
-      updateWarehouse({ ...payload, id: editingWh.id });
+      updateWarehouse({
+        ...editingWh,
+        ...payload,
+        id: editingWh.id,
+        companyId: editingWh.companyId
+      });
+      toast.success(`Bodega "${whName}" actualizada con éxito.`, "Bodega Actualizada");
     } else {
       addWarehouse(payload);
+      toast.success(`Bodega "${whName}" creada con éxito.`, "Bodega Creada");
     }
     setIsWhFormOpen(false);
+    setEditingWh(null);
   };
 
   const handleWhDelete = (id: string, name: string, e: React.MouseEvent) => {
@@ -368,11 +376,18 @@ export default function WarehousesAndPlantView({
     };
 
     if (editingAsset) {
-      updateAsset({ ...payload, id: editingAsset.id });
+      updateAsset({
+        ...editingAsset,
+        ...payload,
+        id: editingAsset.id
+      });
+      toast.success(`Activo "${assetName}" actualizado con éxito.`, "Activo Actualizado");
     } else {
       addAsset(payload);
+      toast.success(`Activo "${assetName}" registrado con éxito.`, "Activo Creado");
     }
     setIsAssetFormOpen(false);
+    setEditingAsset(null);
   };
 
   const handleAssetDelete = (id: string, name: string, e: React.MouseEvent) => {

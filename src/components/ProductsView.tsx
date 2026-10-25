@@ -211,11 +211,15 @@ export default function ProductsView({
 
     if (editingProduct) {
       updateProduct({
+        ...editingProduct,
         ...payload,
-        id: editingProduct.id
+        id: editingProduct.id,
+        companyId: editingProduct.companyId
       });
+      toast.success(`Artículo "${formName}" actualizado con éxito.`, "Artículo Actualizado");
     } else {
       addProduct(payload);
+      toast.success(`Artículo "${formName}" creado con éxito.`, "Artículo Creado");
     }
 
     setIsFormOpen(false);

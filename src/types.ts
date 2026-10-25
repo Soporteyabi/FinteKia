@@ -67,6 +67,42 @@ export interface InvoiceEmailLog {
   errorMessage?: string;
 }
 
+export interface FiscalPeriodAuditLog {
+  id: string;
+  action: 'bloqueo' | 'desbloqueo' | 'pre_cierre' | 'cierre_definitivo';
+  timestamp: string;
+  user: string;
+  reason?: string;
+  metricsSnapshot?: {
+    totalVouchers: number;
+    totalDebit: number;
+    totalCredit: number;
+    netIncome: number;
+  };
+}
+
+export interface FiscalPeriod {
+  id: string; // e.g. "2026-01", "2026-02", etc.
+  year: number; // e.g. 2026
+  month: number; // 1 to 12
+  monthName: string; // e.g. "Enero 2026"
+  status: 'abierto' | 'pre-cierre' | 'cerrado_bloqueado';
+  companyId?: string;
+  closedAt?: string;
+  closedBy?: string;
+  unlockedAt?: string;
+  unlockedBy?: string;
+  unlockReason?: string;
+  closingNotes?: string;
+  auditLogs: FiscalPeriodAuditLog[];
+  // Snapshot metrics at closing
+  totalDebits?: number;
+  totalCredits?: number;
+  netResult?: number;
+  voucherCount?: number;
+  closingVoucherNumber?: string;
+}
+
 export interface Company {
   id: string;
   name: string;

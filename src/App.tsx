@@ -31,6 +31,7 @@ import AlanubeConfigView from './components/AlanubeConfigView';
 import DatabaseView from './components/DatabaseView';
 import SecurityBackupView from './components/SecurityBackupView';
 import LoginView from './components/LoginView';
+import { isDateInLockedPeriod } from './lib/fiscalPeriodManager';
 
 export default function App() {
   const [state, setState] = useState<AppState>(getInitialState());
@@ -68,6 +69,11 @@ export default function App() {
                 vouchers: data.vouchers?.length ? data.vouchers : (extra.vouchers || prev.vouchers),
                 inventory: data.inventory?.length ? data.inventory : (extra.inventory || prev.inventory),
                 bankAccounts: data.bankAccounts?.length ? data.bankAccounts : (extra.bankAccounts || prev.bankAccounts),
+                warehouses: extra.warehouses?.length ? extra.warehouses : prev.warehouses,
+                assets: extra.assets?.length ? extra.assets : prev.assets,
+                inventoryMovements: extra.inventoryMovements?.length ? extra.inventoryMovements : prev.inventoryMovements,
+                boms: extra.boms?.length ? extra.boms : prev.boms,
+                qualityInspections: extra.qualityInspections?.length ? extra.qualityInspections : prev.qualityInspections,
                 ...extra,
               };
             });
@@ -83,11 +89,17 @@ export default function App() {
                 extraState: {
                   vouchers: state.vouchers,
                   inventory: state.inventory,
+                  warehouses: state.warehouses,
+                  assets: state.assets,
+                  inventoryMovements: state.inventoryMovements,
+                  boms: state.boms,
+                  qualityInspections: state.qualityInspections,
                   bankAccounts: state.bankAccounts,
                   budgets: state.budgets,
                   payrollLogs: state.payrollLogs,
                   productionOrders: state.productionOrders,
                   techServiceOrders: state.techServiceOrders,
+                  users: state.users,
                 }
               })
             });
@@ -172,6 +184,11 @@ export default function App() {
             extraState: {
               vouchers: state.vouchers,
               inventory: state.inventory,
+              warehouses: state.warehouses,
+              assets: state.assets,
+              inventoryMovements: state.inventoryMovements,
+              boms: state.boms,
+              qualityInspections: state.qualityInspections,
               bankAccounts: state.bankAccounts,
               budgets: state.budgets,
               payrollLogs: state.payrollLogs,
@@ -419,19 +436,30 @@ export default function App() {
     retenciones?: { retefuente?: number; reteiva?: number; reteica?: number };
     billingProviderData?: any;
     notes?: string;
+    date?: string;
   }) => {
+    const targetDate = p.date || new Date().toISOString().substring(0, 10);
+    const targetCompanyId = p.companyId || state.currentCompanyId;
+
+    // Check if the voucher date falls in a locked fiscal period
+    const lockCheck = isDateInLockedPeriod(targetDate, targetCompanyId);
+    if (lockCheck.isLocked) {
+      toast.error(lockCheck.reason || 'El periodo contable se encuentra cerrado y bloqueado por auditoría. No se permiten registros extemporáneos.', 'Periodo Fiscal Bloqueado');
+      return;
+    }
+
     const newVoucher: Voucher = {
       id: `v-${Date.now()}`,
       number: p.number,
       type: p.type,
-      date: new Date().toISOString().substring(0, 10),
+      date: targetDate,
       concept: p.concept,
       thirdPartyId: p.thirdPartyId,
       status: 'procesado',
       total: p.total,
       lines: p.lines,
       items: p.items,
-      companyId: p.companyId || state.currentCompanyId,
+      companyId: targetCompanyId,
       paymentTerm: p.paymentTerm,
       dueDate: p.dueDate,
       discountTotal: p.discountTotal,
@@ -468,7 +496,15 @@ export default function App() {
   const handleUpdateTechOrder = (updatedOrder: TechServiceOrder) => {
     setState((prev) => ({
       ...prev,
-      techServiceOrders: (prev.techServiceOrders || []).map(o => o.id === updatedOrder.id ? updatedOrder : o)
+      techServiceOrders: (prev.techServiceOrders || []).map(o =>
+        o.id === updatedOrder.id
+          ? {
+              ...o,
+              ...updatedOrder,
+              companyId: updatedOrder.companyId || o.companyId || prev.currentCompanyId
+            }
+          : o
+      )
     }));
   };
 
@@ -880,7 +916,15 @@ export default function App() {
   const handleUpdateTercero = (updatedTer: Tercero) => {
     setState((prev) => ({
       ...prev,
-      terceros: prev.terceros.map((t) => t.id === updatedTer.id ? updatedTer : t)
+      terceros: prev.terceros.map((t) =>
+        t.id === updatedTer.id
+          ? {
+              ...t,
+              ...updatedTer,
+              companyId: updatedTer.companyId || t.companyId || prev.currentCompanyId
+            }
+          : t
+      )
     }));
   };
 
@@ -967,7 +1011,15 @@ export default function App() {
   const handleUpdateProduct = (updatedProd: Product) => {
     setState((prev) => ({
       ...prev,
-      products: prev.products.map((p) => p.id === updatedProd.id ? updatedProd : p)
+      products: prev.products.map((p) =>
+        p.id === updatedProd.id
+          ? {
+              ...p,
+              ...updatedProd,
+              companyId: updatedProd.companyId || p.companyId || prev.currentCompanyId
+            }
+          : p
+      )
     }));
   };
 
@@ -993,7 +1045,15 @@ export default function App() {
   const handleUpdateWarehouse = (updatedWh: Warehouse) => {
     setState((prev) => ({
       ...prev,
-      warehouses: prev.warehouses.map((w) => w.id === updatedWh.id ? updatedWh : w)
+      warehouses: prev.warehouses.map((w) =>
+        w.id === updatedWh.id
+          ? {
+              ...w,
+              ...updatedWh,
+              companyId: updatedWh.companyId || w.companyId || prev.currentCompanyId
+            }
+          : w
+      )
     }));
   };
 
@@ -1018,7 +1078,7 @@ export default function App() {
   const handleUpdateAsset = (updatedAsset: Asset) => {
     setState((prev) => ({
       ...prev,
-      assets: prev.assets.map((a) => a.id === updatedAsset.id ? updatedAsset : a)
+      assets: prev.assets.map((a) => (a.id === updatedAsset.id ? { ...a, ...updatedAsset } : a))
     }));
   };
 
@@ -1128,45 +1188,48 @@ export default function App() {
 
   // Strictly isolate company data:
   // If an entity has companyId === activeCompany.id, it belongs to this company.
-  // Legacy fallback: if companyId is unset, only treat as co-1 if activeCompany is co-1.
+  // Legacy fallback: if companyId is unset, fallback to first/second company safely.
+  const firstCompanyId = state.companies[0]?.id || 'co-1';
+  const secondCompanyId = state.companies[1]?.id || 'co-2';
+
   const activeProducts = React.useMemo(() => 
-    state.products.filter(p => p.companyId === activeCompany.id || (!p.companyId && activeCompany.id === 'co-1')),
-    [state.products, activeCompany.id]
+    state.products.filter(p => p.companyId === activeCompany.id || (!p.companyId && activeCompany.id === firstCompanyId)),
+    [state.products, activeCompany.id, firstCompanyId]
   );
 
   const activeInventory = React.useMemo(() => 
-    state.inventory.filter(i => i.companyId === activeCompany.id || (!i.companyId && activeCompany.id === 'co-1')),
-    [state.inventory, activeCompany.id]
+    state.inventory.filter(i => i.companyId === activeCompany.id || (!i.companyId && activeCompany.id === firstCompanyId)),
+    [state.inventory, activeCompany.id, firstCompanyId]
   );
 
   const activeWarehouses = React.useMemo(() => 
-    state.warehouses.filter(w => w.companyId === activeCompany.id || (!w.companyId && activeCompany.id === 'co-1')),
-    [state.warehouses, activeCompany.id]
+    state.warehouses.filter(w => w.companyId === activeCompany.id || (!w.companyId && activeCompany.id === firstCompanyId)),
+    [state.warehouses, activeCompany.id, firstCompanyId]
   );
 
   const activeVouchers = React.useMemo(() => 
-    state.vouchers.filter(v => v.companyId === activeCompany.id || (!v.companyId && activeCompany.id === 'co-1')),
-    [state.vouchers, activeCompany.id]
+    state.vouchers.filter(v => v.companyId === activeCompany.id || (!v.companyId && activeCompany.id === firstCompanyId)),
+    [state.vouchers, activeCompany.id, firstCompanyId]
   );
 
   const activeBankAccounts = React.useMemo(() => 
-    state.bankAccounts.filter(b => b.companyId === activeCompany.id || (!b.companyId && activeCompany.id === 'co-1')),
-    [state.bankAccounts, activeCompany.id]
+    state.bankAccounts.filter(b => b.companyId === activeCompany.id || (!b.companyId && activeCompany.id === firstCompanyId)),
+    [state.bankAccounts, activeCompany.id, firstCompanyId]
   );
 
   const activeProductionOrders = React.useMemo(() => 
-    state.productionOrders.filter(o => o.companyId === activeCompany.id || (!o.companyId && activeCompany.id === 'co-2')),
-    [state.productionOrders, activeCompany.id]
+    state.productionOrders.filter(o => o.companyId === activeCompany.id || (!o.companyId && activeCompany.id === secondCompanyId)),
+    [state.productionOrders, activeCompany.id, secondCompanyId]
   );
 
   const activeTechServiceOrders = React.useMemo(() => 
-    (state.techServiceOrders || []).filter(t => t.companyId === activeCompany.id || (!t.companyId && activeCompany.id === 'co-1')),
-    [state.techServiceOrders, activeCompany.id]
+    (state.techServiceOrders || []).filter(t => t.companyId === activeCompany.id || (!t.companyId && activeCompany.id === firstCompanyId)),
+    [state.techServiceOrders, activeCompany.id, firstCompanyId]
   );
 
   const activeTerceros = React.useMemo(() => 
-    state.terceros.filter(t => t.companyId === activeCompany.id || (!t.companyId && activeCompany.id === 'co-1')),
-    [state.terceros, activeCompany.id]
+    state.terceros.filter(t => t.companyId === activeCompany.id || (!t.companyId && activeCompany.id === firstCompanyId)),
+    [state.terceros, activeCompany.id, firstCompanyId]
   );
 
   const activeBoms = React.useMemo(() => 
@@ -2167,7 +2230,7 @@ export default function App() {
                 )
               )}
 
-              {state.activeView === 'comprobantes' && (
+              {(state.activeView === 'comprobantes' || state.activeView === 'cierre_periodos') && (
                 <VouchersView
                   currentCompany={activeCompany}
                   vouchers={activeVouchers}
@@ -2176,6 +2239,7 @@ export default function App() {
                   terceros={activeTerceros}
                   addVoucher={handleAddVoucher}
                   theme={currentThemeId}
+                  initialTab={state.activeView === 'cierre_periodos' ? 'cierre' : 'diario'}
                 />
               )}
 

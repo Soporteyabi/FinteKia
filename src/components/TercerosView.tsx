@@ -158,8 +158,10 @@ export default function TercerosView({
 
     if (editingTercero) {
       updateTercero({
+        ...editingTercero,
         ...payload,
-        id: editingTercero.id
+        id: editingTercero.id,
+        companyId: editingTercero.companyId
       });
       toast.success(`Tercero ${formName} actualizado con éxito con NIT validado (${normalizedNit}).`, "Actualizado");
     } else {
