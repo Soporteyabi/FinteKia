@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from "./context/ToastContext";
 import { getInitialState, saveStateToLocalStorage } from './store';
-import { AppState, Company, Voucher, ProductionOrder, QualityInspection, Product, InventoryItem, Tercero, Warehouse, Asset, BankAccount, BankTransaction, Budget, PayrollLog, UserProfile, TechServiceOrder } from './types';
+import { AppState, Company, Voucher, ProductionOrder, QualityInspection, Product, InventoryItem, Tercero, Warehouse, Asset, BankAccount, BankTransaction, Budget, PayrollLog, UserProfile, TechServiceOrder, CardPaymentDetails } from './types';
 import { useAuth } from './context/AuthContext.tsx';
 
 // Importing sub components
@@ -431,7 +431,7 @@ export default function App() {
     thirdPartyId: string; 
     total: number; 
     lines: any[]; 
-    items?: any[];
+    items?: any[]; 
     companyId?: string;
     paymentTerm?: 'contado' | 'credito';
     dueDate?: string;
@@ -440,6 +440,9 @@ export default function App() {
     billingProviderData?: any;
     notes?: string;
     date?: string;
+    paymentMethod?: string;
+    cardDetails?: CardPaymentDetails;
+    paymentLink?: string;
   }) => {
     const targetDate = p.date || new Date().toISOString().substring(0, 10);
     const targetCompanyId = p.companyId || state.currentCompanyId;
@@ -468,7 +471,10 @@ export default function App() {
       discountTotal: p.discountTotal,
       retenciones: p.retenciones,
       billingProviderData: p.billingProviderData,
-      notes: p.notes
+      notes: p.notes,
+      paymentMethod: p.paymentMethod,
+      cardDetails: p.cardDetails,
+      paymentLink: p.paymentLink
     };
 
     setState((prev) => ({

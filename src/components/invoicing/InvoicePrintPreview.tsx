@@ -672,7 +672,23 @@ ${linesSummary}
             <div className="space-y-0.5">
               <p className="font-bold text-slate-400 uppercase text-[8.5px] tracking-wider mb-0.5">Detalles de Operación Fiscal</p>
               <p className="text-slate-600">Forma de Pago: <strong className="uppercase">{invoice.paymentTerm === 'credito' ? 'Crédito' : 'Contado'}</strong></p>
-              <p className="text-slate-600">Medio de Pago: <strong className="uppercase">Transferencia Bancaria / Efectivo</strong></p>
+              <p className="text-slate-600">
+                Medio de Pago: <strong className="uppercase">
+                  {invoice.cardDetails 
+                    ? invoice.cardDetails.methodType === 'wompi_online' 
+                      ? 'Pasarela Wompi / PSE / Virtual' 
+                      : `Datáfono POS (${invoice.cardDetails.franchise?.toUpperCase() || 'Tarjeta'})` 
+                    : invoice.paymentMethod 
+                      ? invoice.paymentMethod.toUpperCase() 
+                      : 'Efectivo / Transferencia'}
+                </strong>
+              </p>
+              {invoice.cardDetails && (
+                <p className="text-slate-600 font-mono text-[9px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                  {invoice.cardDetails.franchise?.toUpperCase()} •••• {invoice.cardDetails.lastFourDigits} · Aut: {invoice.cardDetails.authorizationCode}
+                  {invoice.cardDetails.installments && invoice.cardDetails.installments > 1 ? ` · ${invoice.cardDetails.installments} cuotas` : ''}
+                </p>
+              )}
               <p className="text-slate-600">Moneda: <strong>COP - Peso Colombiano</strong></p>
               <p className="text-slate-600">Ambiente DIAN: <strong className="uppercase">{activeBillingConfig.environment}</strong></p>
             </div>
@@ -937,6 +953,28 @@ ${linesSummary}
               <span>TOTAL A PAGAR:</span>
               <span>{formatCOP(invoice.total)}</span>
             </div>
+          </div>
+
+          {/* Payment method on ticket */}
+          <div className="pt-1 pb-1 border-t border-dashed border-slate-300 text-[10px] space-y-0.5">
+            <div className="flex justify-between">
+              <span>FORMA PAGO:</span>
+              <span className="font-semibold uppercase">{invoice.paymentTerm === 'credito' ? 'Crédito' : 'Contado'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>MEDIO PAGO:</span>
+              <span className="font-semibold uppercase">
+                {invoice.cardDetails 
+                  ? invoice.cardDetails.methodType === 'wompi_online' ? 'WOMPI ONLINE' : `DATÁFONO ${invoice.cardDetails.franchise?.toUpperCase() || ''}`
+                  : (invoice.paymentMethod || 'EFECTIVO').toUpperCase()}
+              </span>
+            </div>
+            {invoice.cardDetails && (
+              <div className="pt-0.5 text-[9px] text-slate-600 flex justify-between font-mono">
+                <span>VÁUCHER/AUT:</span>
+                <span>{invoice.cardDetails.authorizationCode} (•••• {invoice.cardDetails.lastFourDigits})</span>
+              </div>
+            )}
           </div>
 
           {/* CUFE on ticket */}

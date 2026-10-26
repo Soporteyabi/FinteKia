@@ -55,6 +55,38 @@ export interface SmtpConfig {
   autoSendOnInvoiceCreation?: boolean;
 }
 
+export interface WompiConfig {
+  enabled: boolean;
+  environment: 'sandbox' | 'production';
+  publicKey: string; // pub_test_... or pub_prod_...
+  privateKey?: string; // prv_test_... or prv_prod_...
+  integritySecret?: string; // test_integrity_... or prod_integrity_...
+  eventsUrl?: string; // Webhook URL (e.g. /api/wompi/webhook)
+  acceptedPaymentMethods: ('CARD' | 'NEQUI' | 'BANCOLOMBIA_TRANSFER' | 'PSE')[];
+  autoCreateReceipt: boolean; // Auto genera Recibo de Caja (RC) al confirmar pago
+  pasarelaAccountCode: string; // Cuenta 111005 (Bancos / Wompi Pasarela)
+  commissionAccountCode: string; // Cuenta 530515 (Comisiones Bancarias / Pasarela)
+}
+
+export interface DatafonoConfig {
+  enabled: boolean;
+  provider: 'wompi_pos' | 'bold' | 'redeban' | 'credibanco' | 'autonomo';
+  terminalId?: string; // Código de Terminal de datáfono físico
+  autoReceipt: boolean;
+}
+
+export interface CardPaymentDetails {
+  methodType: 'datafono' | 'wompi_online';
+  cardType?: 'debito' | 'credito';
+  franchise?: 'visa' | 'mastercard' | 'amex' | 'diners' | 'otro';
+  lastFourDigits?: string;
+  authorizationCode?: string; // Número de voucher / aprobación emitido por el datáfono
+  installments?: number; // Cuotas (1, 2, 3, 6, 12, 24, 36)
+  wompiTransactionId?: string;
+  wompiPaymentLink?: string;
+  wompiStatus?: 'PENDING' | 'APPROVED' | 'DECLINED' | 'ERROR';
+}
+
 export interface InvoiceEmailLog {
   id: string;
   invoiceNumber: string;
@@ -123,6 +155,8 @@ export interface Company {
   billingConfig?: ElectronicBillingConfig; // Configuración de Facturación Electrónica vía Tercero
   invoiceDesign?: InvoiceDesignConfig; // Configuración visual personalizada de Factura y Logotipo
   smtpConfig?: SmtpConfig; // Configuración de Servidor de Correo Saliente (SMTP) para Facturas DIAN
+  wompiConfig?: WompiConfig; // Configuración de Pasarela Wompi Bancolombia (Sandbox / Producción)
+  datafonoConfig?: DatafonoConfig; // Configuración de Datáfono físico para mostrador
   payrollParameters: {
     smmlv: number;
     auxTransporte: number;
@@ -332,6 +366,9 @@ export interface Voucher {
   notes?: string;
   isCreditNote?: boolean;
   relatedVoucherNumber?: string;
+  paymentMethod?: 'efectivo' | 'transferencia' | 'debito' | 'credito' | 'wompi' | string;
+  cardDetails?: CardPaymentDetails;
+  paymentLink?: string; // Link de Pago Wompi
   billingProviderData?: {
     providerName: string; // e.g. 'Factus', 'Siigo', 'Alegra', 'Dataico'
     transactionId: string; // External transaction UUID from the provider

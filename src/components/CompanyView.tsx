@@ -33,7 +33,8 @@ import {
   ShieldCheck,
   CheckCheck,
   Key,
-  Palette
+  Palette,
+  CreditCard
 } from 'lucide-react';
 
 interface CompanyViewProps {
@@ -56,11 +57,22 @@ export default function CompanyView({
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
   const isDark = theme !== 'light_gray';
 
-  // Toggle between "directory", "form" and "invoice_design" tabs
-  const [activeTab, setActiveTab] = useState<'directory' | 'form' | 'invoice_design'>('directory');
+  // Toggle between "directory", "form", "invoice_design" and "wompi_payments" tabs
+  const [activeTab, setActiveTab] = useState<'directory' | 'form' | 'invoice_design' | 'wompi_payments'>('directory');
 
   // Track which company we are currently editing
   const [editingCompanyId, setEditingCompanyId] = useState<string>(currentCompany.id);
+
+  // Wompi & Datáfono configuration states
+  const [wompiEnabled, setWompiEnabled] = useState(currentCompany.wompiConfig?.enabled ?? true);
+  const [wompiEnv, setWompiEnv] = useState<'sandbox' | 'production'>(currentCompany.wompiConfig?.environment || 'sandbox');
+  const [wompiPubKey, setWompiPubKey] = useState(currentCompany.wompiConfig?.publicKey || 'pub_test_Q5yDA9xoKdePzhSGeVe9HAez7HgGObCi');
+  const [wompiPrivKey, setWompiPrivKey] = useState(currentCompany.wompiConfig?.privateKey || '');
+  const [wompiIntegritySecret, setWompiIntegritySecret] = useState(currentCompany.wompiConfig?.integritySecret || 'test_integrity_4XG9Nsm2j1Qz8hP54gH6xL7zK1a');
+  const [wompiAutoReceipt, setWompiAutoReceipt] = useState(currentCompany.wompiConfig?.autoCreateReceipt ?? true);
+  const [datafonoEnabled, setDatafonoEnabled] = useState(currentCompany.datafonoConfig?.enabled ?? true);
+  const [datafonoProvider, setDatafonoProvider] = useState(currentCompany.datafonoConfig?.provider || 'wompi_pos');
+  const [datafonoTerminalId, setDatafonoTerminalId] = useState(currentCompany.datafonoConfig?.terminalId || 'POS-CAJA-01');
 
   // Invoice Design customizer state
   const [designLogoPosition, setDesignLogoPosition] = useState<InvoiceDesignConfig['logoPosition']>('left');
@@ -434,6 +446,20 @@ export default function CompanyView({
         >
           <Palette className="w-4 h-4" />
           Diseño de Factura & Ubicación del Logo
+        </button>
+        <button
+          onClick={() => {
+            setEditingCompanyId(currentCompany.id);
+            setActiveTab('wompi_payments');
+          }}
+          className={`pb-3 text-xs font-bold uppercase transition-all border-b-2 flex items-center gap-2 px-1 cursor-pointer ${
+            activeTab === 'wompi_payments' 
+              ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' 
+              : 'border-transparent text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+          }`}
+        >
+          <CreditCard className="w-4 h-4 text-emerald-500" />
+          Pasarela Wompi & Datáfonos
         </button>
       </div>
 
@@ -2134,6 +2160,322 @@ export default function CompanyView({
                   </div>
                 </div>
 
+              </div>
+            </form>
+          </div>
+        );
+      })()}
+
+      {/* TAB 4: Wompi Bancolombia Gateway & Physical Datafono Configuration */}
+      {activeTab === 'wompi_payments' && (() => {
+        const targetCo = companies.find(c => c.id === editingCompanyId) || currentCompany;
+
+        const handleSaveWompiConfig = (e: React.FormEvent) => {
+          e.preventDefault();
+          const updated: Company = {
+            ...targetCo,
+            wompiConfig: {
+              enabled: wompiEnabled,
+              environment: wompiEnv,
+              publicKey: wompiPubKey.trim(),
+              privateKey: wompiPrivKey.trim() || undefined,
+              integritySecret: wompiIntegritySecret.trim() || undefined,
+              eventsUrl: '/api/wompi/webhook',
+              acceptedPaymentMethods: ['CARD', 'NEQUI', 'BANCOLOMBIA_TRANSFER', 'PSE'],
+              autoCreateReceipt: wompiAutoReceipt,
+              pasarelaAccountCode: '111005',
+              commissionAccountCode: '530515'
+            },
+            datafonoConfig: {
+              enabled: datafonoEnabled,
+              provider: datafonoProvider as any,
+              terminalId: datafonoTerminalId.trim() || 'POS-CAJA-01',
+              autoReceipt: true
+            }
+          };
+          updateCompany(updated);
+          toast.success(
+            `Configuración de Wompi (${wompiEnv === 'sandbox' ? 'Modo Pruebas' : 'Producción'}) y Datáfono guardada para "${targetCo.name}".`,
+            'Pasarela de Pagos Actualizada'
+          );
+        };
+
+        const handleLoadSandboxCredentials = () => {
+          setWompiEnabled(true);
+          setWompiEnv('sandbox');
+          setWompiPubKey('pub_test_Q5yDA9xoKdePzhSGeVe9HAez7HgGObCi');
+          setWompiPrivKey('prv_test_54938a1b029384726182948291038294');
+          setWompiIntegritySecret('test_integrity_4XG9Nsm2j1Qz8hP54gH6xL7zK1a');
+          toast.info(
+            'Se han cargado las llaves oficiales de Sandbox de Wompi. Ya puedes realizar pruebas de cobro con tarjeta sin dinero real.',
+            'Credenciales Sandbox Cargadas'
+          );
+        };
+
+        const webhookFullUrl = typeof window !== 'undefined' 
+          ? `${window.location.origin}/api/wompi/webhook` 
+          : 'https://tu-dominio.com/api/wompi/webhook';
+
+        return (
+          <div className="space-y-6 animate-fade-in text-xs">
+            {/* Context Header */}
+            <div className={`p-4 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+              isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-500 flex items-center justify-center text-xl shrink-0">
+                  <CreditCard className="w-5 h-5 text-blue-500" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Pasarela Wompi Bancolombia & Datáfonos Físicos</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase ${
+                      wompiEnabled
+                        ? wompiEnv === 'sandbox'
+                          ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                          : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                        : 'bg-slate-500/15 text-slate-400 border border-slate-500/30'
+                    }`}>
+                      {wompiEnabled ? (wompiEnv === 'sandbox' ? 'Sandbox (Pruebas)' : 'Producción Activa') : 'Deshabilitado'}
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Organización activa: <span className="font-bold text-slate-700 dark:text-slate-200">{targetCo.name}</span> (NIT: {targetCo.nit})
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleLoadSandboxCredentials}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                title="Cargar credenciales públicas de prueba para ensayar transacciones sin dinero real"
+              >
+                <i className="ri-flask-line text-sm"></i>
+                <span>Cargar Sandbox Wompi Demo (1-Clic)</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveWompiConfig} className="space-y-6">
+              {/* Section 1: Wompi Online Gateway */}
+              <div className={`p-5 rounded-2xl border space-y-4 ${
+                isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'
+              }`}>
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-xs uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                      1. Pasarela Virtual Wompi (Links, QR y Checkout)
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
+                    <input
+                      type="checkbox"
+                      checked={wompiEnabled}
+                      onChange={(e) => setWompiEnabled(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span className={wompiEnabled ? 'text-emerald-500 font-bold' : 'text-slate-400'}>
+                      {wompiEnabled ? 'Pasarela Habilitada' : 'Pasarela Deshabilitada'}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Environment Selector */}
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Ambiente de Operación:
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setWompiEnv('sandbox')}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          wompiEnv === 'sandbox'
+                            ? 'bg-amber-500/10 border-amber-500 text-amber-500 font-bold ring-1 ring-amber-500/30'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-400 text-slate-500'
+                        }`}
+                      >
+                        <p className="font-extrabold text-xs">🧪 Modo Pruebas (Sandbox)</p>
+                        <p className="text-[10px] opacity-80 mt-0.5">Usa tarjetas ficticias de prueba oficiales de Wompi sin cargos bancarios reales.</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setWompiEnv('production')}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          wompiEnv === 'production'
+                            ? 'bg-blue-600/15 border-blue-500 text-blue-500 font-bold ring-1 ring-blue-500/30'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-400 text-slate-500'
+                        }`}
+                      >
+                        <p className="font-extrabold text-xs">🚀 Modo Producción (En Vivo)</p>
+                        <p className="text-[10px] opacity-80 mt-0.5">Cobra dinero real a tarjetas de crédito, débito, PSE, Nequi y Botón Bancolombia.</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Public Key */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Llave Pública ({wompiEnv === 'sandbox' ? 'pub_test_...' : 'pub_prod_...'})
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={wompiPubKey}
+                      onChange={(e) => setWompiPubKey(e.target.value)}
+                      placeholder={wompiEnv === 'sandbox' ? 'pub_test_xxxxxxxxxxxxxxxx' : 'pub_prod_xxxxxxxxxxxxxxxx'}
+                      className={`w-full px-3 py-2.5 rounded-xl border font-mono text-xs outline-none ${
+                        isDark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
+                    />
+                    <p className="text-[10px] text-slate-400">Encuéntrala en tu portal Wompi &gt; Desarrolladores &gt; Llaves de API.</p>
+                  </div>
+
+                  {/* Integrity Secret */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Secreto de Integridad ({wompiEnv === 'sandbox' ? 'test_integrity_...' : 'prod_integrity_...'})
+                    </label>
+                    <input
+                      type="password"
+                      value={wompiIntegritySecret}
+                      onChange={(e) => setWompiIntegritySecret(e.target.value)}
+                      placeholder="test_integrity_xxxxxxxxxxxxxxxx"
+                      className={`w-full px-3 py-2.5 rounded-xl border font-mono text-xs outline-none ${
+                        isDark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
+                    />
+                    <p className="text-[10px] text-slate-400">Protege cada cobro calculando la firma digital SHA-256 anti-manipulación.</p>
+                  </div>
+
+                  {/* Webhook Events URL */}
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      URL de Eventos / Webhook (Pégala en tu portal Wompi):
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={webhookFullUrl}
+                        className={`flex-1 px-3 py-2.5 rounded-xl border font-mono text-xs select-all outline-none ${
+                          isDark ? 'bg-slate-950/60 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-300 text-slate-700'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(webhookFullUrl);
+                          toast.success('URL de Webhook copiada. Pégala en tu cuenta de Wompi > URL de Eventos.', 'Copiado');
+                        }}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white cursor-pointer shrink-0 flex items-center gap-1.5"
+                      >
+                        <i className="ri-file-copy-line"></i>
+                        <span>Copiar URL</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Accounting Accounts */}
+                  <div className="p-3.5 rounded-xl bg-slate-800/40 border border-slate-800 md:col-span-2 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-slate-200 text-xs">Cuentas Contables Asignadas (PUC Colombia):</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        • Cuenta Ingreso Pasarela: <span className="font-mono text-cyan-400 font-bold">111005 (Bancos / Wompi)</span><br />
+                        • Cuenta Gasto Comisión: <span className="font-mono text-cyan-400 font-bold">530515 (Comisiones Financieras)</span>
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs">
+                      <input
+                        type="checkbox"
+                        checked={wompiAutoReceipt}
+                        onChange={(e) => setWompiAutoReceipt(e.target.checked)}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span className="font-semibold text-slate-300">Generar Recibo de Caja (RC) automático al aprobarse el pago</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Physical POS Datafono Configuration */}
+              <div className={`p-5 rounded-2xl border space-y-4 ${
+                isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'
+              }`}>
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <span className="font-black text-xs uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    2. Datáfonos Físicos en Mostrador (Cobro Presencial)
+                  </span>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
+                    <input
+                      type="checkbox"
+                      checked={datafonoEnabled}
+                      onChange={(e) => setDatafonoEnabled(e.target.checked)}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span className={datafonoEnabled ? 'text-emerald-500 font-bold' : 'text-slate-400'}>
+                      {datafonoEnabled ? 'Datáfono Activo' : 'Datáfono Inactivo'}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Red o Proveedor del Datáfono:
+                    </label>
+                    <select
+                      value={datafonoProvider}
+                      onChange={(e) => setDatafonoProvider(e.target.value as any)}
+                      className={`w-full px-3 py-2.5 rounded-xl border text-xs font-bold outline-none ${
+                        isDark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
+                    >
+                      <option value="wompi_pos">Wompi Datáfono (mPOS Bancolombia)</option>
+                      <option value="bold">Bold Datáfono (Smart / Pro)</option>
+                      <option value="redeban">Redeban Multicolor</option>
+                      <option value="credibanco">Credibanco</option>
+                      <option value="autonomo">Datáfono Autónomo / Bancario Genérico</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Código de Terminal / ID de Caja:
+                    </label>
+                    <input
+                      type="text"
+                      value={datafonoTerminalId}
+                      onChange={(e) => setDatafonoTerminalId(e.target.value)}
+                      placeholder="ej. TERM-POS-01 o CAJA-PRINCIPAL"
+                      className={`w-full px-3 py-2.5 rounded-xl border font-mono font-bold text-xs outline-none ${
+                        isDark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-slate-300">
+                  <p className="font-bold text-emerald-400 flex items-center gap-1.5">
+                    <i className="ri-information-line"></i> ¿Cómo cobra el cajero con datáfono físico?
+                  </p>
+                  <p className="mt-1 leading-relaxed text-[11px] text-slate-400">
+                    Al emitir la factura en el módulo de Facturación o POS, se selecciona <strong className="text-white">Tarjeta Débito (Código DIAN 49)</strong> o <strong className="text-white">Tarjeta Crédito (Código DIAN 48)</strong>. El cajero ingresa el <strong className="text-white">Número de Aprobación/Voucher</strong> impreso por el datáfono para que quede indexado en el comprobante y en la auditoría contable.
+                  </p>
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Save className="w-4 h-4 text-white" />
+                  <span>Guardar Configuración Wompi & Datáfono</span>
+                </button>
               </div>
             </form>
           </div>
