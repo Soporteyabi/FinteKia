@@ -32,6 +32,7 @@ import DatabaseView from './components/DatabaseView';
 import SecurityBackupView from './components/SecurityBackupView';
 import LoginView from './components/LoginView';
 import ModuleNavigationHeader from './components/ModuleNavigationHeader';
+import QuickSearchModal from './components/QuickSearchModal';
 import { VIEW_METADATA_MAP, CONNECTED_MODULES_MAP } from './utils/navigationConfig';
 import { isDateInLockedPeriod } from './lib/fiscalPeriodManager';
 
@@ -1316,13 +1317,14 @@ export default function App() {
 
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        searchInputRef.current?.focus();
+        setIsQuickSearchOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -1544,39 +1546,39 @@ export default function App() {
           </div>
         </div>
 
-        {/* Center: Global Search Bar */}
+        {/* Center: Global Search Bar - Opens QuickSearchModal */}
         <div className="flex-1 max-w-md mx-2 relative hidden md:block">
-          <div className="relative flex items-center">
-            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={globalSearch}
-              onChange={(e) => setGlobalSearch(e.target.value)}
-              placeholder="Buscar módulos, clientes, facturas o cuentas..."
-              className={`w-full pl-9 pr-14 py-1.5 rounded-xl border text-xs focus:outline-none transition-all shadow-inner ${
-                isLight 
-                  ? 'bg-slate-100 border-slate-300 text-slate-950 placeholder-slate-500 font-bold focus:border-blue-500' 
-                  : 'bg-slate-100 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40'
-              }`}
-            />
-            {globalSearch ? (
-              <button
-                onClick={() => setGlobalSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-xs cursor-pointer"
-                title="Limpiar búsqueda"
-              >
-                <i className="ri-close-line text-sm"></i>
-              </button>
-            ) : (
-              <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono px-1.5 py-0.5 rounded border pointer-events-none ${
-                isLight ? 'text-slate-600 bg-slate-200/80 border-slate-300 font-bold' : 'text-slate-400 dark:text-slate-500 bg-slate-200/60 dark:bg-slate-800 border-slate-300 dark:border-slate-700/60'
-              }`}>
-                ⌘K
-              </span>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsQuickSearchOpen(true)}
+            className={`w-full pl-9 pr-14 py-2 rounded-xl border text-xs text-left flex items-center transition-all shadow-inner cursor-pointer relative group ${
+              isLight 
+                ? 'bg-slate-100 hover:bg-slate-200/80 border-slate-300 text-slate-700' 
+                : 'bg-slate-100 dark:bg-slate-900/80 hover:dark:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-400 hover:text-white'
+            }`}
+            title="Búsqueda rápida de clientes, productos y documentos (Ctrl+K)"
+          >
+            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 text-sm transition-colors"></i>
+            <span className="truncate">Buscar clientes, productos, facturas o módulos...</span>
+            <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono px-1.5 py-0.5 rounded border pointer-events-none ${
+              isLight ? 'text-slate-600 bg-slate-200/80 border-slate-300 font-bold' : 'text-slate-400 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 border-slate-300 dark:border-slate-700/60'
+            }`}>
+              Ctrl+K
+            </span>
+          </button>
         </div>
+
+        {/* Mobile Quick Search Button */}
+        <button
+          type="button"
+          onClick={() => setIsQuickSearchOpen(true)}
+          className={`md:hidden p-2 rounded-xl border text-xs cursor-pointer transition-colors ${
+            isLight ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200' : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white'
+          }`}
+          title="Búsqueda rápida (Ctrl+K)"
+        >
+          <i className="ri-search-line text-sm"></i>
+        </button>
 
         {/* Right Section: System Status & User Actions */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
@@ -2803,6 +2805,18 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Global Quick Search Component (Accessible via Ctrl+K / ⌘K) */}
+      <QuickSearchModal
+        isOpen={isQuickSearchOpen}
+        onClose={() => setIsQuickSearchOpen(false)}
+        terceros={state.terceros}
+        products={state.products}
+        vouchers={state.vouchers}
+        inventory={state.inventory}
+        onNavigateToView={navigateToView}
+        theme={currentThemeId}
+      />
 
     </div>
   );

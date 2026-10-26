@@ -17,6 +17,7 @@ interface SidebarProps {
   setTheme: (t: 'slate_gray' | 'zinc_classic' | 'navy_dark' | 'steel_sage' | 'light_gray') => void;
   isCollapsed?: boolean;
   setIsCollapsed?: (val: boolean) => void;
+  onOpenQuickSearch?: () => void;
 }
 
 export const THEMES_MAP = {
@@ -245,7 +246,8 @@ export default function Sidebar({
   theme,
   setTheme,
   isCollapsed: externalIsCollapsed,
-  setIsCollapsed: externalSetIsCollapsed
+  setIsCollapsed: externalSetIsCollapsed,
+  onOpenQuickSearch
 }: SidebarProps) {
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   
@@ -410,18 +412,22 @@ export default function Sidebar({
   // Keyboard shortcut for search (Ctrl+K or ⌘K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        const searchInput = document.getElementById('sidebar-quick-search');
-        if (searchInput) {
-          if (isCollapsed) setIsCollapsed(false);
-          searchInput.focus();
+        if (onOpenQuickSearch) {
+          onOpenQuickSearch();
+        } else {
+          const searchInput = document.getElementById('sidebar-quick-search');
+          if (searchInput) {
+            if (isCollapsed) setIsCollapsed(false);
+            searchInput.focus();
+          }
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isCollapsed]);
+  }, [onOpenQuickSearch, isCollapsed]);
 
   return (
     <motion.aside
