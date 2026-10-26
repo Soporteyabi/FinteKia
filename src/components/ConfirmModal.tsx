@@ -47,7 +47,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             type="button"
             id="confirm-modal-cancel"
             onClick={onCancel}
-            className="w-full md:w-auto px-4 py-2.5 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-zinc-750 text-zinc-300 transition-all cursor-pointer"
+            className="w-full md:w-auto px-4 py-2.5 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-all cursor-pointer"
           >
             {cancelText}
           </button>
@@ -57,8 +57,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             onClick={onConfirm}
             className={`w-full md:w-auto px-5 py-2.5 rounded-xl text-xs font-bold transition-all text-white cursor-pointer ${
               isDangerous 
-                ? 'bg-rose-600 hover:bg-rose-500 hover:shadow-lg hover:shadow-rose-650/15' 
-                : 'bg-blue-600 hover:bg-blue-500 hover:shadow-lg hover:shadow-blue-650/15'
+                ? 'bg-rose-600 hover:bg-rose-500 hover:shadow-lg hover:shadow-rose-600/20' 
+                : 'bg-blue-600 hover:bg-blue-500 hover:shadow-lg hover:shadow-blue-600/20'
             }`}
           >
             {confirmText}

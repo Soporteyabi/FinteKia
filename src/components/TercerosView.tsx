@@ -577,7 +577,7 @@ export default function TercerosView({
 
               <button
                 onClick={handleOpenCreateForm}
-                className="bg-blue-650 hover:bg-blue-600 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
               >
                 <i className="ri-add-line text-sm"></i> Registrar Tercero
               </button>
@@ -590,7 +590,7 @@ export default function TercerosView({
               <table className="w-full text-left text-xs text-slate-600 border-collapse">
                 <thead>
                   <tr className={`border-b font-bold uppercase tracking-wider text-[9px] ${
-                    isDark ? 'bg-slate-950/70 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-450'
+                    isDark ? 'bg-slate-950/70 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-500'
                   }`}>
                     <th className="py-3.5 px-4">Tercero / Razón Social</th>
                     <th className="py-3.5 px-4">Identificación NIT / C.C.</th>
@@ -608,13 +608,13 @@ export default function TercerosView({
                         <td className="py-3.5 px-4 font-semibold">
                           <div className="flex items-center gap-2.5">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold border select-none shrink-0 ${
-                              isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-650'
+                              isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-600'
                             }`}>
                               {ter.name[0].toUpperCase()}
                             </div>
                             <div>
-                              <p className={`font-bold text-xs truncate max-w-[200px] ${isDark ? 'text-slate-100' : 'text-slate-850'}`}>{ter.name}</p>
-                              <span className={`text-[10px] block ${isDark ? 'text-slate-400' : 'text-slate-450'}`}>{ter.email || 'Sin correo registrado'}</span>
+                              <p className={`font-bold text-xs truncate max-w-[200px] ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>{ter.name}</p>
+                              <span className={`text-[10px] block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{ter.email || 'Sin correo registrado'}</span>
                             </div>
                           </div>
                         </td>
@@ -674,15 +674,15 @@ export default function TercerosView({
                             {ter.roles.map((role, idx) => {
                               const bStyles = isDark
                                 ? (role === 'cliente' 
-                                  ? 'bg-emerald-55/15 text-emerald-400 border-emerald-500/30' 
+                                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' 
                                   : role === 'proveedor' 
-                                    ? 'bg-blue-55/15 text-blue-400 border-blue-500/30' 
-                                    : 'bg-amber-55/15 text-amber-400 border-amber-55/35')
+                                    ? 'bg-blue-500/15 text-blue-400 border-blue-500/30' 
+                                    : 'bg-amber-500/15 text-amber-400 border-amber-500/30')
                                 : (role === 'cliente' 
-                                  ? 'bg-green-55/35 text-emerald-800 border-emerald-200' 
+                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
                                   : role === 'proveedor' 
-                                    ? 'bg-blue-55/35 text-blue-800 border-blue-200' 
-                                    : 'bg-amber-55/35 text-amber-800 border-amber-200');
+                                    ? 'bg-blue-100 text-blue-800 border-blue-200' 
+                                    : 'bg-amber-100 text-amber-800 border-amber-200');
                               return (
                                 <span key={idx} className={`inline-block font-black uppercase tracking-wider text-[8px] border px-1.5 py-0.5 rounded ${bStyles}`}>
                                   {role}
@@ -721,7 +721,7 @@ export default function TercerosView({
                             <button
                               onClick={() => setSelectedTerceroDetail(ter)}
                               className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                                isDark ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-800' : 'text-slate-450 hover:text-blue-600 hover:bg-slate-100'
+                                isDark ? 'text-slate-400 hover:text-blue-400 hover:bg-slate-800' : 'text-slate-500 hover:text-blue-600 hover:bg-slate-100'
                               }`}
                               title="Ver ficha de auditoría"
                             >
@@ -730,7 +730,7 @@ export default function TercerosView({
                             <button
                               onClick={() => handleOpenEditForm(ter)}
                               className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                                isDark ? 'text-slate-400 hover:text-indigo-400 hover:bg-slate-800' : 'text-slate-450 hover:text-indigo-600 hover:bg-slate-100'
+                                isDark ? 'text-slate-400 hover:text-indigo-400 hover:bg-slate-800' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-100'
                               }`}
                               title="Editar tercero"
                             >
@@ -739,7 +739,7 @@ export default function TercerosView({
                             <button
                               onClick={() => handleDeleteClick(ter)}
                               className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                                isDark ? 'text-slate-400 hover:text-rose-450 hover:bg-slate-800' : 'text-slate-450 hover:text-rose-500 hover:bg-slate-100'
+                                isDark ? 'text-slate-400 hover:text-rose-400 hover:bg-slate-800' : 'text-slate-500 hover:text-rose-600 hover:bg-slate-100'
                               }`}
                               title="Eliminar del catálogo"
                             >
@@ -786,7 +786,7 @@ export default function TercerosView({
                   <i className="ri-user-add-line text-amber-500"></i>
                   {editingTercero ? 'Modificar Registro de Tercero' : 'Inscribir Nuevo Tercero en el ERP'}
                 </h3>
-                <p className="text-[10px] text-slate-450 tracking-wide mt-1 uppercase font-semibold">Sincronización unificada de base de datos contable</p>
+                <p className="text-[10px] text-slate-400 tracking-wide mt-1 uppercase font-semibold">Sincronización unificada de base de datos contable</p>
               </div>
               <button
                 onClick={() => setIsFormOpen(false)}
@@ -796,7 +796,7 @@ export default function TercerosView({
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1 text-slate-850">
+            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1 text-slate-800">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 
                 {/* Name / Razon Social */}
@@ -985,7 +985,7 @@ export default function TercerosView({
                     className={`flex-1 py-3 px-4 border rounded-xl text-center cursor-pointer font-bold text-xs transition-all flex flex-col items-center gap-1.5 ${
                       formRoles.includes('cliente')
                         ? 'bg-green-50 border-green-500 text-green-700 font-extrabold shadow-sm'
-                        : 'bg-slate-50 border-slate-200 text-slate-550 hover:bg-slate-100 hover:text-slate-800'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
                     }`}
                   >
                     <i className="ri-user-follow-line text-lg"></i>
@@ -998,7 +998,7 @@ export default function TercerosView({
                     className={`flex-1 py-3 px-4 border rounded-xl text-center cursor-pointer font-bold text-xs transition-all flex flex-col items-center gap-1.5 ${
                       formRoles.includes('proveedor')
                         ? 'bg-blue-50 border-blue-500 text-blue-700 font-extrabold shadow-sm'
-                        : 'bg-slate-50 border-slate-200 text-slate-550 hover:bg-slate-100 hover:text-slate-800'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
                     }`}
                   >
                     <i className="ri-truck-line text-lg"></i>
@@ -1011,7 +1011,7 @@ export default function TercerosView({
                     className={`flex-1 py-3 px-4 border rounded-xl text-center cursor-pointer font-bold text-xs transition-all flex flex-col items-center gap-1.5 ${
                       formRoles.includes('empleado')
                         ? 'bg-amber-50 border-amber-500 text-amber-700 font-extrabold shadow-sm'
-                        : 'bg-slate-50 border-slate-200 text-slate-550 hover:bg-slate-100 hover:text-slate-800'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800'
                     }`}
                   >
                     <i className="ri-shield-user-fill text-lg"></i>
@@ -1034,7 +1034,7 @@ export default function TercerosView({
                         placeholder="ej. Operario de Mezcla / Supervisor Control Calidad"
                         value={formEmployeeCargo}
                         onChange={(e) => setFormEmployeeCargo(e.target.value)}
-                        className="w-full text-xs bg-white border border-slate-250 rounded-lg px-2.5 py-2 font-medium text-slate-900"
+                        className="w-full text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-2 font-medium text-slate-900"
                       />
                     </div>
                     <div className="space-y-1 block">
@@ -1045,7 +1045,7 @@ export default function TercerosView({
                         placeholder="ej. 1300000"
                         value={formEmployeeSalary || ''}
                         onChange={(e) => setFormEmployeeSalary(parseInt(e.target.value) || 0)}
-                        className="w-full text-xs bg-white border border-slate-250 rounded-lg px-2.5 py-2 font-semibold font-mono text-slate-900"
+                        className="w-full text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-2 font-semibold font-mono text-slate-900"
                       />
                     </div>
                     <div className="space-y-1 col-span-1 md:col-span-2 block">
@@ -1055,7 +1055,7 @@ export default function TercerosView({
                         placeholder="ej. María Velez (Esposa) - 3149582948"
                         value={formEmployeeEmergency}
                         onChange={(e) => setFormEmployeeEmergency(e.target.value)}
-                        className="w-full text-xs bg-white border border-slate-250 rounded-lg px-2.5 py-2 font-medium text-slate-900"
+                        className="w-full text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-2 font-medium text-slate-900"
                       />
                     </div>
                   </div>
@@ -1065,7 +1065,7 @@ export default function TercerosView({
               {/* Dynamic Provider specific fields */}
               {formRoles.includes('proveedor') && (
                 <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 animate-fade-in space-y-3">
-                  <p className="font-bold text-slate-450 text-[10px] uppercase tracking-wider block border-b pb-1.5">
+                  <p className="font-bold text-slate-500 text-[10px] uppercase tracking-wider block border-b pb-1.5">
                     <i className="ri-bank-line"></i> Detalles de Pago a Proveedor
                   </p>
                   <div className="space-y-1 block">
@@ -1075,27 +1075,28 @@ export default function TercerosView({
                       placeholder="ej. Bancolombia Ahorros No. 104-928394-12"
                       value={formProviderBank}
                       onChange={(e) => setFormProviderBank(e.target.value)}
-                      className="w-full text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-2 font-medium text-slate-905"
+                      className="w-full text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-2 font-medium text-slate-900"
                     />
                   </div>
                 </div>
               )}
 
               {/* Form Buttons footer */}
-              <div className="flex justify-end gap-3 pt-5 border-t">
+              <div className="flex items-center justify-end gap-3 pt-5 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-550 font-semibold text-xs px-4 py-2.5 rounded-xl transition-all cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-800 shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
                 >
-                  Cancelar
+                  <i className="ri-close-line text-base text-slate-600"></i>
+                  <span>Cancelar</span>
                 </button>
                 <button
                   type="submit"
-                  className="bg-blue-650 hover:bg-blue-600 text-white font-semibold text-xs px-6 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
                 >
-                  <i className="ri-save-line text-sm animate-pulse"></i>
-                  {editingTercero ? 'Guardar Cambios' : 'Registrar Tercero'}
+                  <i className="ri-save-line text-base text-white"></i>
+                  <span>{editingTercero ? 'Guardar Cambios' : 'Registrar Tercero'}</span>
                 </button>
               </div>
             </form>
