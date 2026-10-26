@@ -1156,8 +1156,13 @@ export default function DashboardView({
                       : 'bg-slate-950/60 text-slate-300 hover:text-white border-slate-700/70 hover:border-slate-500'
                 }`}
               >
-                <i className="ri-apps-2-line text-xs"></i>
-                <span>Todas</span>
+                <i className="ri-apps-2-line text-xs opacity-80"></i>
+                <span 
+                  className={`font-bold tracking-wide ${isLight ? 'text-amber-700 font-extrabold' : 'text-yellow-400 font-extrabold'}`}
+                  style={{ color: isLight ? '#b45309' : '#facc15' }}
+                >
+                  Todas
+                </span>
                 <span className="text-[10.5px] font-mono opacity-85">({totalCardsCount})</span>
               </button>
 
@@ -1181,7 +1186,6 @@ export default function DashboardView({
                         ? {
                             backgroundColor: cat.catColor,
                             borderColor: '#FFFFFF',
-                            color: '#FFFFFF'
                           }
                         : undefined
                     }
@@ -1193,8 +1197,13 @@ export default function DashboardView({
                           : 'bg-slate-950/60 text-slate-300 hover:text-white border-slate-700/70 hover:border-slate-500'
                     }`}
                   >
-                    <i className={`${cat.icon} text-xs`}></i>
-                    <span>{shortLabel}</span>
+                    <i className={`${cat.icon} text-xs opacity-80`}></i>
+                    <span 
+                      className={`font-bold tracking-wide ${isLight ? 'text-amber-700 font-extrabold' : 'text-yellow-400 font-extrabold'}`}
+                      style={{ color: isLight ? '#b45309' : '#facc15' }}
+                    >
+                      {shortLabel}
+                    </span>
                     <span className="text-[10.5px] font-mono opacity-85">({cat.cards.length})</span>
                   </button>
                 );
