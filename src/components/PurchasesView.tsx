@@ -473,14 +473,17 @@ export default function PurchasesView({
       updateInventory(line.productId, line.lotNumber, line.qty, selectedWarehouse, line.expirationDate);
       
       if (addInventoryMovement) {
+        const whObj = warehouses.find((w) => w.id === selectedWarehouse);
+        const whName = whObj ? whObj.name : selectedWarehouse;
         addInventoryMovement({
           date: purchaseDate,
           productId: line.productId,
           lotNumber: line.lotNumber,
           type: 'entrada_compra',
+          destWarehouseId: selectedWarehouse,
           quantity: line.qty,
           cost: line.unitCost,
-          notes: `Ingreso de Insumo por Compra ${nextNumber} a ${selectedWarehouse}`
+          notes: `Ingreso de Insumo por Compra ${nextNumber} a ${whName}`
         });
       }
     });
@@ -631,7 +634,7 @@ export default function PurchasesView({
               >
                 <option value="">-- Seleccione Bodega Destino --</option>
                 {warehouses.map((w) => (
-                  <option key={w.id} value={w.name}>
+                  <option key={w.id} value={w.id}>
                     {w.name} - {w.address}
                   </option>
                 ))}

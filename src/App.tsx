@@ -2086,6 +2086,9 @@ export default function App() {
                   updateAsset={handleUpdateAsset}
                   deleteAsset={handleDeleteAsset}
                   transferStock={handleTransferStock}
+                  updateInventory={handleUpdateInventory}
+                  addInventoryMovement={handleAddInventoryMovement}
+                  addVoucher={handleAddVoucher}
                   theme={currentThemeId}
                 />
               )}

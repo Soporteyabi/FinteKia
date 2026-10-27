@@ -19,6 +19,9 @@ interface WarehousesAndPlantViewProps {
   updateAsset: (a: Asset) => void;
   deleteAsset: (id: string) => void;
   transferStock: (productId: string, lotNumber: string | undefined, originWhId: string, destWhId: string, qty: number) => void;
+  updateInventory?: (prodId: string, lotNum: string | undefined, diffQty: number, warehouseId?: string, expirationDate?: string) => void;
+  addInventoryMovement?: (mov: any) => void;
+  addVoucher?: (v: any) => void;
   theme: 'slate_gray' | 'zinc_classic' | 'navy_dark' | 'steel_sage' | 'light_gray';
 }
 
@@ -35,6 +38,9 @@ export default function WarehousesAndPlantView({
   updateAsset,
   deleteAsset,
   transferStock,
+  updateInventory,
+  addInventoryMovement,
+  addVoucher,
   theme
 }: WarehousesAndPlantViewProps) {
   const [activeTab, setActiveTab] = useState<'bodegas' | 'plantas' | 'kardex'>('bodegas');
@@ -66,6 +72,27 @@ export default function WarehousesAndPlantView({
   const [isTransferFormOpen, setIsTransferFormOpen] = useState(false);
   const [deleteWhConfirm, setDeleteWhConfirm] = useState<{ id: string; name: string } | null>(null);
   const [deleteAssetConfirm, setDeleteAssetConfirm] = useState<{ id: string; name: string } | null>(null);
+
+  // Inventory Adjustment states (Saldo Inicial / Sin Factura)
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [adjWarehouseId, setAdjWarehouseId] = useState('');
+  const [adjType, setAdjType] = useState<'saldo_inicial' | 'sobrante' | 'ajuste_general'>('saldo_inicial');
+  const [adjDate, setAdjDate] = useState(new Date().toISOString().substring(0, 10));
+  const [adjConcept, setAdjConcept] = useState('Inventario inicial y carga de existencias físicas sin factura previa');
+  const [adjLines, setAdjLines] = useState<Array<{
+    productId: string;
+    productName: string;
+    sku: string;
+    quantity: number;
+    unitCost: number;
+    lotNumber?: string;
+    expirationDate?: string;
+  }>>([]);
+  const [adjSelectedProdId, setAdjSelectedProdId] = useState('');
+  const [adjQty, setAdjQty] = useState<number>(1);
+  const [adjCost, setAdjCost] = useState<number>(0);
+  const [adjLot, setAdjLot] = useState<string>('');
+  const [adjExpiry, setAdjExpiry] = useState<string>('');
 
   // Warehouse Form states
   const [whName, setWhName] = useState('');
@@ -142,14 +169,16 @@ export default function WarehousesAndPlantView({
 
   // Calculations
   const calculateWarehouseStockValue = (whId: string) => {
+    const whObj = warehouses.find(w => w.id === whId);
     return inventory
-      .filter(item => item.warehouseId === whId)
+      .filter(item => item.warehouseId === whId || (whObj && item.warehouseId === whObj.name))
       .reduce((acc, item) => acc + (item.quantity * item.avgCost), 0);
   };
 
   const calculateWarehouseTotalUnits = (whId: string) => {
+    const whObj = warehouses.find(w => w.id === whId);
     return inventory
-      .filter(item => item.warehouseId === whId)
+      .filter(item => item.warehouseId === whId || (whObj && item.warehouseId === whObj.name))
       .reduce((acc, item) => acc + item.quantity, 0);
   };
 
@@ -203,7 +232,9 @@ export default function WarehousesAndPlantView({
                           prodSku.toLowerCase().includes(warehouseSearchQuery.toLowerCase()) ||
                           lotStr.toLowerCase().includes(warehouseSearchQuery.toLowerCase());
     
-    const matchesWh = selectedWhFilter === 'all' || item.warehouseId === selectedWhFilter;
+    const matchesWh = selectedWhFilter === 'all' || 
+                      item.warehouseId === selectedWhFilter || 
+                      warehouses.find(w => w.id === selectedWhFilter)?.name === item.warehouseId;
     const matchesType = selectedProductTypeFilter === 'all' || parentProd?.type === selectedProductTypeFilter;
 
     let matchesExpiry = true;
@@ -474,6 +505,136 @@ export default function WarehousesAndPlantView({
     p => p.productId === selectedTransProdId && p.lotNumber === selectedTransLot
   );
 
+  // --- Inventory Adjustment Handlers (Saldos Iniciales / Sin Factura) ---
+  const handleOpenAdjustmentModal = () => {
+    setAdjWarehouseId(warehouses[0]?.id || '');
+    setAdjLines([]);
+    const firstProd = products[0];
+    setAdjSelectedProdId(firstProd?.id || '');
+    setAdjCost(firstProd?.cost || 0);
+    setAdjQty(1);
+    setAdjLot('');
+    setAdjExpiry('');
+    setAdjConcept('Inventario inicial y carga de existencias físicas sin factura previa');
+    setIsAdjustmentModalOpen(true);
+  };
+
+  const handleAddAdjLine = () => {
+    if (!adjSelectedProdId) {
+      toast.warning('Por favor seleccione un artículo o insumo.', 'Artículo Requerido');
+      return;
+    }
+    if (adjQty <= 0) {
+      toast.warning('Por favor ingrese una cantidad mayor a cero.', 'Cantidad Inválida');
+      return;
+    }
+    const prod = products.find(p => p.id === adjSelectedProdId);
+    if (!prod) return;
+
+    setAdjLines(prev => [
+      ...prev,
+      {
+        productId: prod.id,
+        productName: prod.name,
+        sku: prod.sku,
+        quantity: adjQty,
+        unitCost: adjCost >= 0 ? adjCost : (prod.cost || 0),
+        lotNumber: adjLot.trim() || undefined,
+        expirationDate: adjExpiry || undefined
+      }
+    ]);
+
+    setAdjQty(1);
+    setAdjLot('');
+    setAdjExpiry('');
+    toast.info(`Artículo "${prod.name}" añadido a la lista del ajuste.`, 'Artículo Añadido');
+  };
+
+  const handleRemoveAdjLine = (idx: number) => {
+    setAdjLines(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleConfirmAdjustment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjWarehouseId) {
+      toast.warning('Por favor seleccione la bodega destino para el ingreso.', 'Bodega Requerida');
+      return;
+    }
+    if (adjLines.length === 0) {
+      toast.warning('Debe agregar al menos un artículo a la lista del ajuste.', 'Sin Artículos');
+      return;
+    }
+
+    const targetWh = warehouses.find(w => w.id === adjWarehouseId);
+    const whName = targetWh ? targetWh.name : adjWarehouseId;
+    const totalQty = adjLines.reduce((acc, l) => acc + l.quantity, 0);
+    const totalValuation = adjLines.reduce((acc, l) => acc + (l.quantity * l.unitCost), 0);
+    const voucherNumber = `CA-${Date.now().toString().slice(-4)}`;
+
+    // 1. Update real inventory storage slots
+    if (updateInventory) {
+      adjLines.forEach(line => {
+        updateInventory(line.productId, line.lotNumber, line.quantity, adjWarehouseId, line.expirationDate);
+      });
+    }
+
+    // 2. Register Kardex logs
+    if (addInventoryMovement) {
+      adjLines.forEach(line => {
+        addInventoryMovement({
+          date: adjDate,
+          productId: line.productId,
+          lotNumber: line.lotNumber,
+          type: 'entrada_compra',
+          destWarehouseId: adjWarehouseId,
+          quantity: line.quantity,
+          cost: line.unitCost,
+          notes: `Ajuste (${adjType === 'saldo_inicial' ? 'Saldo Inicial' : 'Sobrante Físico'}) a ${whName}: ${adjConcept}`
+        });
+      });
+    }
+
+    // 3. Post Double-Entry Accounting Voucher (CA - Comprobante de Ajuste)
+    if (addVoucher) {
+      const creditAccount = adjType === 'saldo_inicial' ? '311505' : '429505';
+      const creditName = adjType === 'saldo_inicial' ? 'Aportes Sociales / Saldo Inicial' : 'Aprovechamientos / Ajuste Inventario';
+
+      addVoucher({
+        number: voucherNumber,
+        type: 'ajuste',
+        date: adjDate,
+        concept: `${adjConcept} - Bodega: ${whName}`,
+        thirdPartyId: 'ter-1',
+        total: Math.round(totalValuation),
+        lines: [
+          {
+            accountCode: '143501',
+            description: `Ingreso físico mercancías ajuste ${voucherNumber} a ${whName}`,
+            debit: Math.round(totalValuation),
+            credit: 0
+          },
+          {
+            accountCode: creditAccount,
+            description: `Contrapartida ajuste ${creditName} (${voucherNumber})`,
+            debit: 0,
+            credit: Math.round(totalValuation)
+          }
+        ],
+        items: adjLines.map(l => ({
+          productId: l.productId,
+          qty: l.quantity,
+          unitCost: l.unitCost,
+          lotNumber: l.lotNumber || 'S/L',
+          expirationDate: l.expirationDate
+        }))
+      });
+    }
+
+    toast.success(`¡Ajuste procesado con éxito! Se cargaron ${totalQty} unidades (${formatCOP(totalValuation)}) a "${whName}".`, 'Inventario Cargado');
+    setIsAdjustmentModalOpen(false);
+    setAdjLines([]);
+  };
+
   return (
     <div className="space-y-6">
       
@@ -495,8 +656,18 @@ export default function WarehousesAndPlantView({
         <div className="flex flex-wrap gap-2 shrink-0">
           <button
             type="button"
+            onClick={handleOpenAdjustmentModal}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+            title="Cargar saldo inicial o ajuste de inventario físico sin factura"
+          >
+            <i className="ri-add-box-line text-sm"></i>
+            <span>+ Ajuste / Saldo Inicial</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => exportWarehouseStockToExcel(inventory, products, warehouses)}
-            className="bg-emerald-600 hover:bg-emerald-550 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+            className="bg-teal-600 hover:bg-teal-550 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
             title="Descargar stock valorizado de bodegas y almacenes en Excel (.xlsx)"
             id="export-warehouses-excel-btn"
           >
@@ -864,7 +1035,7 @@ export default function WarehousesAndPlantView({
                   ) : (
                     paginatedInventoryItems.map((item) => {
                       const value = item.quantity * item.avgCost;
-                      const whNameStr = warehouses.find(w => w.id === item.warehouseId)?.name || 'Desconocido';
+                      const whNameStr = warehouses.find(w => w.id === item.warehouseId || w.name === item.warehouseId)?.name || item.warehouseId || 'Desconocido';
                       const prod = products.find(p => p.id === item.productId);
                       const prodType = prod?.type || 'materia_prima';
 
@@ -1697,6 +1868,369 @@ export default function WarehousesAndPlantView({
                   {editingAsset ? 'Guardar Cambios' : 'Registrar Activo'}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Dialog: Carga de Inventario Inicial & Ajuste de Existencias Físicas */}
+      {isAdjustmentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-4 no-print animate-fade-in overflow-y-auto">
+          <div className={`w-full max-w-3xl rounded-2xl border shadow-2xl flex flex-col my-auto max-h-[92vh] overflow-hidden ${
+            isDark ? 'bg-zinc-900 border-zinc-700/80 text-slate-100' : 'bg-white border-slate-200 text-slate-800'
+          }`}>
+            {/* Modal Header */}
+            <div className={`p-4 sm:p-5 border-b flex items-start justify-between gap-3 ${isDark ? 'border-zinc-800 bg-zinc-950/40' : 'border-slate-100 bg-slate-50'}`}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xl shrink-0">
+                  <i className="ri-inbox-archive-line"></i>
+                </div>
+                <div>
+                  <h3 className="text-base font-display font-extrabold tracking-tight flex items-center gap-2">
+                    Ajuste de Inventario / Saldo Inicial (Sin Factura)
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      Entrada Directa
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Cargue mercancía existente a sus bodegas sin requerir factura de compra comercial.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAdjustmentModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <i className="ri-close-line text-2xl"></i>
+              </button>
+            </div>
+
+            {/* Modal Form Body */}
+            <form onSubmit={handleConfirmAdjustment} className="p-4 sm:p-5 space-y-4 overflow-y-auto">
+              
+              {/* Warehouse & Header Parameters */}
+              <div className={`p-3.5 rounded-xl border grid grid-cols-1 sm:grid-cols-3 gap-3 ${
+                isDark ? 'bg-zinc-950/60 border-zinc-800' : 'bg-slate-50 border-slate-200'
+              }`}>
+                {/* Destination Warehouse */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Bodega Destino <span className="text-rose-400">*</span>
+                  </label>
+                  <select
+                    required
+                    value={adjWarehouseId}
+                    onChange={(e) => setAdjWarehouseId(e.target.value)}
+                    className={`w-full text-xs font-bold rounded-xl px-3 py-2 border outline-none ${
+                      isDark ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-slate-300 text-slate-800'
+                    }`}
+                  >
+                    <option value="">-- Seleccione Bodega --</option>
+                    {warehouses.map(w => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} {w.address ? `(${w.address})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Adjustment Type */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Tipo de Movimiento
+                  </label>
+                  <select
+                    value={adjType}
+                    onChange={(e) => setAdjType(e.target.value as any)}
+                    className={`w-full text-xs font-semibold rounded-xl px-3 py-2 border outline-none ${
+                      isDark ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-slate-300 text-slate-800'
+                    }`}
+                  >
+                    <option value="saldo_inicial">Inventario Inicial / Apertura (Patrimonio)</option>
+                    <option value="sobrante">Sobrante de Conteo Físico (Aprovechamiento)</option>
+                    <option value="ajuste_general">Ajuste Operativo General</option>
+                  </select>
+                </div>
+
+                {/* Date */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Fecha del Ajuste
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={adjDate}
+                    onChange={(e) => setAdjDate(e.target.value)}
+                    className={`w-full text-xs font-semibold rounded-xl px-3 py-2 border outline-none ${
+                      isDark ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-slate-300 text-slate-800'
+                    }`}
+                  />
+                </div>
+
+                {/* Concept Notes */}
+                <div className="space-y-1 sm:col-span-3">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Justificación / Concepto Contable
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="ej. Mercancía antigua en mostrador sin factura de soporte / Conteo inicial"
+                    value={adjConcept}
+                    onChange={(e) => setAdjConcept(e.target.value)}
+                    className={`w-full text-xs rounded-xl px-3 py-2 border outline-none ${
+                      isDark ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-slate-300 text-slate-800'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* Sub-Card: Add Product Lines */}
+              <div className={`p-4 rounded-xl border space-y-3 ${
+                isDark ? 'bg-zinc-950/40 border-zinc-800' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider font-mono">
+                    <i className="ri-add-circle-line text-sm"></i>
+                    Agregar Artículo a la Lista
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    {products.length} productos registrados en catálogo
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+                  {/* Product selector */}
+                  <div className="sm:col-span-5 space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Producto / Insumo
+                    </label>
+                    <select
+                      value={adjSelectedProdId}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        setAdjSelectedProdId(id);
+                        const p = products.find(prod => prod.id === id);
+                        if (p) {
+                          setAdjCost(p.cost || 0);
+                        }
+                      }}
+                      className={`w-full text-xs rounded-xl px-3 py-2 border outline-none font-medium ${
+                        isDark ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-slate-300 text-slate-800'
+                      }`}
+                    >
+                      <option value="">Seleccione producto...</option>
+                      {products.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.sku}) - Costo ref: {formatCOP(p.cost || 0)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Cantidad
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Unds"
+                      value={adjQty || ''}
+                      onChange={(e) => setAdjQty(Math.max(1, Number(e.target.value)))}
+                      className={`w-full text-xs font-mono font-bold rounded-xl px-3 py-2 border outline-none text-center ${
+                        isDark ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-slate-300 text-slate-800'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Estimated Cost */}
+                  <div className="sm:col-span-3 space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Costo Unitario ($)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Costo unitario"
+                      value={adjCost || ''}
+                      onChange={(e) => setAdjCost(Math.max(0, Number(e.target.value)))}
+                      className={`w-full text-xs font-mono font-bold rounded-xl px-3 py-2 border outline-none ${
+                        isDark ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-slate-300 text-slate-800'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Add button */}
+                  <div className="sm:col-span-2">
+                    <button
+                      type="button"
+                      onClick={handleAddAdjLine}
+                      className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-sm"
+                    >
+                      <i className="ri-add-line text-sm"></i>
+                      <span>Agregar</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Optional: Lot and Expiration */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Lote / Serie (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="ej. LOT-INICIAL-01 o S/L"
+                      value={adjLot}
+                      onChange={(e) => setAdjLot(e.target.value)}
+                      className={`w-full text-xs font-mono rounded-xl px-3 py-1.5 border outline-none ${
+                        isDark ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-slate-300 text-slate-800'
+                      }`}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Fecha de Vencimiento (Opcional)
+                    </label>
+                    <input
+                      type="date"
+                      value={adjExpiry}
+                      onChange={(e) => setAdjExpiry(e.target.value)}
+                      className={`w-full text-xs rounded-xl px-3 py-1.5 border outline-none ${
+                        isDark ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-slate-300 text-slate-800'
+                      }`}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Table of items to be loaded */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    Artículos a ingresar al inventario ({adjLines.length}):
+                  </span>
+                  {adjLines.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setAdjLines([])}
+                      className="text-[10px] text-rose-400 hover:underline cursor-pointer"
+                    >
+                      Limpiar lista
+                    </button>
+                  )}
+                </div>
+
+                {adjLines.length === 0 ? (
+                  <div className="p-6 text-center text-slate-500 rounded-xl border border-dashed border-slate-700 bg-black/10">
+                    <i className="ri-inbox-line text-2xl block mb-1 opacity-60"></i>
+                    <p className="text-xs">No hay artículos añadidos a la lista todavía.</p>
+                    <p className="text-[11px] text-slate-400">Seleccione un producto arriba, coloque la cantidad y haga clic en "Agregar".</p>
+                  </div>
+                ) : (
+                  <div className="border rounded-xl overflow-hidden overflow-x-auto max-h-56 scrollbar-thin">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className={`text-[10px] font-bold uppercase ${
+                        isDark ? 'bg-zinc-950 text-slate-400 border-b border-zinc-800' : 'bg-slate-100 text-slate-600 border-b border-slate-200'
+                      }`}>
+                        <tr>
+                          <th className="py-2 px-3">Producto / Insumo</th>
+                          <th className="py-2 px-3">Lote / Vence</th>
+                          <th className="py-2 px-3 text-right">Cantidad</th>
+                          <th className="py-2 px-3 text-right">Costo Unit.</th>
+                          <th className="py-2 px-3 text-right">Subtotal</th>
+                          <th className="py-2 px-2 text-center w-10"></th>
+                        </tr>
+                      </thead>
+                      <tbody className={`divide-y ${isDark ? 'divide-zinc-800 text-slate-300' : 'divide-slate-100 text-slate-700'}`}>
+                        {adjLines.map((line, idx) => (
+                          <tr key={idx} className="hover:bg-black/5 dark:hover:bg-white/5">
+                            <td className="py-2 px-3">
+                              <p className="font-bold text-xs">{line.productName}</p>
+                              <span className="text-[10px] text-slate-400 font-mono">{line.sku}</span>
+                            </td>
+                            <td className="py-2 px-3 text-[11px] font-mono">
+                              {line.lotNumber || 'S/L'}
+                              {line.expirationDate && (
+                                <span className="block text-[10px] text-amber-400">Vence: {line.expirationDate}</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-blue-400">
+                              {line.quantity} Unds
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono text-slate-400">
+                              {formatCOP(line.unitCost)}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
+                              {formatCOP(line.quantity * line.unitCost)}
+                            </td>
+                            <td className="py-2 px-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAdjLine(idx)}
+                                className="text-rose-400 hover:text-rose-300 p-1 rounded hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                title="Eliminar fila"
+                              >
+                                <i className="ri-delete-bin-line text-sm"></i>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Financial Totals Banner */}
+              <div className={`p-3.5 rounded-xl border flex items-center justify-between ${
+                isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'
+              }`}>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Resumen del Ajuste de Entrada
+                  </span>
+                  <span className="text-xs font-semibold text-slate-300">
+                    {adjLines.reduce((acc, l) => acc + l.quantity, 0)} unidades físicas totales
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Valor Total Contable
+                  </span>
+                  <span className="text-base font-bold font-mono text-emerald-400">
+                    {formatCOP(adjLines.reduce((acc, l) => acc + (l.quantity * l.unitCost), 0))}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className={`flex justify-end gap-3 pt-3 border-t ${isDark ? 'border-zinc-800' : 'border-slate-100'}`}>
+                <button
+                  type="button"
+                  onClick={() => setIsAdjustmentModalOpen(false)}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                    isDark ? 'bg-zinc-800 hover:bg-zinc-700 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={adjLines.length === 0}
+                  className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-lg transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <i className="ri-checkbox-circle-line text-sm"></i>
+                  <span>Confirmar Ingreso a Bodega</span>
+                </button>
+              </div>
+
             </form>
           </div>
         </div>
