@@ -6,3 +6,4 @@ export { default as DianHabilitationAssistant } from './DianHabilitationAssistan
 export { default as InvoiceDesignModal, DEFAULT_INVOICE_DESIGN } from './InvoiceDesignModal';
 export { default as InvoiceEmailModal } from './InvoiceEmailModal';
 export { default as SmtpConfigModal } from './SmtpConfigModal';
+export { default as CompanyParamsModal } from './CompanyParamsModal';

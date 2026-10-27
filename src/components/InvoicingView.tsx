@@ -15,7 +15,8 @@ import {
   DianHabilitationAssistant,
   InvoiceDesignModal,
   InvoiceEmailModal,
-  SmtpConfigModal
+  SmtpConfigModal,
+  CompanyParamsModal
 } from './invoicing';
 
 interface InvoicingViewProps {
@@ -117,6 +118,7 @@ export default function InvoicingView({
   const [showPayloadModal, setShowPayloadModal] = useState(false);
   const [selectedPayloadInvoice, setSelectedPayloadInvoice] = useState<Voucher | null>(null);
   const [showDesignModal, setShowDesignModal] = useState(false);
+  const [showCompanyParamsModal, setShowCompanyParamsModal] = useState(false);
   const [salesCompanyFilter, setSalesCompanyFilter] = useState<'current' | 'all'>('current');
   const [showAdminToolsDropdown, setShowAdminToolsDropdown] = useState(false);
   const [activeInvoicingTab, setActiveInvoicingTab] = useState<'pos' | 'historial' | 'config_dian'>('pos');
@@ -1043,6 +1045,17 @@ export default function InvoicingView({
                   <span>Prefijo: <strong className="text-indigo-300 font-mono">{activeBillingConfig.prefix || 'FE'}</strong></span>
                   <span>·</span>
                   <span>Res. DIAN Nº <strong className="font-mono text-slate-200">{activeBillingConfig.resolutionNumber || '187640000099'}</strong></span>
+                  {isAdminOrAccountant && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCompanyParamsModal(true)}
+                      className="ml-1 text-[11px] font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer bg-blue-500/15 hover:bg-blue-500/25 px-2 py-0.5 rounded-lg border border-blue-500/30 transition-all"
+                      title="Editar parámetros de empresa sin salir de facturación"
+                    >
+                      <i className="ri-settings-3-line text-[11px]"></i>
+                      <span>Parámetros</span>
+                    </button>
+                  )}
                 </p>
               </div>
 
@@ -1096,6 +1109,17 @@ export default function InvoicingView({
                 <>
                   <button
                     type="button"
+                    onClick={() => setShowCompanyParamsModal(true)}
+                    className="px-3 py-2 rounded-xl bg-blue-600/90 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer border border-blue-400/30"
+                    title="Configurar parámetros de empresa: razón social, NIT, régimen, resolución DIAN y cuentas de recaudo sin salir de facturación"
+                    id="btn-company-params-header"
+                  >
+                    <i className="ri-building-line text-blue-200"></i>
+                    <span className="hidden sm:inline">Parámetros Empresa</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setShowDesignModal(true)}
                     className="px-3 py-2 rounded-xl bg-purple-600/80 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer border border-purple-400/30"
                     title="Configurar diseño, posición del logo y firmas de la factura"
@@ -1127,6 +1151,19 @@ export default function InvoicingView({
                         <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">
                           Opciones de Administrador
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={() => { setShowCompanyParamsModal(true); setShowAdminToolsDropdown(false); }}
+                          className="w-full text-left px-3 py-2 rounded-xl hover:bg-blue-600/20 hover:text-blue-300 flex items-center gap-2.5 transition-colors cursor-pointer"
+                          id="open-company-params-dropdown-btn"
+                        >
+                          <i className="ri-building-line text-blue-400 text-sm"></i>
+                          <div>
+                            <div className="font-semibold">Parámetros de Empresa</div>
+                            <div className="text-[10px] text-slate-400">Razón social, NIT, régimen, cuentas y DIAN</div>
+                          </div>
+                        </button>
                         
                         <button
                           type="button"
@@ -2869,6 +2906,24 @@ export default function InvoicingView({
           theme={theme}
         />
       )}
+
+      {/* Modal: Panel Rápido de Configuración de Parámetros de Empresa */}
+      <CompanyParamsModal
+        isOpen={showCompanyParamsModal}
+        onClose={() => setShowCompanyParamsModal(false)}
+        company={currentCompany}
+        onSaveCompany={(updatedCompany) => {
+          if (updateCompany) {
+            updateCompany(updatedCompany);
+          }
+          if (updatedCompany.billingConfig) {
+            setCfgPrefix(updatedCompany.billingConfig.prefix || 'FE');
+            setCfgResolution(updatedCompany.billingConfig.resolutionNumber || '187640000099');
+            setCfgResolutionDate(updatedCompany.billingConfig.resolutionDate || '2026-01-15');
+            setCfgProviderName(updatedCompany.billingConfig.providerName || 'Factus');
+          }
+        }}
+      />
     </div>
   );
 }
