@@ -1251,6 +1251,110 @@ export default function InvoicingView({
                 </div>
               </div>
 
+              {/* Commercial Conditions & Taxes Grid (Barra superior de condiciones fiscales) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 text-xs">
+                {/* Term: Contado / Credito */}
+                <div className="space-y-1">
+                  <label className={`font-semibold uppercase tracking-wider text-[10.5px] ${labelText}`}>Condición Comercial</label>
+                  <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentTerm('contado')}
+                      className={`flex-1 py-1.5 font-bold transition-all text-xs cursor-pointer ${
+                        paymentTerm === 'contado' 
+                          ? 'bg-blue-600 text-white shadow-xs' 
+                          : 'bg-white dark:bg-slate-900 text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Contado
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentTerm('credito')}
+                      className={`flex-1 py-1.5 font-bold transition-all text-xs cursor-pointer ${
+                        paymentTerm === 'credito' 
+                          ? 'bg-indigo-600 text-white shadow-xs' 
+                          : 'bg-white dark:bg-slate-900 text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Crédito (CxC)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Credit terms if applicable */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className={`font-semibold uppercase tracking-wider text-[10.5px] ${labelText}`}>Plazo de Cartera</label>
+                    {paymentTerm === 'credito' && (
+                      <span className="text-[10px] text-indigo-400 font-mono font-bold">
+                        Vence: {calculatedDueDate.substring(5)}
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    disabled={paymentTerm !== 'credito'}
+                    value={creditDays}
+                    onChange={(e) => setCreditDays(parseInt(e.target.value) || 30)}
+                    className={`w-full text-xs rounded-lg py-1.5 px-2 border focus:outline-none ${inputBg} ${
+                      paymentTerm !== 'credito' ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    <option value={15}>15 días</option>
+                    <option value={30}>30 días (Estándar)</option>
+                    <option value={45}>45 días</option>
+                    <option value={60}>60 días</option>
+                    <option value={90}>90 días</option>
+                  </select>
+                </div>
+
+                {/* Commercial Discount */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className={`font-semibold uppercase tracking-wider text-[10.5px] ${labelText}`}>Descuento Comercial</label>
+                    {discountAmount > 0 && (
+                      <span className="text-[10px] text-emerald-500 font-bold font-mono">
+                        -{formatCOP(discountAmount)}
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    value={discountPercent}
+                    onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
+                    className={`w-full text-xs rounded-lg py-1.5 px-2 border focus:outline-none ${inputBg}`}
+                  >
+                    <option value={0}>Sin descuento (0%)</option>
+                    <option value={3}>3% Descuento</option>
+                    <option value={5}>5% Descuento</option>
+                    <option value={10}>10% Descuento</option>
+                    <option value={15}>15% Descuento</option>
+                    <option value={20}>20% Descuento</option>
+                  </select>
+                </div>
+
+                {/* ReteFuente */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className={`font-semibold uppercase tracking-wider text-[10.5px] ${labelText}`}>ReteFuente DIAN</label>
+                    {retefuenteAmount > 0 && (
+                      <span className="text-[10px] text-rose-500 font-bold font-mono">
+                        -{formatCOP(retefuenteAmount)}
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    value={retefuentePercent}
+                    onChange={(e) => setRetefuentePercent(parseFloat(e.target.value) || 0)}
+                    className={`w-full text-xs rounded-lg py-1.5 px-2 border focus:outline-none ${inputBg}`}
+                  >
+                    <option value={0}>No aplica (0%)</option>
+                    <option value={2.5}>ReteFuente 2.5% (Compras generales)</option>
+                    <option value={3.5}>ReteFuente 3.5% (No declarantes)</option>
+                    <option value={4}>ReteFuente 4% (Servicios generales)</option>
+                  </select>
+                </div>
+              </div>
+
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                {/* Client Select with Quick Create Action */}
                <div className="space-y-1.5 md:col-span-1">
@@ -1505,110 +1609,6 @@ export default function InvoicingView({
                  )}
                </div>
              )}
-
-             {/* Commercial Conditions & Taxes Grid */}
-             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 text-xs">
-               {/* Term: Contado / Credito */}
-               <div className="space-y-1">
-                 <label className={`font-semibold uppercase tracking-wider text-[10.5px] ${labelText}`}>Condición Comercial</label>
-                 <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                   <button
-                     type="button"
-                     onClick={() => setPaymentTerm('contado')}
-                     className={`flex-1 py-1.5 font-bold transition-all text-xs cursor-pointer ${
-                       paymentTerm === 'contado' 
-                         ? 'bg-blue-600 text-white shadow-xs' 
-                         : 'bg-white dark:bg-slate-900 text-slate-500 hover:text-slate-800'
-                     }`}
-                   >
-                     Contado
-                   </button>
-                   <button
-                     type="button"
-                     onClick={() => setPaymentTerm('credito')}
-                     className={`flex-1 py-1.5 font-bold transition-all text-xs cursor-pointer ${
-                       paymentTerm === 'credito' 
-                         ? 'bg-indigo-600 text-white shadow-xs' 
-                         : 'bg-white dark:bg-slate-900 text-slate-500 hover:text-slate-800'
-                     }`}
-                   >
-                     Crédito (CxC)
-                   </button>
-                 </div>
-               </div>
-
-               {/* Credit terms if applicable */}
-               <div className="space-y-1">
-                 <div className="flex items-center justify-between">
-                   <label className={`font-semibold uppercase tracking-wider text-[10.5px] ${labelText}`}>Plazo de Cartera</label>
-                   {paymentTerm === 'credito' && (
-                     <span className="text-[10px] text-indigo-400 font-mono font-bold">
-                       Vence: {calculatedDueDate.substring(5)}
-                     </span>
-                   )}
-                 </div>
-                 <select
-                   disabled={paymentTerm !== 'credito'}
-                   value={creditDays}
-                   onChange={(e) => setCreditDays(parseInt(e.target.value) || 30)}
-                   className={`w-full text-xs rounded-lg py-1.5 px-2 border focus:outline-none ${inputBg} ${
-                     paymentTerm !== 'credito' ? 'opacity-50 cursor-not-allowed' : ''
-                   }`}
-                 >
-                   <option value={15}>15 días</option>
-                   <option value={30}>30 días (Estándar)</option>
-                   <option value={45}>45 días</option>
-                   <option value={60}>60 días</option>
-                   <option value={90}>90 días</option>
-                 </select>
-               </div>
-
-               {/* Commercial Discount */}
-               <div className="space-y-1">
-                 <div className="flex items-center justify-between">
-                   <label className={`font-semibold uppercase tracking-wider text-[10.5px] ${labelText}`}>Descuento Comercial</label>
-                   {discountAmount > 0 && (
-                     <span className="text-[10px] text-emerald-500 font-bold font-mono">
-                       -{formatCOP(discountAmount)}
-                     </span>
-                   )}
-                 </div>
-                 <select
-                   value={discountPercent}
-                   onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
-                   className={`w-full text-xs rounded-lg py-1.5 px-2 border focus:outline-none ${inputBg}`}
-                 >
-                   <option value={0}>Sin descuento (0%)</option>
-                   <option value={3}>3% Descuento</option>
-                   <option value={5}>5% Descuento</option>
-                   <option value={10}>10% Descuento</option>
-                   <option value={15}>15% Descuento</option>
-                   <option value={20}>20% Descuento</option>
-                 </select>
-               </div>
-
-               {/* ReteFuente */}
-               <div className="space-y-1">
-                 <div className="flex items-center justify-between">
-                   <label className={`font-semibold uppercase tracking-wider text-[10.5px] ${labelText}`}>ReteFuente DIAN</label>
-                   {retefuenteAmount > 0 && (
-                     <span className="text-[10px] text-rose-500 font-bold font-mono">
-                       -{formatCOP(retefuenteAmount)}
-                     </span>
-                   )}
-                 </div>
-                 <select
-                   value={retefuentePercent}
-                   onChange={(e) => setRetefuentePercent(parseFloat(e.target.value) || 0)}
-                   className={`w-full text-xs rounded-lg py-1.5 px-2 border focus:outline-none ${inputBg}`}
-                 >
-                   <option value={0}>No aplica (0%)</option>
-                   <option value={2.5}>ReteFuente 2.5% (Compras generales)</option>
-                   <option value={3.5}>ReteFuente 3.5% (No declarantes)</option>
-                   <option value={4}>ReteFuente 4% (Servicios generales)</option>
-                 </select>
-               </div>
-             </div>
 
             {/* Integrated Elegant Product Selector & Invoice Items */}
             <div className="space-y-4">
