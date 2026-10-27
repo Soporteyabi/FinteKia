@@ -92,6 +92,7 @@ export default function InvoicingView({
   const [cardLastFour, setCardLastFour] = useState('');
   const [cardInstallments, setCardInstallments] = useState<number>(1);
   const [showWompiModal, setShowWompiModal] = useState(false);
+  const [showCardModal, setShowCardModal] = useState(false);
   const [wompiConfirmedDetails, setWompiConfirmedDetails] = useState<CardPaymentDetails | null>(null);
   const [activeWompiPaymentLink, setActiveWompiPaymentLink] = useState('');
 
@@ -1392,223 +1393,73 @@ export default function InvoicingView({
                  />
                </div>
 
-               {/* payment method select */}
-               <div className="space-y-1.5">
-                 <div className="flex items-center justify-between">
-                   <label className={`text-xs font-semibold uppercase tracking-wider ${labelText}`}>Medio de Pago</label>
-                   {(paymentMethod === 'debito' || paymentMethod === 'credito' || paymentMethod === 'wompi') && (
-                     <span className="text-[10px] font-mono font-bold text-blue-400">
-                       {cardMode === 'wompi' || paymentMethod === 'wompi' ? '⚡ Wompi' : '💳 Datáfono'}
-                     </span>
-                   )}
-                 </div>
-                 <select
-                   value={paymentMethod}
-                   onChange={(e) => {
-                     const val = e.target.value;
-                     setPaymentMethod(val);
-                     if (val === 'wompi') setCardMode('wompi');
-                     if (val === 'debito' || val === 'credito') {
-                       if (cardMode !== 'wompi') setCardMode('datafono');
-                     }
-                   }}
-                   className={`w-full text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-3 py-2.5 ${inputBg}`}
-                 >
-                   <option value="efectivo">💵 Efectivo (DIAN 10)</option>
-                   <option value="debito">💳 Tarjeta Débito (DIAN 49)</option>
-                   <option value="credito">💳 Tarjeta Crédito (DIAN 48)</option>
-                   <option value="wompi">⚡ Pasarela Wompi / PSE / QR (Virtual)</option>
-                   <option value="transferencia">🏦 Transferencia / PSE (DIAN 47)</option>
-                 </select>
-               </div>
-             </div>
+                {/* payment method select */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className={`text-xs font-semibold uppercase tracking-wider ${labelText}`}>Medio de Pago</label>
+                    {(paymentMethod === 'debito' || paymentMethod === 'credito' || paymentMethod === 'wompi') && (
+                      <button
+                        type="button"
+                        onClick={() => setShowCardModal(true)}
+                        className="text-[11px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <i className="ri-settings-4-line text-xs"></i>
+                        <span>{cardAuthVoucher || wompiConfirmedDetails ? 'Váucher Listo' : 'Configurar'}</span>
+                      </button>
+                    )}
+                  </div>
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPaymentMethod(val);
+                      if (val === 'wompi') {
+                        setCardMode('wompi');
+                        setShowCardModal(true);
+                      } else if (val === 'debito' || val === 'credito') {
+                        if (cardMode !== 'wompi') setCardMode('datafono');
+                        setShowCardModal(true);
+                      }
+                    }}
+                    className={`w-full text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded-xl px-3 py-2.5 ${inputBg}`}
+                  >
+                    <option value="efectivo">💵 Efectivo (DIAN 10)</option>
+                    <option value="debito">💳 Tarjeta Débito (DIAN 49)</option>
+                    <option value="credito">💳 Tarjeta Crédito (DIAN 48)</option>
+                    <option value="wompi">⚡ Pasarela Wompi / PSE / QR (Virtual)</option>
+                    <option value="transferencia">🏦 Transferencia / PSE (DIAN 47)</option>
+                  </select>
 
-             {/* Card / Datáfono / Wompi Integration Subpanel */}
-             {(paymentMethod === 'debito' || paymentMethod === 'credito' || paymentMethod === 'wompi') && (
-               <div className="p-4 rounded-2xl border border-blue-500/30 bg-blue-500/5 space-y-3.5 animate-fade-in text-xs">
-                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-500/20 pb-2.5">
-                   <div className="flex items-center gap-2">
-                     <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
-                     <span className="font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400 text-xs">
-                       Gestión de Pago con Tarjeta {paymentMethod === 'debito' ? 'Débito' : paymentMethod === 'credito' ? 'Crédito' : 'Wompi'}
-                     </span>
-                     {currentCompany?.wompiConfig?.environment === 'sandbox' && (
-                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                         🧪 Sandbox / Pruebas Activo
-                       </span>
-                     )}
-                   </div>
-
-                   {/* Mode Selector: Datáfono Físico vs Wompi Virtual */}
-                   <div className="inline-flex rounded-xl bg-slate-900/60 p-0.5 border border-slate-700/60 self-start sm:self-auto">
-                     <button
-                       type="button"
-                       onClick={() => setCardMode('datafono')}
-                       className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
-                         cardMode === 'datafono'
-                           ? 'bg-blue-600 text-white shadow-sm'
-                           : 'text-slate-400 hover:text-white'
-                       }`}
-                     >
-                       <i className="ri-device-line text-sm"></i>
-                       <span>Datáfono Físico (POS)</span>
-                     </button>
-                     <button
-                       type="button"
-                       onClick={() => setCardMode('wompi')}
-                       className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
-                         cardMode === 'wompi'
-                           ? 'bg-purple-600 text-white shadow-sm'
-                           : 'text-slate-400 hover:text-white'
-                       }`}
-                     >
-                       <i className="ri-qr-code-line text-sm"></i>
-                       <span>Pasarela Wompi (Link/QR)</span>
-                     </button>
-                   </div>
-                 </div>
-
-                 {/* Mode 1: Physical POS Terminal */}
-                 {cardMode === 'datafono' && (
-                   <div className="space-y-3">
-                     <div className="flex items-center justify-between text-[11px] text-slate-400">
-                       <span className="flex items-center gap-1">
-                         <i className="ri-information-line text-blue-400"></i>
-                         Ingrese el número de váucher impreso por el datáfono físico del mostrador:
-                       </span>
-                       <span className="font-mono text-[10px] bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700 text-slate-300">
-                         Terminal: {currentCompany?.datafonoConfig?.terminalId || 'FINTEKIA-POS-01'}
-                       </span>
-                     </div>
-
-                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                       <div className="space-y-1">
-                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                           Franquicia Tarjeta
-                         </label>
-                         <select
-                           value={cardFranchise}
-                           onChange={(e) => setCardFranchise(e.target.value as any)}
-                           className={`w-full text-xs rounded-xl px-2.5 py-2 border font-medium outline-none ${inputBg}`}
-                         >
-                           <option value="visa">Visa</option>
-                           <option value="mastercard">Mastercard</option>
-                           <option value="amex">American Express</option>
-                           <option value="diners">Diners Club</option>
-                           <option value="otro">Débito Maestro / Otro</option>
-                         </select>
-                       </div>
-
-                       <div className="space-y-1">
-                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                           No. Autorización / Váucher
-                         </label>
-                         <input
-                           type="text"
-                           placeholder="ej. 084920"
-                           value={cardAuthVoucher}
-                           onChange={(e) => setCardAuthVoucher(e.target.value)}
-                           className={`w-full text-xs font-mono font-bold rounded-xl px-2.5 py-2 border outline-none ${inputBg}`}
-                         />
-                       </div>
-
-                       <div className="space-y-1">
-                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                           Últimos 4 Dígitos
-                         </label>
-                         <input
-                           type="text"
-                           maxLength={4}
-                           placeholder="ej. 4580"
-                           value={cardLastFour}
-                           onChange={(e) => setCardLastFour(e.target.value.replace(/\D/g, ''))}
-                           className={`w-full text-xs font-mono font-bold rounded-xl px-2.5 py-2 border outline-none ${inputBg}`}
-                         />
-                       </div>
-
-                       <div className="space-y-1">
-                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                           Cuotas (Diferido)
-                         </label>
-                         <select
-                           disabled={paymentMethod === 'debito'}
-                           value={paymentMethod === 'debito' ? 1 : cardInstallments}
-                           onChange={(e) => setCardInstallments(parseInt(e.target.value) || 1)}
-                           className={`w-full text-xs rounded-xl px-2.5 py-2 border font-medium outline-none ${inputBg} ${
-                             paymentMethod === 'debito' ? 'opacity-50 cursor-not-allowed' : ''
-                           }`}
-                         >
-                           <option value={1}>1 Cuota (Sin intereses)</option>
-                           <option value={2}>2 Cuotas</option>
-                           <option value={3}>3 Cuotas</option>
-                           <option value={6}>6 Cuotas</option>
-                           <option value={12}>12 Cuotas</option>
-                           <option value={24}>24 Cuotas</option>
-                           <option value={36}>36 Cuotas</option>
-                         </select>
-                       </div>
-                     </div>
-                   </div>
-                 )}
-
-                 {/* Mode 2: Virtual Wompi Gateway */}
-                 {cardMode === 'wompi' && (
-                   <div className="space-y-3">
-                     <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                       <div className="space-y-0.5">
-                         <div className="flex items-center gap-2">
-                           <i className="ri-shield-keyhole-line text-purple-400 text-sm"></i>
-                           <span className="font-extrabold text-slate-200">
-                             Pasarela Oficial Wompi Bancolombia
-                           </span>
-                           <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300">
-                             Firma SHA-256 Activa
-                           </span>
-                         </div>
-                         <p className="text-[11px] text-slate-400">
-                           Acepta Tarjeta Crédito/Débito, PSE, Nequi y Botón Bancolombia en tiempo real.
-                         </p>
-                       </div>
-
-                       <div className="flex items-center gap-2">
-                         <button
-                           type="button"
-                           onClick={() => setShowWompiModal(true)}
-                           className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-all flex items-center gap-1.5 shadow-md cursor-pointer shrink-0"
-                         >
-                           <i className="ri-bank-card-line text-sm"></i>
-                           <span>Abrir Checkout Wompi</span>
-                         </button>
-                       </div>
-                     </div>
-
-                     {/* Confirmation feedback if simulated or processed */}
-                     {wompiConfirmedDetails && (
-                       <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-2">
-                         <div className="flex items-center gap-2">
-                           <i className="ri-checkbox-circle-fill text-emerald-400 text-base"></i>
-                           <div className="text-xs">
-                             <span className="font-bold text-emerald-400">
-                               Pago Aprobado por Wompi ({wompiConfirmedDetails.franchise?.toUpperCase()} •••• {wompiConfirmedDetails.lastFourDigits})
-                             </span>
-                             <span className="text-slate-400 block text-[10px] font-mono">
-                               Ref: {wompiConfirmedDetails.wompiTransactionId} · Aut: {wompiConfirmedDetails.authorizationCode}
-                             </span>
-                           </div>
-                         </div>
-                         <button
-                           type="button"
-                           onClick={() => setWompiConfirmedDetails(null)}
-                           className="text-[10px] text-slate-400 hover:text-white underline cursor-pointer"
-                         >
-                           Reiniciar cobro
-                         </button>
-                       </div>
-                     )}
-                   </div>
-                 )}
-               </div>
-             )}
+                  {/* Compact Status Pill for Card / Datáfono / Wompi */}
+                  {(paymentMethod === 'debito' || paymentMethod === 'credito' || paymentMethod === 'wompi') && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCardModal(true)}
+                      className="w-full mt-1.5 py-1.5 px-3 rounded-xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-medium flex items-center justify-between transition-all cursor-pointer shadow-sm group"
+                    >
+                      <div className="flex items-center gap-1.5 truncate">
+                        <i className="ri-bank-card-fill text-blue-400 group-hover:scale-110 transition-transform"></i>
+                        {cardAuthVoucher ? (
+                          <span className="font-mono font-bold text-[11px] truncate">
+                            {cardFranchise.toUpperCase()} ••••{cardLastFour || '****'} (Aut: {cardAuthVoucher})
+                          </span>
+                        ) : wompiConfirmedDetails ? (
+                          <span className="text-emerald-400 font-bold text-[11px] truncate">
+                            ✓ Wompi {wompiConfirmedDetails.franchise?.toUpperCase()} ••••{wompiConfirmedDetails.lastFourDigits}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] truncate">
+                            {cardMode === 'wompi' || paymentMethod === 'wompi' ? '⚡ Cobrar con Wompi (Link/QR)' : '💳 Ingresar Váucher de Datáfono'}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/25 text-blue-300 ml-1.5 shrink-0">
+                        {cardAuthVoucher || wompiConfirmedDetails ? 'Cambiar' : 'Ingresar'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
 
             {/* Integrated Elegant Product Selector & Invoice Items */}
             <div className="space-y-4">
@@ -2766,6 +2617,234 @@ export default function InvoicingView({
             }
           }}
         />
+      )}
+
+      {/* Modal: Gestión de Pago con Tarjeta / Datáfono / Wompi */}
+      {showCardModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="max-w-lg w-full bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-5 space-y-4">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-xl shrink-0">
+                  <i className="ri-bank-card-line"></i>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    Gestión de Tarjeta & Datáfono
+                    {currentCompany?.wompiConfig?.environment === 'sandbox' && (
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        Sandbox
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Registre el váucher del datáfono físico o cobre en línea vía Wompi
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCardModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <i className="ri-close-line text-xl"></i>
+              </button>
+            </div>
+
+            {/* Mode Selector Tabs */}
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950/80 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setCardMode('datafono')}
+                className={`py-2 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  cardMode === 'datafono'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <i className="ri-device-line text-sm"></i>
+                <span>Datáfono Físico (POS)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCardMode('wompi')}
+                className={`py-2 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  cardMode === 'wompi'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <i className="ri-qr-code-line text-sm"></i>
+                <span>Pasarela Wompi (Link/QR)</span>
+              </button>
+            </div>
+
+            {/* Mode 1: Physical POS Terminal */}
+            {cardMode === 'datafono' && (
+              <div className="space-y-3.5 bg-slate-950/50 p-4 rounded-xl border border-slate-800/80">
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span className="flex items-center gap-1.5 text-blue-400 font-medium">
+                    <i className="ri-information-line"></i>
+                    Datos del recibo impreso por el datáfono:
+                  </span>
+                  <span className="font-mono text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-slate-300">
+                    Terminal: {currentCompany?.datafonoConfig?.terminalId || 'FINTEKIA-POS-01'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Franquicia
+                    </label>
+                    <select
+                      value={cardFranchise}
+                      onChange={(e) => setCardFranchise(e.target.value as any)}
+                      className="w-full text-xs rounded-xl px-3 py-2.5 bg-slate-900 border border-slate-700 text-white font-medium outline-none focus:border-blue-500"
+                    >
+                      <option value="visa">Visa</option>
+                      <option value="mastercard">Mastercard</option>
+                      <option value="amex">American Express</option>
+                      <option value="diners">Diners Club</option>
+                      <option value="otro">Débito Maestro / Otro</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      No. Autorización / Váucher
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="ej. 084920"
+                      value={cardAuthVoucher}
+                      onChange={(e) => setCardAuthVoucher(e.target.value)}
+                      className="w-full text-xs font-mono font-bold rounded-xl px-3 py-2.5 bg-slate-900 border border-slate-700 text-white outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Últimos 4 Dígitos
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={4}
+                      placeholder="ej. 4580"
+                      value={cardLastFour}
+                      onChange={(e) => setCardLastFour(e.target.value.replace(/\D/g, ''))}
+                      className="w-full text-xs font-mono font-bold rounded-xl px-3 py-2.5 bg-slate-900 border border-slate-700 text-white outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Cuotas (Diferido)
+                    </label>
+                    <select
+                      disabled={paymentMethod === 'debito'}
+                      value={paymentMethod === 'debito' ? 1 : cardInstallments}
+                      onChange={(e) => setCardInstallments(parseInt(e.target.value) || 1)}
+                      className={`w-full text-xs rounded-xl px-3 py-2.5 bg-slate-900 border border-slate-700 text-white font-medium outline-none focus:border-blue-500 ${
+                        paymentMethod === 'debito' ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <option value={1}>1 Cuota (Sin intereses)</option>
+                      <option value={2}>2 Cuotas</option>
+                      <option value={3}>3 Cuotas</option>
+                      <option value={6}>6 Cuotas</option>
+                      <option value={12}>12 Cuotas</option>
+                      <option value={24}>24 Cuotas</option>
+                      <option value={36}>36 Cuotas</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Mode 2: Virtual Wompi Gateway */}
+            {cardMode === 'wompi' && (
+              <div className="space-y-3 bg-slate-950/50 p-4 rounded-xl border border-slate-800/80">
+                <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <i className="ri-shield-keyhole-line text-purple-400 text-base"></i>
+                      <span className="font-bold text-slate-200 text-xs">
+                        Pasarela Oficial Wompi Bancolombia
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                      Firma SHA-256
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Acepta Tarjeta Crédito/Débito, PSE, Nequi y Botón Bancolombia en tiempo real.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowWompiModal(true);
+                      setShowCardModal(false);
+                    }}
+                    className="w-full mt-2 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                  >
+                    <i className="ri-bank-card-line text-sm"></i>
+                    <span>Abrir Checkout Wompi</span>
+                  </button>
+                </div>
+
+                {/* Confirmation info if already paid */}
+                {wompiConfirmedDetails && (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <i className="ri-checkbox-circle-fill text-emerald-400 text-base"></i>
+                      <div className="text-xs">
+                        <span className="font-bold text-emerald-400 block">
+                          Pago Aprobado ({wompiConfirmedDetails.franchise?.toUpperCase()} •••• {wompiConfirmedDetails.lastFourDigits})
+                        </span>
+                        <span className="text-slate-400 text-[10px] font-mono">
+                          Ref: {wompiConfirmedDetails.wompiTransactionId} · Aut: {wompiConfirmedDetails.authorizationCode}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setWompiConfirmedDetails(null)}
+                      className="text-[10px] text-slate-400 hover:text-white underline cursor-pointer"
+                    >
+                      Reiniciar
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setCardAuthVoucher('');
+                  setCardLastFour('');
+                  setWompiConfirmedDetails(null);
+                  setShowCardModal(false);
+                }}
+                className="text-xs text-slate-400 hover:text-rose-400 transition-colors font-medium cursor-pointer"
+              >
+                Limpiar datos
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCardModal(false)}
+                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-all shadow-md cursor-pointer flex items-center gap-2"
+              >
+                <i className="ri-check-line text-sm"></i>
+                <span>Guardar y Continuar</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal: Checkout Wompi Bancolombia */}
