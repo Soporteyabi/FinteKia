@@ -17,7 +17,8 @@ import {
   InvoiceEmailModal,
   SmtpConfigModal,
   CompanyParamsModal,
-  QuickDianTestModal
+  QuickDianTestModal,
+  AdminToolsFormModal
 } from './invoicing';
 
 interface InvoicingViewProps {
@@ -122,7 +123,28 @@ export default function InvoicingView({
   const [showCompanyParamsModal, setShowCompanyParamsModal] = useState(false);
   const [showQuickDianTestModal, setShowQuickDianTestModal] = useState(false);
   const [salesCompanyFilter, setSalesCompanyFilter] = useState<'current' | 'all'>('current');
-  const [showAdminToolsDropdown, setShowAdminToolsDropdown] = useState(false);
+  // Separate dropdown for the 7 quick actions/modules
+  const [showQuickAccessDropdown, setShowQuickAccessDropdown] = useState(false);
+  const quickAccessDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Admin Tools Form Modal state
+  const [showAdminToolsModal, setShowAdminToolsModal] = useState(false);
+
+  // Close quick access dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (quickAccessDropdownRef.current && !quickAccessDropdownRef.current.contains(event.target as Node)) {
+        setShowQuickAccessDropdown(false);
+      }
+    };
+    if (showQuickAccessDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showQuickAccessDropdown]);
+
   const [activeInvoicingTab, setActiveInvoicingTab] = useState<'pos' | 'historial' | 'config_dian'>('pos');
   const isAdminOrAccountant = !currentUser || !currentUser.role || currentUser.role === 'Admin' || currentUser.role === 'Contador';
 
@@ -1068,237 +1090,173 @@ export default function InvoicingView({
                 </p>
               </div>
 
-            {/* Quick Actions, Inter-Module Connections & Admin Tools Menu */}
+            {/* Right Side Header Controls: Quick Access Dropdown + Admin Tools Form Trigger */}
             <div className="flex items-center gap-2 flex-wrap shrink-0">
-              {/* Quick Inter-Module Navigation Links */}
-              {setActiveView && (
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setActiveView('cartera')}
-                    className="px-2.5 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                    title="Consultar Cuentas por Cobrar de clientes en Cartera"
-                  >
-                    <i className="ri-wallet-3-line text-xs"></i>
-                    <span className="hidden xl:inline">Cartera CxC</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveView('bodegas')}
-                    className="px-2.5 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                    title="Consultar existencias y lotes en Bodegas"
-                  >
-                    <i className="ri-archive-line text-xs"></i>
-                    <span className="hidden xl:inline">Bodegas</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveView('terceros')}
-                    className="px-2.5 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                    title="Fichas de Clientes y Proveedores"
-                  >
-                    <i className="ri-user-star-line text-xs"></i>
-                    <span className="hidden xl:inline">Clientes</span>
-                  </button>
-                </div>
-              )}
+              {/* Dropdown 1: Accesos Rápidos (7 items from screenshot) */}
+              <div className="relative" ref={quickAccessDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowQuickAccessDropdown(!showQuickAccessDropdown)}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer hover:border-slate-500"
+                  title="Accesos rápidos a módulos, reportes y herramientas"
+                  id="btn-quick-access-dropdown"
+                >
+                  <i className="ri-apps-2-line text-sky-400"></i>
+                  <span>Accesos Rápidos</span>
+                  <i className={`ri-arrow-down-s-line text-xs transition-transform duration-200 ${showQuickAccessDropdown ? 'rotate-180' : ''}`}></i>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => exportInvoicesToExcel(vouchers, terceros, products, currentCompany?.name)}
-                className="px-3.5 py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                title="Descargar libro de facturas en Excel (.xlsx)"
-                id="btn-export-excel-header"
-              >
-                <i className="ri-file-excel-2-line text-emerald-200"></i>
-                <span className="hidden sm:inline">Exportar Excel</span>
-              </button>
-
-              {isAdminOrAccountant && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setShowCompanyParamsModal(true)}
-                    className="px-3 py-2 rounded-xl bg-blue-600/90 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer border border-blue-400/30"
-                    title="Configurar parámetros de empresa: razón social, NIT, régimen, resolución DIAN y cuentas de recaudo sin salir de facturación"
-                    id="btn-company-params-header"
+                {/* Compact Dropdown Menu with the 7 shortcut items */}
+                {showQuickAccessDropdown && (
+                  <div 
+                    className="absolute right-0 mt-2 w-72 sm:w-80 rounded-2xl bg-slate-900/98 backdrop-blur-md border border-slate-700/80 shadow-2xl p-2 z-50 text-xs text-slate-200 space-y-1 animate-fade-in"
                   >
-                    <i className="ri-building-line text-blue-200"></i>
-                    <span className="hidden sm:inline">Parámetros Empresa</span>
-                  </button>
+                    <div className="px-2.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800/80 flex items-center justify-between pb-1 mb-1">
+                      <span>Accesos & Opciones Rápidas</span>
+                      <span className="text-[9px] font-mono text-sky-400">7 accesos</span>
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowDesignModal(true)}
-                    className="px-3 py-2 rounded-xl bg-purple-600/80 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer border border-purple-400/30"
-                    title="Configurar diseño, posición del logo y firmas de la factura"
-                    id="btn-invoice-designer-header"
-                  >
-                    <i className="ri-palette-line"></i>
-                    <span className="hidden sm:inline">Diseño & Logo</span>
-                  </button>
+                    {/* 1. Cartera CxC */}
+                    {setActiveView && (
+                      <button
+                        type="button"
+                        onClick={() => { setActiveView('cartera'); setShowQuickAccessDropdown(false); }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-emerald-600/15 hover:text-emerald-300 flex items-center gap-2.5 transition-colors cursor-pointer group"
+                        id="quick-goto-cartera-btn"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm shrink-0">
+                          <i className="ri-wallet-3-line"></i>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-white group-hover:text-emerald-300 text-xs">Cartera CxC</div>
+                          <div className="text-[10px] text-slate-400 truncate">Cuentas por cobrar de clientes</div>
+                        </div>
+                      </button>
+                    )}
 
-                  <button
-                    type="button"
-                    onClick={() => setShowQuickDianTestModal(true)}
-                    className="px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-500 hover:to-sky-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer border border-indigo-400/30"
-                    title="Verificar de inmediato las credenciales de Alanube y conexión con la API de la DIAN sin salir de facturación"
-                    id="btn-quick-dian-test-header"
-                  >
-                    <i className="ri-flashlight-line text-amber-300"></i>
-                    <span className="hidden sm:inline">Test DIAN</span>
-                  </button>
+                    {/* 2. Bodegas */}
+                    {setActiveView && (
+                      <button
+                        type="button"
+                        onClick={() => { setActiveView('bodegas'); setShowQuickAccessDropdown(false); }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-amber-600/15 hover:text-amber-300 flex items-center gap-2.5 transition-colors cursor-pointer group"
+                        id="quick-goto-bodegas-btn"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-sm shrink-0">
+                          <i className="ri-archive-line"></i>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-white group-hover:text-amber-300 text-xs">Bodegas & Kardex</div>
+                          <div className="text-[10px] text-slate-400 truncate">Existencias, lotes y almacenes</div>
+                        </div>
+                      </button>
+                    )}
 
-                  <div className="relative">
+                    {/* 3. Clientes */}
+                    {setActiveView && (
+                      <button
+                        type="button"
+                        onClick={() => { setActiveView('terceros'); setShowQuickAccessDropdown(false); }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-indigo-600/15 hover:text-indigo-300 flex items-center gap-2.5 transition-colors cursor-pointer group"
+                        id="quick-goto-terceros-btn"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 text-sm shrink-0">
+                          <i className="ri-user-star-line"></i>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-white group-hover:text-indigo-300 text-xs">Directorio Clientes</div>
+                          <div className="text-[10px] text-slate-400 truncate">Fichas de clientes y terceros</div>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* 4. Exportar Excel */}
                     <button
                       type="button"
-                      onClick={() => setShowAdminToolsDropdown(!showAdminToolsDropdown)}
-                      className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                      title="Herramientas técnicas de administración DIAN"
-                      id="admin-tools-dropdown-btn"
+                      onClick={() => { 
+                        exportInvoicesToExcel(vouchers, terceros, products, currentCompany?.name); 
+                        setShowQuickAccessDropdown(false); 
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-emerald-600/15 hover:text-emerald-300 flex items-center gap-2.5 transition-colors cursor-pointer group"
+                      id="quick-export-excel-btn"
                     >
-                      <i className="ri-tools-fill text-indigo-400"></i>
-                      <span>Herramientas Admin</span>
-                      <i className={`ri-arrow-down-s-line text-xs transition-transform ${showAdminToolsDropdown ? 'rotate-180' : ''}`}></i>
+                      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm shrink-0">
+                        <i className="ri-file-excel-2-line"></i>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-white group-hover:text-emerald-300 text-xs">Exportar Excel (.xlsx)</div>
+                        <div className="text-[10px] text-slate-400 truncate">Descargar reporte fiscal de facturas</div>
+                      </div>
                     </button>
 
-                    {/* Dropdown Menu */}
-                    {showAdminToolsDropdown && (
-                      <div 
-                        className="absolute right-0 mt-2 w-64 rounded-2xl bg-slate-900 border border-slate-700/80 shadow-2xl p-2 z-40 text-xs text-slate-200 space-y-1 animate-fade-in"
-                        onMouseLeave={() => setShowAdminToolsDropdown(false)}
-                      >
-                        <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">
-                          Opciones de Administrador
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => { setShowQuickDianTestModal(true); setShowAdminToolsDropdown(false); }}
-                          className="w-full text-left px-3 py-2 rounded-xl hover:bg-indigo-600/20 hover:text-indigo-300 flex items-center gap-2.5 transition-colors cursor-pointer"
-                          id="open-quick-dian-test-dropdown-btn"
-                        >
-                          <i className="ri-flashlight-line text-amber-400 text-sm"></i>
-                          <div>
-                            <div className="font-semibold text-white">Test Rápido DIAN & Credenciales</div>
-                            <div className="text-[10px] text-slate-400">Verificar ping, token y respuesta de la DIAN al instante</div>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => { setShowCompanyParamsModal(true); setShowAdminToolsDropdown(false); }}
-                          className="w-full text-left px-3 py-2 rounded-xl hover:bg-blue-600/20 hover:text-blue-300 flex items-center gap-2.5 transition-colors cursor-pointer"
-                          id="open-company-params-dropdown-btn"
-                        >
-                          <i className="ri-building-line text-blue-400 text-sm"></i>
-                          <div>
-                            <div className="font-semibold">Parámetros de Empresa</div>
-                            <div className="text-[10px] text-slate-400">Razón social, NIT, régimen, cuentas y DIAN</div>
-                          </div>
-                        </button>
-                        
-                        <button
-                          type="button"
-                          onClick={() => { setShowDesignModal(true); setShowAdminToolsDropdown(false); }}
-                          className="w-full text-left px-3 py-2 rounded-xl hover:bg-purple-600/20 hover:text-purple-300 flex items-center gap-2.5 transition-colors cursor-pointer"
-                          id="open-invoice-designer-btn"
-                        >
-                          <i className="ri-palette-line text-purple-400 text-sm"></i>
-                          <div>
-                            <div className="font-semibold">Diseño & Logo Factura</div>
-                            <div className="text-[10px] text-slate-400">Ubicación de logo, firmas y colores</div>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => { 
-                            setAutoRunHabilitationModal(true); 
-                            setShowHabilitationModal(true); 
-                            setShowAdminToolsDropdown(false); 
-                          }}
-                          className="w-full text-left px-3 py-2 rounded-xl hover:bg-amber-600/20 hover:text-amber-300 flex items-center gap-2.5 transition-colors cursor-pointer"
-                          id="open-habilitation-modal-btn"
-                        >
-                          <i className="ri-shield-check-line text-amber-400 text-sm"></i>
-                          <div>
-                            <div className="font-semibold">Habilitación DIAN (8 facturas)</div>
-                            <div className="text-[10px] text-slate-400">Pruebas oficiales de transmisión</div>
-                          </div>
-                        </button>
-
-                        {onOpenAlanubeConfig && (
-                          <button
-                            type="button"
-                            onClick={() => { onOpenAlanubeConfig(); setShowAdminToolsDropdown(false); }}
-                            className="w-full text-left px-3 py-2 rounded-xl hover:bg-sky-600/20 hover:text-sky-300 flex items-center gap-2.5 transition-colors cursor-pointer"
-                            id="open-alanube-module-btn"
-                          >
-                            <i className="ri-cloud-line text-sky-400 text-sm"></i>
-                            <div>
-                              <div className="font-semibold">API Alanube & DIAN</div>
-                              <div className="text-[10px] text-slate-400">Credenciales y tokens de conexión</div>
-                            </div>
-                          </button>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => { setShowPayloadModal(true); setShowAdminToolsDropdown(false); }}
-                          className="w-full text-left px-3 py-2 rounded-xl hover:bg-indigo-600/20 hover:text-indigo-300 flex items-center gap-2.5 transition-colors cursor-pointer"
-                        >
-                          <i className="ri-code-s-slash-line text-indigo-400 text-sm"></i>
-                          <div>
-                            <div className="font-semibold">Estructura JSON Oficial</div>
-                            <div className="text-[10px] text-slate-400">Inspeccionar payload para el proveedor</div>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => { setShowSmtpModal(true); setShowAdminToolsDropdown(false); }}
-                          className="w-full text-left px-3 py-2 rounded-xl hover:bg-emerald-600/20 hover:text-emerald-300 flex items-center gap-2.5 transition-colors cursor-pointer"
-                          id="open-smtp-config-btn"
-                        >
-                          <i className="ri-mail-settings-line text-emerald-400 text-sm"></i>
-                          <div>
-                            <div className="font-semibold">Servidor de Correo (SMTP)</div>
-                            <div className="text-[10px] text-slate-400">Host, puerto, credenciales y plantillas</div>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => { setShowConfigModal(true); setShowAdminToolsDropdown(false); }}
-                          className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-slate-300 flex items-center gap-2.5 transition-colors cursor-pointer"
-                        >
-                          <i className="ri-settings-3-line text-slate-400 text-sm"></i>
-                          <div>
-                            <div className="font-semibold">Configuración Rápida</div>
-                            <div className="text-[10px] text-slate-400">Prefijo, resolución y correo</div>
-                          </div>
-                        </button>
-
-                        <a
-                          href="https://app.alanube.co"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-indigo-300 flex items-center justify-between transition-colors cursor-pointer block"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <i className="ri-external-link-line text-indigo-400 text-sm"></i>
-                            <div>
-                              <div className="font-semibold">Portal Alanube Producción</div>
-                              <div className="text-[10px] text-slate-400">Consola externa del proveedor</div>
-                            </div>
-                          </div>
-                          <i className="ri-arrow-right-up-line text-slate-500"></i>
-                        </a>
+                    {/* 5. Parámetros Empresa */}
+                    <button
+                      type="button"
+                      onClick={() => { setShowCompanyParamsModal(true); setShowQuickAccessDropdown(false); }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-blue-600/15 hover:text-blue-300 flex items-center gap-2.5 transition-colors cursor-pointer group"
+                      id="quick-company-params-btn"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-sm shrink-0">
+                        <i className="ri-building-line"></i>
                       </div>
-                    )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-white group-hover:text-blue-300 text-xs">Parámetros Empresa</div>
+                        <div className="text-[10px] text-slate-400 truncate">Razón social, NIT, régimen y cuentas</div>
+                      </div>
+                    </button>
+
+                    {/* 6. Diseño & Logo */}
+                    <button
+                      type="button"
+                      onClick={() => { setShowDesignModal(true); setShowQuickAccessDropdown(false); }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-purple-600/15 hover:text-purple-300 flex items-center gap-2.5 transition-colors cursor-pointer group"
+                      id="quick-design-modal-btn"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-sm shrink-0">
+                        <i className="ri-palette-line"></i>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-white group-hover:text-purple-300 text-xs">Diseño & Logo Factura</div>
+                        <div className="text-[10px] text-slate-400 truncate">Personalización carta, POS y logos</div>
+                      </div>
+                    </button>
+
+                    {/* 7. Test DIAN */}
+                    <button
+                      type="button"
+                      onClick={() => { setShowQuickDianTestModal(true); setShowQuickAccessDropdown(false); }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-amber-600/15 hover:text-amber-300 flex items-center gap-2.5 transition-colors cursor-pointer group"
+                      id="quick-test-dian-btn"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-sm shrink-0">
+                        <i className="ri-flashlight-line"></i>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-white group-hover:text-amber-300 text-xs flex items-center gap-1.5">
+                          <span>Test Rápido DIAN</span>
+                          <span className="text-[8.5px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            Express
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 truncate">Verificar credenciales y ping DIAN</div>
+                      </div>
+                    </button>
                   </div>
-                </>
+                )}
+              </div>
+
+              {/* Button 2: Herramientas Admin (Opens Formulario Modal) */}
+              {isAdminOrAccountant && (
+                <button
+                  type="button"
+                  onClick={() => setShowAdminToolsModal(true)}
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer border border-blue-400/30"
+                  title="Abrir formulario de administración de parámetros, resolución DIAN y utilidades"
+                  id="btn-open-admin-tools-form"
+                >
+                  <i className="ri-settings-4-line text-sm text-blue-200"></i>
+                  <span>Herramientas Admin</span>
+                </button>
               )}
             </div>
           </div>
@@ -2972,6 +2930,27 @@ export default function InvoicingView({
             });
           }
         }}
+      />
+
+      {/* Modal: Formulario Completo de Herramientas Admin */}
+      <AdminToolsFormModal
+        isOpen={showAdminToolsModal}
+        onClose={() => setShowAdminToolsModal(false)}
+        currentCompany={currentCompany}
+        activeBillingConfig={activeBillingConfig}
+        onUpdateCompany={(updated) => {
+          if (updateCompany) {
+            updateCompany(updated);
+          }
+        }}
+        onOpenDesignModal={() => setShowDesignModal(true)}
+        onOpenHabilitationModal={() => {
+          setAutoRunHabilitationModal(true);
+          setShowHabilitationModal(true);
+        }}
+        onOpenPayloadModal={() => setShowPayloadModal(true)}
+        onOpenSmtpModal={() => setShowSmtpModal(true)}
+        onOpenAlanubeConfig={onOpenAlanubeConfig}
       />
     </div>
   );
