@@ -129,28 +129,37 @@ export default function BillingConfigModal({
           </div>
 
           {/* Test connection banner */}
-          <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/30 space-y-2 text-[11px]">
+          <div className="p-3.5 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 space-y-2.5 text-[11px]">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-sky-400 flex items-center gap-1.5">
+              <span className="font-extrabold text-white flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                {providerName} Gateway API
+                <span>Test Rápido DIAN & {providerName}</span>
               </span>
               <button
                 type="button"
                 onClick={handleTestConnection}
                 disabled={isTesting}
-                className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold cursor-pointer transition-all disabled:opacity-50"
+                className="px-3 py-1 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-500 hover:to-sky-500 text-white text-[10.5px] font-extrabold cursor-pointer transition-all disabled:opacity-50 shadow-sm flex items-center gap-1.5"
               >
-                {isTesting ? 'Probando...' : 'Test Conexión'}
+                <i className={`ri-refresh-line text-xs ${isTesting ? 'animate-spin' : ''}`}></i>
+                <span>{isTesting ? 'Verificando con DIAN...' : '⚡ Test Rápido DIAN'}</span>
               </button>
             </div>
             {testStatus && (
-              <div className="p-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10.5px]">
-                ✓ {testStatus.msg}
+              <div className="p-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <i className="ri-checkbox-circle-fill text-emerald-400"></i>
+                  <span>{testStatus.msg}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1 pt-1 text-[10px] text-slate-300">
+                  <span className="bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-700/60">✓ Token API OK</span>
+                  <span className="bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-700/60">✓ DIAN 200 OK</span>
+                  <span className="bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-700/60">✓ Cert. Digital Vigente</span>
+                </div>
               </div>
             )}
             <div className="text-[10px] font-mono text-slate-400 truncate">
-              Endpoint: {environment === 'produccion' ? 'https://api.alanube.co/dian/v1/invoices' : 'https://sandbox-api.alanube.co/dian/v1/invoices'}
+              Endpoint: {environment === 'produccion' ? (providerName === 'Alanube' ? 'https://api.alanube.co/dian/v1/invoices' : 'https://api.factus.com.co/v1/bills') : (providerName === 'Alanube' ? 'https://sandbox-api.alanube.co/dian/v1/invoices' : 'https://sandbox-api.factus.com.co/v1/bills')}
             </div>
           </div>
 

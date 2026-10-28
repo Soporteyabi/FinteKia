@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Company, ElectronicBillingConfig } from '../types';
-import { DianHabilitationAssistant } from './invoicing';
+import { DianHabilitationAssistant, QuickDianTestSection } from './invoicing';
 import { toast } from '../context/ToastContext';
 
 interface AlanubeConfigViewProps {
@@ -897,8 +897,30 @@ export default function AlanubeConfigView({
       {/* TAB 1: CREDENCIALES DE API ALANUBE */}
       {activeTab === 'credentials' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Credentials Form */}
+          {/* Main Credentials Form & Quick DIAN Test */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Seccion de Test Rapido de Conexion con DIAN */}
+            <QuickDianTestSection
+              currentCompany={currentCompany}
+              billingConfig={{
+                ...currentConfig,
+                clientId,
+                clientSecret,
+                apiToken,
+                apiEndpoint,
+                environment,
+                prefix,
+                resolutionNumber
+              }}
+              onUpdateConfig={(cfg) => {
+                updateCompany({
+                  ...currentCompany,
+                  billingConfig: cfg
+                });
+              }}
+              isInline={true}
+            />
+
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
               <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                 <div>

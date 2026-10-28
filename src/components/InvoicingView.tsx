@@ -16,7 +16,8 @@ import {
   InvoiceDesignModal,
   InvoiceEmailModal,
   SmtpConfigModal,
-  CompanyParamsModal
+  CompanyParamsModal,
+  QuickDianTestModal
 } from './invoicing';
 
 interface InvoicingViewProps {
@@ -119,6 +120,7 @@ export default function InvoicingView({
   const [selectedPayloadInvoice, setSelectedPayloadInvoice] = useState<Voucher | null>(null);
   const [showDesignModal, setShowDesignModal] = useState(false);
   const [showCompanyParamsModal, setShowCompanyParamsModal] = useState(false);
+  const [showQuickDianTestModal, setShowQuickDianTestModal] = useState(false);
   const [salesCompanyFilter, setSalesCompanyFilter] = useState<'current' | 'all'>('current');
   const [showAdminToolsDropdown, setShowAdminToolsDropdown] = useState(false);
   const [activeInvoicingTab, setActiveInvoicingTab] = useState<'pos' | 'historial' | 'config_dian'>('pos');
@@ -1023,10 +1025,17 @@ export default function InvoicingView({
                     <i className="ri-file-text-line text-indigo-400"></i>
                     <span>Facturación Electrónica DIAN</span>
                   </h2>
-                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickDianTestModal(true)}
+                    className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 transition-all cursor-pointer"
+                    title="Haga clic para ejecutar un test rápido de conexión y verificar credenciales DIAN sin salir de facturación"
+                    id="btn-quick-dian-status"
+                  >
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    DIAN En Línea · {activeBillingConfig.providerName}
-                  </span>
+                    <span>DIAN En Línea · {activeBillingConfig.providerName}</span>
+                    <i className="ri-flashlight-line text-amber-300 ml-0.5"></i>
+                  </button>
                   {isAdminOrAccountant ? (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
                       <i className="ri-shield-keyhole-line"></i> Admin
@@ -1129,6 +1138,17 @@ export default function InvoicingView({
                     <span className="hidden sm:inline">Diseño & Logo</span>
                   </button>
 
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickDianTestModal(true)}
+                    className="px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-500 hover:to-sky-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer border border-indigo-400/30"
+                    title="Verificar de inmediato las credenciales de Alanube y conexión con la API de la DIAN sin salir de facturación"
+                    id="btn-quick-dian-test-header"
+                  >
+                    <i className="ri-flashlight-line text-amber-300"></i>
+                    <span className="hidden sm:inline">Test DIAN</span>
+                  </button>
+
                   <div className="relative">
                     <button
                       type="button"
@@ -1151,6 +1171,19 @@ export default function InvoicingView({
                         <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">
                           Opciones de Administrador
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={() => { setShowQuickDianTestModal(true); setShowAdminToolsDropdown(false); }}
+                          className="w-full text-left px-3 py-2 rounded-xl hover:bg-indigo-600/20 hover:text-indigo-300 flex items-center gap-2.5 transition-colors cursor-pointer"
+                          id="open-quick-dian-test-dropdown-btn"
+                        >
+                          <i className="ri-flashlight-line text-amber-400 text-sm"></i>
+                          <div>
+                            <div className="font-semibold text-white">Test Rápido DIAN & Credenciales</div>
+                            <div className="text-[10px] text-slate-400">Verificar ping, token y respuesta de la DIAN al instante</div>
+                          </div>
+                        </button>
 
                         <button
                           type="button"
@@ -2921,6 +2954,22 @@ export default function InvoicingView({
             setCfgResolution(updatedCompany.billingConfig.resolutionNumber || '187640000099');
             setCfgResolutionDate(updatedCompany.billingConfig.resolutionDate || '2026-01-15');
             setCfgProviderName(updatedCompany.billingConfig.providerName || 'Factus');
+          }
+        }}
+      />
+
+      {/* Modal: Test Rápido de Conexión DIAN & Alanube (Inmediato sin salir de facturación) */}
+      <QuickDianTestModal
+        isOpen={showQuickDianTestModal}
+        onClose={() => setShowQuickDianTestModal(false)}
+        currentCompany={currentCompany}
+        billingConfig={activeBillingConfig}
+        onUpdateConfig={(updatedConfig) => {
+          if (updateCompany) {
+            updateCompany({
+              ...currentCompany,
+              billingConfig: updatedConfig
+            });
           }
         }}
       />

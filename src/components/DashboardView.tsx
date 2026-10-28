@@ -3,6 +3,7 @@ import { Voucher, Tercero, Product, BOM, InventoryItem, Company, TechServiceOrde
 import { THEMES_MAP } from './Sidebar';
 import { motion, AnimatePresence } from 'motion/react';
 import CashFlowTrendChart from './CashFlowTrendChart';
+import DailySalesTrendChart from './DailySalesTrendChart';
 import Pagination from './Pagination';
 import { 
   TrendingUp, 
@@ -101,6 +102,9 @@ export default function DashboardView({
 
   // Toggle inline cash flow recharts line chart inside menu view
   const [showInlineCashFlow, setShowInlineCashFlow] = useState<boolean>(false);
+
+  // Toggle inline daily sales trend recharts line chart for active company (current month)
+  const [showDailySalesTrend, setShowDailySalesTrend] = useState<boolean>(true);
 
   // Sales & Operating Margins PDF Report Modal
   const [isSalesReportModalOpen, setIsSalesReportModalOpen] = useState<boolean>(false);
@@ -1018,20 +1022,37 @@ export default function DashboardView({
 
                     <div className="flex items-center gap-2.5">
                       <button
+                        onClick={() => setShowDailySalesTrend(!showDailySalesTrend)}
+                        className={`text-[10px] flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all border cursor-pointer font-bold ${
+                          showDailySalesTrend
+                            ? isLight 
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                              : 'bg-blue-500/25 text-white border-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.3)] font-bold'
+                            : isLight
+                              ? 'bg-white hover:bg-slate-100 text-slate-900 border-slate-300'
+                              : 'bg-black/20 hover:bg-black/30 text-blue-200 border-white/10'
+                        }`}
+                        title="Ver gráfico de líneas de tendencia de ventas diarias de la empresa activa (Recharts)"
+                      >
+                        <TrendingUp className={`w-3 h-3 ${isLight ? (showDailySalesTrend ? 'text-white' : 'text-blue-600') : 'text-cyan-300'}`} />
+                        <span>{showDailySalesTrend ? "Ocultar Ventas Diarias" : "Ventas Diarias (Mes)"}</span>
+                      </button>
+
+                      <button
                         onClick={() => setShowInlineCashFlow(!showInlineCashFlow)}
                         className={`text-[10px] flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all border cursor-pointer font-bold ${
                           showInlineCashFlow
                             ? isLight 
-                              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                              : 'bg-sky-500/25 text-white border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.3)] font-bold'
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-indigo-500/25 text-white border-indigo-400 shadow-[0_0_12px_rgba(99,102,241,0.3)] font-bold'
                             : isLight
                               ? 'bg-white hover:bg-slate-100 text-slate-900 border-slate-300'
                               : 'bg-black/20 hover:bg-black/30 text-blue-200 border-white/10'
                         }`}
                         title="Ver gráfico de líneas de tendencia y flujo de caja con recharts"
                       >
-                        <TrendingUp className={`w-3 h-3 ${isLight ? (showInlineCashFlow ? 'text-white' : 'text-blue-600') : 'text-cyan-300'}`} />
-                        <span>{showInlineCashFlow ? "Ocultar Gráfico" : "Gráfico Flujo de Caja"}</span>
+                        <BarChart3 className={`w-3 h-3 ${isLight ? (showInlineCashFlow ? 'text-white' : 'text-indigo-600') : 'text-indigo-300'}`} />
+                        <span>{showInlineCashFlow ? "Ocultar Flujo" : "Flujo de Caja"}</span>
                       </button>
 
                       <button
@@ -1110,7 +1131,27 @@ export default function DashboardView({
                     ))}
                   </div>
 
-                  {/* Inline Recharts Data Visualization Line Chart */}
+                  {/* Inline Recharts Daily Sales Trend Line Chart (Current Month, Active Company) */}
+                  <AnimatePresence>
+                    {showDailySalesTrend && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="pt-2 overflow-hidden"
+                      >
+                        <DailySalesTrendChart
+                          vouchers={vouchers}
+                          currentCompany={currentCompany}
+                          formatCOP={formatCOP}
+                          theme={theme}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Inline Recharts Cash Flow Line Chart */}
                   <AnimatePresence>
                     {showInlineCashFlow && (
                       <motion.div
@@ -1705,6 +1746,14 @@ export default function DashboardView({
         /* ANALYTICS & STOCK ALERT TAB VIEW                         */
         /* ======================================================== */
         <div className="space-y-4">
+          {/* Recharts Daily Sales Trend Line Chart (Current Month, Active Company) */}
+          <DailySalesTrendChart
+            vouchers={vouchers}
+            currentCompany={currentCompany}
+            formatCOP={formatCOP}
+            theme={theme}
+          />
+
           {/* Recharts Cash Flow Trend Chart also shown in analytics view */}
           <CashFlowTrendChart
             vouchers={vouchers}

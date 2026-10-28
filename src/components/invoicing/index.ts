@@ -7,3 +7,4 @@ export { default as InvoiceDesignModal, DEFAULT_INVOICE_DESIGN } from './Invoice
 export { default as InvoiceEmailModal } from './InvoiceEmailModal';
 export { default as SmtpConfigModal } from './SmtpConfigModal';
 export { default as CompanyParamsModal } from './CompanyParamsModal';
+export { default as QuickDianTestModal, QuickDianTestSection } from './QuickDianTestModal';
