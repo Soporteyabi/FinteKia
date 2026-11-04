@@ -1965,6 +1965,7 @@ export default function InvoicingView({
                                     <span className="text-[10px] text-slate-400 font-mono">$</span>
                                     <input
                                       type="number"
+                                      step="any"
                                       min="0"
                                       value={line.unitPrice}
                                       onChange={(e) => updateLine(idx, 'unitPrice', Math.max(0, parseFloat(e.target.value) || 0))}

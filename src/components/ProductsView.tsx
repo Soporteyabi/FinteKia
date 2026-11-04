@@ -40,13 +40,13 @@ export default function ProductsView({
   const [formName, setFormName] = useState('');
   const [formSku, setFormSku] = useState('');
   const [formBarcode, setFormBarcode] = useState('');
-  const [formCost, setFormCost] = useState<number>(0);
-  const [formPrice, setFormPrice] = useState<number>(0);
+  const [formCost, setFormCost] = useState<string | number>(0);
+  const [formPrice, setFormPrice] = useState<string | number>(0);
   const [formTax, setFormTax] = useState<0 | 5 | 19>(19);
   const [formType, setFormType] = useState<Product['type']>('tecnologia');
   const [formLotTracking, setFormLotTracking] = useState<boolean>(true);
-  const [formShelfLifeDays, setFormShelfLifeDays] = useState<number>(90);
-  const [formMinStock, setFormMinStock] = useState<number>(5);
+  const [formShelfLifeDays, setFormShelfLifeDays] = useState<string | number>(90);
+  const [formMinStock, setFormMinStock] = useState<string | number>(5);
   const [formCategory, setFormCategory] = useState<string>('Laptops & Cómputo');
   const [formUnitOfMeasure, setFormUnitOfMeasure] = useState<string>('UND');
   const [skuSeed, setSkuSeed] = useState<number>(1000);
@@ -116,20 +116,41 @@ export default function ProductsView({
     };
   }, [products, productStocksMap]);
 
+  // Existing dynamic categories across the catalogue for suggestions
+  const existingCategories = useMemo(() => {
+    const defaultCats = [
+      'Materia Prima',
+      'Insumos & Empaques',
+      'Etiquetas & Adhesivos',
+      'Envases & Frascos',
+      'Químicos & Soluciones',
+      'Laptops & Cómputo',
+      'Periféricos & Accesorios',
+      'Redes & Conectividad',
+      'Repuestos & Componentes',
+      'Servicios Técnicos',
+      'Producto Terminado'
+    ];
+    const fromProducts = products
+      .map(p => p.category)
+      .filter((c): c is string => Boolean(c && c.trim()));
+    return Array.from(new Set([...defaultCats, ...fromProducts]));
+  }, [products]);
+
   // Open Form for Create
   const handleOpenCreateForm = () => {
     setEditingProduct(null);
     setFormName('');
     setFormSku('');
     setFormBarcode('');
-    setFormCost(0);
-    setFormPrice(0);
+    setFormCost('');
+    setFormPrice('');
     setFormTax(19);
     setFormType('tecnologia');
     setFormLotTracking(false);
     setFormShelfLifeDays(90);
     setFormMinStock(5);
-    setFormCategory('Laptops & Cómputo');
+    setFormCategory('');
     setFormUnitOfMeasure('UND');
     setSkuSeed(Math.floor(1000 + Math.random() * 9000));
     setIsFormOpen(true);
@@ -169,9 +190,9 @@ export default function ProductsView({
     return `${prefix}-${sanitName}-${skuSeed}`;
   };
 
-  // Auto-generate SKU
+  // Auto-generate SKU when name or type changes
   React.useEffect(() => {
-    if (!editingProduct && (formType === 'terminado' || formType === 'tecnologia') && formName.trim()) {
+    if (!editingProduct && formName.trim()) {
       setFormSku(suggestSku(formName, formType));
     }
   }, [formName, formType, editingProduct, skuSeed]);
@@ -193,18 +214,22 @@ export default function ProductsView({
     }
 
     const skuToUse = formSku.trim() || suggestSku(formName, formType);
+    const parsedCost = typeof formCost === 'string' ? parseFloat(formCost.replace(',', '.')) : formCost;
+    const parsedPrice = typeof formPrice === 'string' ? parseFloat(formPrice.replace(',', '.')) : formPrice;
+    const parsedMinStock = typeof formMinStock === 'string' ? parseFloat(formMinStock.replace(',', '.')) : formMinStock;
+    const parsedShelfLife = typeof formShelfLifeDays === 'string' ? parseInt(formShelfLifeDays) : formShelfLifeDays;
 
     const payload = {
       name: formName.trim(),
       sku: skuToUse,
       barcode: formBarcode ? formBarcode.trim() : undefined,
-      cost: Number(formCost) || 0,
-      price: Number(formPrice) || 0,
+      cost: isNaN(parsedCost) ? 0 : parsedCost,
+      price: isNaN(parsedPrice) ? 0 : parsedPrice,
       tax: formTax,
       type: formType,
       lotTracking: formLotTracking,
-      shelfLifeDays: formShelfLifeDays ? Number(formShelfLifeDays) : undefined,
-      minStock: Number(formMinStock) || 0,
+      shelfLifeDays: isNaN(parsedShelfLife) ? undefined : parsedShelfLife,
+      minStock: isNaN(parsedMinStock) ? 0 : parsedMinStock,
       category: formCategory.trim() || undefined,
       unitOfMeasure: formUnitOfMeasure.trim() || 'UND'
     };
@@ -836,7 +861,17 @@ export default function ProductsView({
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tipo de Ítem *</label>
                   <select
                     value={formType}
-                    onChange={(e) => setFormType(e.target.value as any)}
+                    onChange={(e) => {
+                      const newType = e.target.value as Product['type'];
+                      setFormType(newType);
+                      // Auto-suggest category if empty or default
+                      if (!formCategory || formCategory === 'Laptops & Cómputo' || formCategory === 'General') {
+                        if (newType === 'materia_prima') setFormCategory('Materia Prima');
+                        else if (newType === 'terminado') setFormCategory('Producto Terminado');
+                        else if (newType === 'servicio') setFormCategory('Servicios Técnicos');
+                        else if (newType === 'tecnologia') setFormCategory('Laptops & Cómputo');
+                      }
+                    }}
                     className={`w-full text-xs font-bold rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-blue-500 border ${
                       isDark ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                     }`}
@@ -849,18 +884,49 @@ export default function ProductsView({
                   </select>
                 </div>
 
-                {/* Category */}
+                {/* Category with Editable Input and Suggestions */}
                 <div className="space-y-1 block">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Categoría</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Categoría</label>
+                    <span className="text-[9px] text-blue-400">Escriba o elija</span>
+                  </div>
                   <input
                     type="text"
-                    placeholder="ej. Laptops, Redes, Repuestos"
+                    list="product-categories-list"
+                    placeholder="ej. Materia Prima, Etiquetas, Insumos"
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
                     className={`w-full text-xs font-medium rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-blue-500 border ${
                       isDark ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                     }`}
                   />
+                  <datalist id="product-categories-list">
+                    {existingCategories.map((cat) => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
+                  {/* Quick Category Chips */}
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {(formType === 'materia_prima' 
+                      ? ['Materia Prima', 'Etiquetas & Adhesivos', 'Insumos & Empaques', 'Químicos'] 
+                      : formType === 'terminado' 
+                      ? ['Producto Terminado', 'Alimentos & Bebidas', 'Aseo & Limpieza'] 
+                      : ['Laptops & Cómputo', 'Redes', 'Repuestos', 'Servicios']
+                    ).map((quickCat) => (
+                      <button
+                        key={quickCat}
+                        type="button"
+                        onClick={() => setFormCategory(quickCat)}
+                        className={`text-[9.5px] px-2 py-0.5 rounded-lg border font-medium transition-all cursor-pointer ${
+                          formCategory === quickCat
+                            ? 'bg-blue-600 text-white border-blue-500 font-bold'
+                            : 'bg-slate-800/40 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border-slate-700/60'
+                        }`}
+                      >
+                        {quickCat}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Unit of measure */}
@@ -879,6 +945,8 @@ export default function ProductsView({
                     <option value="MTS">MTS (Metros)</option>
                     <option value="L">L (Litros)</option>
                     <option value="CAJA">CAJA (Cajas)</option>
+                    <option value="PQTE">PQTE (Paquete)</option>
+                    <option value="ROLLO">ROLLO (Rollo)</option>
                   </select>
                 </div>
 
@@ -888,14 +956,18 @@ export default function ProductsView({
                 
                 {/* Cost */}
                 <div className="space-y-1 block">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Costo de Adquisición ($)</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Costo de Adquisición ($)</label>
+                    <span className="text-[9px] text-slate-400 font-mono">Acepta decimales (ej. 0.916)</span>
+                  </div>
                   <input
                     type="number"
+                    step="any"
                     min="0"
                     disabled={formType === 'servicio'}
-                    placeholder="0"
+                    placeholder="0.00"
                     value={formCost}
-                    onChange={(e) => setFormCost(Number(e.target.value))}
+                    onChange={(e) => setFormCost(e.target.value)}
                     className={`w-full text-xs font-mono font-bold rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-blue-500 border disabled:opacity-50 ${
                       isDark ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                     }`}
@@ -904,14 +976,18 @@ export default function ProductsView({
 
                 {/* Price */}
                 <div className="space-y-1 block">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Precio de Venta ($) *</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Precio de Venta ($) *</label>
+                    <span className="text-[9px] text-slate-400 font-mono">Acepta decimales</span>
+                  </div>
                   <input
                     type="number"
+                    step="any"
                     min="0"
                     required
-                    placeholder="0"
+                    placeholder="0.00"
                     value={formPrice}
-                    onChange={(e) => setFormPrice(Number(e.target.value))}
+                    onChange={(e) => setFormPrice(e.target.value)}
                     className={`w-full text-xs font-mono font-bold rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-blue-500 border ${
                       isDark ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                     }`}
@@ -923,10 +999,11 @@ export default function ProductsView({
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stock Mínimo (Alerta)</label>
                   <input
                     type="number"
+                    step="any"
                     min="0"
                     placeholder="5"
                     value={formMinStock}
-                    onChange={(e) => setFormMinStock(Number(e.target.value))}
+                    onChange={(e) => setFormMinStock(e.target.value)}
                     className={`w-full text-xs font-mono font-bold rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-blue-500 border ${
                       isDark ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                     }`}

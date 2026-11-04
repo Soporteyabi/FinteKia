@@ -1224,9 +1224,10 @@ export default function PurchasesView({
                                   <span className="text-[10px] text-slate-400 font-mono">$</span>
                                   <input
                                     type="number"
+                                    step="any"
                                     min="0"
                                     value={line.unitCost}
-                                    onChange={(e) => updateLine(idx, 'unitCost', Math.max(0, parseInt(e.target.value) || 0))}
+                                    onChange={(e) => updateLine(idx, 'unitCost', Math.max(0, parseFloat(e.target.value) || 0))}
                                     className={`w-24 text-right text-xs font-mono font-medium border rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500 transition-colors ${inputBg}`}
                                   />
                                 </div>
