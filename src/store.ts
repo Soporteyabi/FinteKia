@@ -594,9 +594,9 @@ export const INITIAL_BOMS: BOM[] = [
   {
     id: 'bom-jabon-potasico-30l',
     finishedProductId: 'prod-jabon-potasico-1l',
-    version: 'v7 lote base 30 L',
-    name: 'Fórmula Maestra – Jabón Líquido Potásico (Ropa y Pisos) – Lote Base 30 L',
-    description: 'Lote base 30 L (30.000 g masa final). Escala automáticamente según los litros a producir. Saponificación KOH 90%, sobreengrasado 2%, dilución y aditivos.',
+    version: 'v7',
+    name: 'Jabón Líquido Potásico (Ropa y Pisos) 1L',
+    description: 'Fórmula de saponificación KOH 90%, sobreengrasado 2%, dilución y aditivos para ropa y pisos.',
     companyId: 'co-1781210729382',
     standards: {
       param: 'pH / Concentración',
@@ -622,12 +622,10 @@ export const INITIAL_BOMS: BOM[] = [
 ];
 
 export const INITIAL_WAREHOUSES: Warehouse[] = [
-  { id: 'wh-1', name: 'Bodega de Materia Prima', address: 'Almacén 1, Planta Central Bogotá', companyId: 'co-2' },
-  { id: 'wh-2', name: 'Bodega de Despachos y Terminados', address: 'Dique de Despachos, Planta Bogotá', companyId: 'co-2' },
+  { id: 'wh-1', name: 'Bodega de Materia Prima', address: 'Almacén 1, Planta Central' },
+  { id: 'wh-2', name: 'Bodega de Despachos y Terminados', address: 'Dique de Despachos, Planta Central' },
   { id: 'wh-3', name: 'Bodega Principal de Hardware & Equipos', address: 'Sede Principal Norte, Bogotá D.C.', companyId: 'co-1' },
-  { id: 'wh-4', name: 'Bodega de Repuestos & Taller TI', address: 'Laboratorio de Soporte, Bogotá D.C.', companyId: 'co-1' },
-  { id: 'wh-dy-1', name: 'Bodega de Insumos y Químicos (DIGITAL YA\'BI)', address: 'Planta Principal DY, Bogotá D.C.', companyId: 'co-1781210729382' },
-  { id: 'wh-dy-2', name: 'Bodega de Despachos y Terminados (DIGITAL YA\'BI)', address: 'Dique de Despachos DY, Bogotá D.C.', companyId: 'co-1781210729382' }
+  { id: 'wh-4', name: 'Bodega de Repuestos & Taller TI', address: 'Laboratorio de Soporte, Bogotá D.C.', companyId: 'co-1' }
 ];
 
 export const INITIAL_INVENTORY: InventoryItem[] = [
@@ -645,20 +643,20 @@ export const INITIAL_INVENTORY: InventoryItem[] = [
   { id: 'inv-item-5', productId: 'p-5', lotNumber: undefined, expirationDate: undefined, warehouseId: 'wh-1', quantity: 1000, avgCost: 450, companyId: 'co-2' },
   { id: 'inv-item-6', productId: 'p-6', lotNumber: 'L-GVAL-001', expirationDate: '2026-09-09', warehouseId: 'wh-2', quantity: 150, avgCost: 6500, companyId: 'co-2' },
   { id: 'inv-item-7', productId: 'p-7', lotNumber: 'L-PAVE-044', expirationDate: '2026-06-21', warehouseId: 'wh-2', quantity: 40, avgCost: 3200, companyId: 'co-2' },
-  // Stock Inicial para Jabón Líquido Potásico (DIGITAL YA'BI co-1781210729382)
-  { id: 'inv-jp-1', productId: 'mp-aceite-girasol', quantity: 25000, avgCost: 6.63333, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-2', productId: 'mp-koh-comercial', quantity: 8000, avgCost: 20.0, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-3', productId: 'mp-agua-destilada', quantity: 30000, avgCost: 0.00485, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-4', productId: 'mp-alcohol-etanol-96', quantity: 10000, avgCost: 10.66667, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-5', productId: 'mp-agua-dilucion', quantity: 50000, avgCost: 0.00485, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-6', productId: 'mp-agua-adicional', quantity: 50000, avgCost: 0.00485, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-7', productId: 'mp-bicarbonato', quantity: 3000, avgCost: 5.0, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-8', productId: 'mp-sal', quantity: 5000, avgCost: 2.99, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-9', productId: 'mp-fragancia', quantity: 2000, avgCost: 72.0, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-10', productId: 'mp-color', quantity: 1000, avgCost: 20.0, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-11', productId: 'emp-envase-1l', quantity: 150, avgCost: 800.0, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-12', productId: 'emp-tapa-1l', quantity: 150, avgCost: 150.0, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-13', productId: 'emp-etiqueta-potasico', quantity: 150, avgCost: 916.67, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' }
+  // Stock Inicial para Jabón Líquido Potásico (Bodega de Materia Prima wh-1)
+  { id: 'inv-jp-1', productId: 'mp-aceite-girasol', quantity: 25000, avgCost: 6.63333, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-2', productId: 'mp-koh-comercial', quantity: 8000, avgCost: 20.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-3', productId: 'mp-agua-destilada', quantity: 30000, avgCost: 0.00485, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-4', productId: 'mp-alcohol-etanol-96', quantity: 10000, avgCost: 10.66667, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-5', productId: 'mp-agua-dilucion', quantity: 50000, avgCost: 0.00485, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-6', productId: 'mp-agua-adicional', quantity: 50000, avgCost: 0.00485, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-7', productId: 'mp-bicarbonato', quantity: 3000, avgCost: 5.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-8', productId: 'mp-sal', quantity: 5000, avgCost: 2.99, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-9', productId: 'mp-fragancia', quantity: 2000, avgCost: 72.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-10', productId: 'mp-color', quantity: 1000, avgCost: 20.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-11', productId: 'emp-envase-1l', quantity: 150, avgCost: 800.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-12', productId: 'emp-tapa-1l', quantity: 150, avgCost: 150.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-13', productId: 'emp-etiqueta-potasico', quantity: 150, avgCost: 916.67, warehouseId: 'wh-1', companyId: 'co-1781210729382' }
 ];
 
 export const INITIAL_ASSETS: Asset[] = [
@@ -775,8 +773,8 @@ export const INITIAL_PRODUCTION_ORDERS: ProductionOrder[] = [
     dueDate: '2026-10-31',
     status: 'proceso',
     generatedLot: 'L-202610-01',
-    rawWarehouseId: 'wh-dy-1',
-    finishedWarehouseId: 'wh-dy-2',
+    rawWarehouseId: 'wh-1',
+    finishedWarehouseId: 'wh-2',
     productionHours: 2,
     laborHourlyRate: 0,
     overheadHourlyRate: 0,
@@ -954,24 +952,49 @@ export const getInitialState = (): AppState => {
 
           if (!parsed.boms) {
             parsed.boms = INITIAL_BOMS;
-          } else if (!parsed.boms.some((b: any) => b.id === 'bom-jabon-potasico-30l')) {
-            const potBOM = INITIAL_BOMS.find(b => b.id === 'bom-jabon-potasico-30l');
-            if (potBOM) parsed.boms.push(potBOM);
+          } else {
+            const potBOM = parsed.boms.find((b: any) => b.id === 'bom-jabon-potasico-30l');
+            if (potBOM) {
+              potBOM.name = 'Jabón Líquido Potásico (Ropa y Pisos) 1L';
+              potBOM.version = 'v7';
+            } else {
+              const initPotBOM = INITIAL_BOMS.find(b => b.id === 'bom-jabon-potasico-30l');
+              if (initPotBOM) parsed.boms.push(initPotBOM);
+            }
           }
 
-          if (!parsed.warehouses?.some((w: any) => w.id === 'wh-dy-1')) {
-            const potWhs = INITIAL_WAREHOUSES.filter(w => w.companyId === 'co-1781210729382');
-            parsed.warehouses = [...(parsed.warehouses || []), ...potWhs];
+          // Remove unwanted wh-dy warehouses and point to existing standard warehouses wh-1 and wh-2
+          if (parsed.warehouses) {
+            parsed.warehouses = parsed.warehouses.filter((w: any) => w.id !== 'wh-dy-1' && w.id !== 'wh-dy-2');
+            // Ensure wh-1 and wh-2 exist
+            if (!parsed.warehouses.some((w: any) => w.id === 'wh-1')) {
+              parsed.warehouses.unshift({ id: 'wh-1', name: 'Bodega de Materia Prima', address: 'Almacén 1, Planta Central' });
+            }
+            if (!parsed.warehouses.some((w: any) => w.id === 'wh-2')) {
+              parsed.warehouses.push({ id: 'wh-2', name: 'Bodega de Despachos y Terminados', address: 'Dique de Despachos, Planta Central' });
+            }
           }
 
-          if (!parsed.inventory?.some((i: any) => i.id === 'inv-jp-1')) {
-            const potInv = INITIAL_INVENTORY.filter(i => i.companyId === 'co-1781210729382');
-            parsed.inventory = [...(parsed.inventory || []), ...potInv];
+          if (parsed.inventory) {
+            parsed.inventory.forEach((i: any) => {
+              if (i.warehouseId === 'wh-dy-1') i.warehouseId = 'wh-1';
+              if (i.warehouseId === 'wh-dy-2') i.warehouseId = 'wh-2';
+            });
+            if (!parsed.inventory.some((i: any) => i.id === 'inv-jp-1')) {
+              const potInv = INITIAL_INVENTORY.filter(i => i.companyId === 'co-1781210729382');
+              parsed.inventory = [...parsed.inventory, ...potInv];
+            }
           }
 
-          if (!parsed.productionOrders?.some((po: any) => po.id === 'po-dy-0001')) {
-            const potOrder = INITIAL_PRODUCTION_ORDERS.find(po => po.id === 'po-dy-0001');
-            if (potOrder) parsed.productionOrders = [...(parsed.productionOrders || []), potOrder];
+          if (parsed.productionOrders) {
+            parsed.productionOrders.forEach((po: any) => {
+              if (po.rawWarehouseId === 'wh-dy-1') po.rawWarehouseId = 'wh-1';
+              if (po.finishedWarehouseId === 'wh-dy-2') po.finishedWarehouseId = 'wh-2';
+            });
+            if (!parsed.productionOrders.some((po: any) => po.id === 'po-dy-0001')) {
+              const potOrder = INITIAL_PRODUCTION_ORDERS.find(po => po.id === 'po-dy-0001');
+              if (potOrder) parsed.productionOrders = [...parsed.productionOrders, potOrder];
+            }
           }
 
           // Ensure DIGITAL YA'BI has enableProduction: true

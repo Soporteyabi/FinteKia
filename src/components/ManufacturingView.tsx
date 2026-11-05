@@ -24,7 +24,9 @@ import {
   ArrowRight,
   Eye,
   Scale,
-  FileText
+  FileText,
+  RotateCcw,
+  Sparkles
 } from 'lucide-react';
 import { exportManufacturingToExcel } from '../utils/excelExport';
 import { formatCOP, parseDecimal, formatQuantity } from '../utils/currencyUtils';
@@ -69,10 +71,9 @@ export default function ManufacturingView({
 }: ManufacturingViewProps) {
   const [activeTab, setActiveTab] = useState<'orders' | 'recipes'>('orders');
   
-  // Intelligent defaults for DIGITAL YA'BI
-  const isDigitalYabi = currentCompanyId === 'co-1781210729382';
-  const defaultRawWh = isDigitalYabi && warehouses.some(w => w.id === 'wh-dy-1') ? 'wh-dy-1' : (warehouses[0]?.id || 'wh-1');
-  const defaultFinWh = isDigitalYabi && warehouses.some(w => w.id === 'wh-dy-2') ? 'wh-dy-2' : (warehouses[1]?.id || warehouses[0]?.id || 'wh-2');
+  // Clean default warehouses (Bodega de Materia Prima / Bodega de Despachos)
+  const defaultRawWh = warehouses.find(w => w.id === 'wh-1')?.id || warehouses[0]?.id || 'wh-1';
+  const defaultFinWh = warehouses.find(w => w.id === 'wh-2')?.id || warehouses[1]?.id || warehouses[0]?.id || 'wh-2';
   const defaultBOM = boms.find(b => b.id === 'bom-jabon-potasico-30l')?.id || boms[0]?.id || '';
 
   const [selectedBOMId, setSelectedBOMId] = useState(defaultBOM);
@@ -85,8 +86,28 @@ export default function ManufacturingView({
   const [rawWhId, setRawWhId] = useState(defaultRawWh);
   const [finWhId, setFinWhId] = useState(defaultFinWh);
   const [productionHours, setProductionHours] = useState(2);
-  const [laborHourlyRate, setLaborHourlyRate] = useState(isDigitalYabi ? 0 : 15000);
-  const [overheadHourlyRate, setOverheadHourlyRate] = useState(isDigitalYabi ? 0 : 8000);
+  const [laborHourlyRate, setLaborHourlyRate] = useState(0);
+  const [overheadHourlyRate, setOverheadHourlyRate] = useState(0);
+
+  // Editable batch ingredients state for this specific order
+  interface OrderLauncherItem {
+    id: string;
+    productId: string;
+    name: string;
+    unitOfMeasure: string;
+    plannedQty: number;
+    requiredQty: number; // Editable per batch!
+    unitCost: number;     // Editable per batch!
+    isCustom?: boolean;
+    category?: string;
+  }
+
+  const [customOrderItems, setCustomOrderItems] = useState<OrderLauncherItem[]>([]);
+  const [isMaterialsCustomized, setIsMaterialsCustomized] = useState<boolean>(false);
+  const [showAddExtraItem, setShowAddExtraItem] = useState<boolean>(false);
+  const [extraItemProductId, setExtraItemProductId] = useState<string>('');
+  const [extraItemQty, setExtraItemQty] = useState<number>(1);
+  const [extraItemCost, setExtraItemCost] = useState<number>(0);
 
   // QC logs state
   const [qcTargetOrderId, setQcTargetOrderId] = useState('');
@@ -107,13 +128,135 @@ export default function ManufacturingView({
     }
   }, [boms, selectedBOMId]);
 
-  // Keep warehouses in sync if company switches
+  // Keep warehouses valid
   useEffect(() => {
-    if (isDigitalYabi) {
-      if (warehouses.some(w => w.id === 'wh-dy-1')) setRawWhId('wh-dy-1');
-      if (warehouses.some(w => w.id === 'wh-dy-2')) setFinWhId('wh-dy-2');
+    if (!warehouses.some(w => w.id === rawWhId)) {
+      setRawWhId(warehouses.find(w => w.id === 'wh-1')?.id || warehouses[0]?.id || 'wh-1');
     }
-  }, [isDigitalYabi, warehouses]);
+    if (!warehouses.some(w => w.id === finWhId)) {
+      setFinWhId(warehouses.find(w => w.id === 'wh-2')?.id || warehouses[1]?.id || warehouses[0]?.id || 'wh-2');
+    }
+  }, [warehouses, rawWhId, finWhId]);
+
+  // Synchronize batch ingredients when recipe, quantity, or raw warehouse changes
+  useEffect(() => {
+    const activeBOM = boms.find(b => b.id === selectedBOMId);
+    if (!activeBOM) {
+      setCustomOrderItems([]);
+      return;
+    }
+    const initialItems: OrderLauncherItem[] = activeBOM.items.map((bomItem, idx) => {
+      const mat = products.find(p => p.id === bomItem.productId);
+      const matchingStock = inventory.filter(
+        (item) => item.productId === bomItem.productId && item.warehouseId === rawWhId
+      );
+      const activeStockSlot = matchingStock.find((item) => item.quantity > 0) || matchingStock[0];
+      const unitCost = activeStockSlot ? activeStockSlot.avgCost : (mat ? mat.cost : 0);
+      const planned = bomItem.quantity * (prodQty || 0);
+
+      return {
+        id: `oi-${idx}-${bomItem.productId}`,
+        productId: bomItem.productId,
+        name: mat ? mat.name : 'Insumo',
+        unitOfMeasure: mat ? (mat.unitOfMeasure || 'UND') : 'UND',
+        plannedQty: Number(planned.toFixed(3)),
+        requiredQty: Number(planned.toFixed(3)),
+        unitCost: unitCost,
+        category: mat?.category,
+        isCustom: false
+      };
+    });
+    setCustomOrderItems(initialItems);
+    setIsMaterialsCustomized(false);
+  }, [selectedBOMId, prodQty, rawWhId, boms, products]);
+
+  // Handlers for modifying batch insumos
+  const handleUpdateItemQty = (index: number, newQty: number) => {
+    setIsMaterialsCustomized(true);
+    setCustomOrderItems(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], requiredQty: newQty };
+      return next;
+    });
+  };
+
+  const handleUpdateItemCost = (index: number, newCost: number) => {
+    setIsMaterialsCustomized(true);
+    setCustomOrderItems(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], unitCost: newCost };
+      return next;
+    });
+  };
+
+  const handleRemoveLauncherItem = (index: number) => {
+    setIsMaterialsCustomized(true);
+    setCustomOrderItems(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleResetMaterialsToBOM = () => {
+    const activeBOM = boms.find(b => b.id === selectedBOMId);
+    if (!activeBOM) return;
+    const initialItems: OrderLauncherItem[] = activeBOM.items.map((bomItem, idx) => {
+      const mat = products.find(p => p.id === bomItem.productId);
+      const matchingStock = inventory.filter(
+        (item) => item.productId === bomItem.productId && item.warehouseId === rawWhId
+      );
+      const activeStockSlot = matchingStock.find((item) => item.quantity > 0) || matchingStock[0];
+      const unitCost = activeStockSlot ? activeStockSlot.avgCost : (mat ? mat.cost : 0);
+      const planned = bomItem.quantity * (prodQty || 0);
+
+      return {
+        id: `oi-${idx}-${bomItem.productId}`,
+        productId: bomItem.productId,
+        name: mat ? mat.name : 'Insumo',
+        unitOfMeasure: mat ? (mat.unitOfMeasure || 'UND') : 'UND',
+        plannedQty: Number(planned.toFixed(3)),
+        requiredQty: Number(planned.toFixed(3)),
+        unitCost: unitCost,
+        category: mat?.category,
+        isCustom: false
+      };
+    });
+    setCustomOrderItems(initialItems);
+    setIsMaterialsCustomized(false);
+    toast.info("Insumos restablecidos según la ficha técnica original.", "Insumos Restablecidos");
+  };
+
+  const handleAddExtraLauncherItem = () => {
+    if (!extraItemProductId) {
+      toast.warning("Seleccione un insumo del catálogo.", "Insumo Requerido");
+      return;
+    }
+    const mat = products.find(p => p.id === extraItemProductId);
+    if (!mat) return;
+    const matchingStock = inventory.filter(
+      (item) => item.productId === mat.id && item.warehouseId === rawWhId
+    );
+    const activeStockSlot = matchingStock.find((item) => item.quantity > 0) || matchingStock[0];
+    const unitCost = extraItemCost > 0 ? extraItemCost : (activeStockSlot ? activeStockSlot.avgCost : mat.cost);
+
+    setCustomOrderItems(prev => [
+      ...prev,
+      {
+        id: `extra-${Date.now()}`,
+        productId: mat.id,
+        name: mat.name,
+        unitOfMeasure: mat.unitOfMeasure || 'UND',
+        plannedQty: extraItemQty,
+        requiredQty: extraItemQty,
+        unitCost: unitCost,
+        category: mat.category,
+        isCustom: true
+      }
+    ]);
+    setIsMaterialsCustomized(true);
+    setShowAddExtraItem(false);
+    setExtraItemProductId('');
+    setExtraItemQty(1);
+    setExtraItemCost(0);
+    toast.success(`Insumo adicional "${mat.name}" añadido a esta orden.`, "Insumo Añadido");
+  };
 
   // Pagination for manufacturing orders (15 per page)
   const [prodOrdersPage, setProdOrdersPage] = useState(1);
@@ -126,45 +269,13 @@ export default function ManufacturingView({
     safeProdOrdersPage * PROD_ORDERS_PER_PAGE
   );
 
-  // Live BOM ingredients and cost calculations for the selected recipe and quantity
-  const bomIngredientsDetails: Array<{
-    material: Product;
-    qtyRequired: number;
-    unitCost: number;
-    subtotal: number;
-    stockAvailable: number;
-  }> = [];
-
-  let estimatedMaterialsCost = 0;
+  // Active BOM
   const activeBOM = boms.find((b) => b.id === selectedBOMId);
 
-  if (activeBOM) {
-    activeBOM.items.forEach((bomItem) => {
-      const material = products.find((p) => p.id === bomItem.productId);
-      if (material) {
-        const qtyRequired = bomItem.quantity * (prodQty || 0);
-        // Check current stock available in selected warehouse
-        const matchingStock = inventory.filter(
-          (item) => item.productId === material.id && item.warehouseId === rawWhId
-        );
-        const totalStock = matchingStock.reduce((sum, item) => sum + item.quantity, 0);
-        // Take weighted average cost of matching inventory stock, or fallback to standard product cost
-        const activeStockSlot = matchingStock.find((item) => item.quantity > 0) || matchingStock[0];
-        const unitCost = activeStockSlot ? activeStockSlot.avgCost : material.cost;
-        const subtotal = qtyRequired * unitCost;
-
-        estimatedMaterialsCost += subtotal;
-        bomIngredientsDetails.push({
-          material,
-          qtyRequired,
-          unitCost,
-          subtotal,
-          stockAvailable: totalStock
-        });
-      }
-    });
-  }
-
+  // Calculate live costs based on user's editable materials
+  const estimatedMaterialsCost = customOrderItems.reduce((sum, item) => {
+    return sum + (item.requiredQty * item.unitCost);
+  }, 0);
   const estimatedLaborCost = productionHours * laborHourlyRate;
   const estimatedOverheadCost = productionHours * overheadHourlyRate;
   const totalEstimatedCost = estimatedMaterialsCost + estimatedLaborCost + estimatedOverheadCost;
@@ -625,291 +736,462 @@ export default function ManufacturingView({
                 </div>
               )}
 
-              {/* Dynamic Formula Maestra 30 L Banner */}
-              {activeBOM && (activeBOM.id === 'bom-jabon-potasico-30l' || activeBOM.version?.toLowerCase().includes('30 l') || activeBOM.version?.toLowerCase().includes('30l')) && (
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-blue-500/15 border border-emerald-500/30 text-slate-800 dark:text-slate-100 space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
-                        <FlaskConical className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-2">
-                          Fórmula Maestra – Jabón Líquido Potásico (Lote Base 30 L)
-                          <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 font-bold">
-                            Aceite Base: Aceite de Girasol
-                          </span>
-                        </h4>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-300">
-                          Escribe los <strong>Litros a Producir</strong> (ej. 20 L ó 3 L): insumos químicos y empaques se recalculan automáticamente.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-500/40 text-center font-mono">
-                        <span className="block text-[9px] uppercase text-slate-400 font-bold">Factor de Escala</span>
-                        <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
-                          {((prodQty || 0) / 30).toFixed(3)}
-                        </span>
-                      </div>
-                      <div className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-black/5 dark:border-white/5 text-center font-mono">
-                        <span className="block text-[9px] uppercase text-slate-400 font-bold">Lote Base</span>
-                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">30,0 L</span>
-                      </div>
+              {/* Compact Inline Recipe & Scale Badge */}
+              {activeBOM && (
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs">
+                  <div className="flex items-center gap-2">
+                    <FlaskConical className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <div>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        Fórmula: {products.find(p => p.id === activeBOM.finishedProductId)?.name || activeBOM.name || 'Producto'}
+                      </span>
+                      <span className="text-[11px] text-slate-400 ml-1.5 font-mono">
+                        ({activeBOM.version})
+                      </span>
                     </div>
                   </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* BOM Selector */}
-                <div className="space-y-1.5" id="form-bom-field">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Plan Receta BOM *</label>
+                  <div className="flex items-center gap-2">
+                    {(activeBOM.id === 'bom-jabon-potasico-30l' || activeBOM.version?.toLowerCase().includes('30l') || activeBOM.version?.toLowerCase().includes('30 l')) && (
+                      <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-semibold">
+                        Lote Base: 30 L · Factor Escala: <strong>{((prodQty || 0) / 30).toFixed(3)}</strong>
+                      </span>
+                    )}
                     <button
                       type="button"
-                      onClick={() => { setEditingBOM(null); setIsBOMModalOpen(true); }}
-                      className="text-[10px] text-blue-500 hover:underline font-bold"
+                      onClick={() => {
+                        setEditingBOM(activeBOM);
+                        setIsBOMModalOpen(true);
+                      }}
+                      className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Editar fórmula maestra base para todos los lotes"
                     >
-                      + Nueva
+                      <Edit3 className="w-3 h-3 text-blue-500" />
+                      <span>Editar Receta Base</span>
                     </button>
                   </div>
-                  <select
-                    value={selectedBOMId}
-                    onChange={(e) => setSelectedBOMId(e.target.value)}
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2.5 py-2 font-medium"
-                  >
-                    <option value="">Seleccione Receta...</option>
-                    {boms.map((b) => {
-                      const p = products.find((prod) => prod.id === b.finishedProductId);
-                      return (
-                        <option key={b.id} value={b.id}>
-                          {p ? p.name : (b.name || 'Receta')} ({b.version})
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-
-                {/* Target Quantity */}
-                <div className="space-y-1.5" id="form-qty-field">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-semibold">
-                    Litros / Unidades a Producir *
-                  </label>
-                  <DecimalInput
-                    min={0.01}
-                    value={prodQty}
-                    onChange={(val) => setProdQty(val)}
-                    placeholder="20"
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2.5 py-2 font-mono font-bold"
-                  />
-                </div>
-
-                {/* Target Date */}
-                <div className="space-y-1.5" id="form-date-field">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fecha de Entrega</label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2.5 py-2 font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Lote & Responsible Person */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-black/5 dark:border-white/5 pt-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Lote de Producción (Código Trazabilidad)
-                  </label>
-                  <input
-                    type="text"
-                    value={customLot}
-                    onChange={(e) => setCustomLot(e.target.value)}
-                    placeholder="L-202610-01"
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2.5 py-2 font-mono font-bold"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Responsable de Elaboración
-                  </label>
-                  <input
-                    type="text"
-                    value={responsiblePerson}
-                    onChange={(e) => setResponsiblePerson(e.target.value)}
-                    placeholder="WASHINGTON"
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2.5 py-2 font-bold uppercase"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-black/5 dark:border-white/5 pt-4">
-                {/* Raw Warehouse Selector */}
-                <div className="space-y-1.5" id="form-wh-raw-field">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <WhIcon className="w-3.5 h-3.5 text-blue-500" /> Bodega Origen (Insumos & Químicos)
-                  </label>
-                  <select
-                    value={rawWhId}
-                    onChange={(e) => setRawWhId(e.target.value)}
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2.5 py-2"
-                  >
-                    {warehouses.map((w) => (
-                      <option key={w.id} value={w.id}>{w.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Finished Warehouse Selector */}
-                <div className="space-y-1.5" id="form-wh-fin-field">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <WhIcon className="w-3.5 h-3.5 text-emerald-500" /> Bodega Destino (Producto Terminado)
-                  </label>
-                  <select
-                    value={finWhId}
-                    onChange={(e) => setFinWhId(e.target.value)}
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2.5 py-2"
-                  >
-                    {warehouses.map((w) => (
-                      <option key={w.id} value={w.id}>{w.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-black/5 dark:border-white/5 pt-4">
-                {/* Hours configurable */}
-                <div className="space-y-1.5" id="form-hours-field">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" /> Horas Estimadas
-                  </label>
-                  <DecimalInput
-                    min={0.1}
-                    value={productionHours}
-                    onChange={(val) => setProductionHours(val || 0.5)}
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2.5 py-2 font-mono"
-                  />
-                </div>
-
-                {/* Labor rate */}
-                <div className="space-y-1.5" id="form-labor-field">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Coins className="w-3.5 h-3.5 text-slate-400" /> Tarifa Mano de Obra / Hr
-                  </label>
-                  <DecimalInput
-                    min={0}
-                    prefix="$"
-                    value={laborHourlyRate}
-                    onChange={(val) => setLaborHourlyRate(val)}
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2.5 py-2 font-mono"
-                  />
-                </div>
-
-                {/* Overhead rate */}
-                <div className="space-y-1.5" id="form-overhead-field">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Settings className="w-3.5 h-3.5 text-slate-400" /> Costos Fijos Planta (CIF) / Hr
-                  </label>
-                  <DecimalInput
-                    min={0}
-                    prefix="$"
-                    value={overheadHourlyRate}
-                    onChange={(val) => setOverheadHourlyRate(val)}
-                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2.5 py-2 font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Real-time BOM simulation Cost Card */}
-              {activeBOM && (
-                <div className="mt-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between border-b border-dashed border-slate-200 dark:border-slate-800 pb-2">
-                    <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                      <Layers className="w-4 h-4 text-blue-500" />
-                      Análisis de Consumo de Insumos (Receta: {activeBOM.version} · {products.find(p => p.id === activeBOM.finishedProductId)?.name})
-                    </h4>
-                    <span className="font-mono text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded">
-                      {prodQty} Unds Meta
-                    </span>
-                  </div>
-
-                  {/* Ingredients breakdown list */}
-                  <div className="text-[11px] text-slate-600 dark:text-slate-400 space-y-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider mb-1">
-                      Insumos Requeridos para este Lote ({warehouses.find(w => w.id === rawWhId)?.name}):
-                    </span>
-                    <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-                      {bomIngredientsDetails.map(({ material, qtyRequired, unitCost, subtotal, stockAvailable }, idx) => {
-                        const isDeficit = qtyRequired > stockAvailable;
-                        const isEmpaque = material.category?.toLowerCase().includes('empaque') || 
-                                          material.category?.toLowerCase().includes('etiqueta') ||
-                                          material.unitOfMeasure === 'UND';
-                        return (
-                          <div key={idx} className="flex justify-between items-center bg-white dark:bg-slate-900 px-3 py-2 rounded-xl border border-black/5 dark:border-white/5">
-                            <div className="space-y-0.5">
-                              <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                                {isEmpaque ? <Package className="w-3 h-3 text-blue-500" /> : <FlaskConical className="w-3 h-3 text-amber-500" />}
-                                {material.name}
-                              </span>
-                              <span className="block text-[9.5px] text-slate-400 font-mono">
-                                Demanda Lote: <strong className="text-slate-600 dark:text-slate-300">{qtyRequired.toLocaleString('es-CO', { maximumFractionDigits: 1 })} {material.unitOfMeasure || 'UND'}</strong> | Disponible en Bodega: <strong className={isDeficit ? 'text-rose-500' : 'text-emerald-500'}>{stockAvailable.toLocaleString('es-CO', { maximumFractionDigits: 1 })} {material.unitOfMeasure || 'UND'}</strong>
-                              </span>
-                            </div>
-                            <div className="text-right font-mono font-semibold">
-                              <span className={`${isDeficit ? 'text-rose-500 font-black' : 'text-slate-700 dark:text-slate-300'}`}>
-                                {formatCOP(subtotal)}
-                              </span>
-                              <span className="block text-[9px] text-slate-400">@ {formatCOP(unitCost)}/{material.unitOfMeasure === 'g' ? 'g' : 'u'}</span>
-                              {isDeficit && (
-                                <span className="inline-block text-[9px] text-rose-500 bg-rose-500/10 px-1 rounded">
-                                  Déficit: {(qtyRequired - stockAvailable).toFixed(1)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Subtotal cost table */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t border-slate-200 dark:border-slate-800 text-xs font-mono">
-                    <div className="p-2 bg-white dark:bg-slate-900 rounded border border-black/5">
-                      <span className="block text-[9px] text-slate-400 uppercase">Costos Insumos</span>
-                      <span className="font-bold text-slate-700 dark:text-slate-300">{formatCOP(estimatedMaterialsCost)}</span>
-                    </div>
-                    <div className="p-2 bg-white dark:bg-slate-900 rounded border border-black/5">
-                      <span className="block text-[9px] text-slate-400 uppercase">Mano de Obra</span>
-                      <span className="font-bold text-slate-600 dark:text-slate-300">{formatCOP(estimatedLaborCost)}</span>
-                    </div>
-                    <div className="p-2 bg-white dark:bg-slate-900 rounded border border-black/5">
-                      <span className="block text-[9px] text-slate-400 uppercase">Costos Indirectos (CIF)</span>
-                      <span className="font-bold text-slate-600 dark:text-slate-300">{formatCOP(estimatedOverheadCost)}</span>
-                    </div>
-                    <div className="p-2 bg-blue-500/5 dark:bg-blue-500/10 rounded border border-blue-500/20">
-                      <span className="block text-[9px] text-blue-500 uppercase font-bold">Costo Unitario Estimado</span>
-                      <span className="font-bold text-blue-600 dark:text-blue-400 text-sm">{formatCOP(unitEstimatedCost)}</span>
-                    </div>
-                  </div>
-
-                  {rawMaterialsDeficits.some(d => d.deficit > 0 && products.find(p => p.id === d.material.id)?.type === 'materia_prima') && (
-                    <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center gap-1.5 text-[10px] font-semibold">
-                      <AlertTriangle className="w-3.5 h-3.5 animate-bounce shrink-0" />
-                      Alerta: Existen insumos con déficit para completar este lote. Puedes realizar una compra en el módulo de compras para abastecer la bodega.
-                    </div>
-                  )}
                 </div>
               )}
 
-              <button
-                onClick={launchOrder}
-                className="w-full py-2.5 text-center bg-blue-600 hover:bg-blue-500 font-semibold text-xs text-white shadow-md transition-all rounded-xl uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <PlusCircle className="w-4 h-4" /> Lanzar Orden de Fabricación en Planta
-              </button>
+              {/* Compact Form Grid: 2 Clean Rows */}
+              <div className="space-y-2.5">
+                {/* Row 1: Recipe, Quantity, Lot, Due Date, Responsible */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Receta / Ficha *
+                    </label>
+                    <select
+                      value={selectedBOMId}
+                      onChange={(e) => setSelectedBOMId(e.target.value)}
+                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2 py-1.5 font-medium truncate"
+                    >
+                      <option value="">Seleccione Receta...</option>
+                      {boms.map((b) => {
+                        const p = products.find((prod) => prod.id === b.finishedProductId);
+                        return (
+                          <option key={b.id} value={b.id}>
+                            {p ? p.name : (b.name || 'Receta')} ({b.version})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1 font-semibold">
+                      Litros / Unds *
+                    </label>
+                    <DecimalInput
+                      min={0.01}
+                      value={prodQty}
+                      onChange={(val) => setProdQty(val)}
+                      placeholder="20"
+                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2 py-1.5 font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      N° Lote OP
+                    </label>
+                    <input
+                      type="text"
+                      value={customLot}
+                      onChange={(e) => setCustomLot(e.target.value)}
+                      placeholder="L-202610-01"
+                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2 py-1.5 font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Fecha Entrega
+                    </label>
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2 py-1.5 font-mono"
+                    />
+                  </div>
+
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Responsable
+                    </label>
+                    <input
+                      type="text"
+                      value={responsiblePerson}
+                      onChange={(e) => setResponsiblePerson(e.target.value)}
+                      placeholder="WASHINGTON"
+                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2 py-1.5 font-bold uppercase"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 2: Origin Warehouse, Destination Warehouse, Hours, MO Rate, CIF Rate */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 pt-1">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-1 truncate">
+                      <WhIcon className="w-3 h-3 text-blue-500 shrink-0" /> Bodega Insumos
+                    </label>
+                    <select
+                      value={rawWhId}
+                      onChange={(e) => setRawWhId(e.target.value)}
+                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2 py-1.5 truncate"
+                    >
+                      {warehouses.map((w) => (
+                        <option key={w.id} value={w.id}>{w.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-1 truncate">
+                      <WhIcon className="w-3 h-3 text-emerald-500 shrink-0" /> Bodega Destino
+                    </label>
+                    <select
+                      value={finWhId}
+                      onChange={(e) => setFinWhId(e.target.value)}
+                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2 py-1.5 truncate"
+                    >
+                      {warehouses.map((w) => (
+                        <option key={w.id} value={w.id}>{w.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-1">
+                      <Clock className="w-3 h-3 text-slate-400" /> Horas Fab.
+                    </label>
+                    <DecimalInput
+                      min={0.1}
+                      value={productionHours}
+                      onChange={(val) => setProductionHours(val || 0.5)}
+                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2 py-1.5 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-1">
+                      <Coins className="w-3 h-3 text-slate-400" /> M.O. ($/Hr)
+                    </label>
+                    <DecimalInput
+                      min={0}
+                      prefix="$"
+                      value={laborHourlyRate}
+                      onChange={(val) => setLaborHourlyRate(val)}
+                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2 py-1.5 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-1">
+                      <Settings className="w-3 h-3 text-slate-400" /> CIF ($/Hr)
+                    </label>
+                    <DecimalInput
+                      min={0}
+                      prefix="$"
+                      value={overheadHourlyRate}
+                      onChange={(val) => setOverheadHourlyRate(val)}
+                      className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2 py-1.5 font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Compact & Fully Editable Insumos / Materias Primas Table */}
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-950/40 space-y-0">
+                {/* Table Header Bar */}
+                <div className="bg-slate-100 dark:bg-slate-800/80 px-3 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <FlaskConical className="w-4 h-4 text-amber-500" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      Insumos Requeridos para esta Orden ({customOrderItems.length})
+                    </span>
+                    {isMaterialsCustomized && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold">
+                        Ajustado manualmente
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddExtraItem(!showAddExtraItem)}
+                      className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Insumo Extra</span>
+                    </button>
+                    {isMaterialsCustomized && (
+                      <>
+                        <span className="text-slate-300 dark:text-slate-700">|</span>
+                        <button
+                          type="button"
+                          onClick={handleResetMaterialsToBOM}
+                          className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 cursor-pointer"
+                          title="Restablecer cantidades y costos a la receta original"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Restablecer</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sub-panel to add extra product or raw material */}
+                {showAddExtraItem && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-200 dark:border-blue-900/40 flex flex-wrap items-end gap-2 text-xs">
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase block mb-1">
+                        Seleccionar Insumo del Catálogo:
+                      </label>
+                      <select
+                        value={extraItemProductId}
+                        onChange={(e) => {
+                          setExtraItemProductId(e.target.value);
+                          const p = products.find(prod => prod.id === e.target.value);
+                          if (p) setExtraItemCost(p.cost);
+                        }}
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5"
+                      >
+                        <option value="">Seleccionar insumo / producto...</option>
+                        {products
+                          .filter(p => p.type !== 'terminado' && p.type !== 'servicio')
+                          .map(p => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} ({p.unitOfMeasure || 'UND'}) - Costo Ref: {formatCOP(p.cost)}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    <div className="w-24">
+                      <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase block mb-1">
+                        Cantidad:
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={extraItemQty}
+                        onChange={(e) => setExtraItemQty(parseFloat(e.target.value) || 0)}
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 font-mono font-bold"
+                      />
+                    </div>
+
+                    <div className="w-28">
+                      <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase block mb-1">
+                        Costo Unit ($):
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={extraItemCost}
+                        onChange={(e) => setExtraItemCost(parseFloat(e.target.value) || 0)}
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 font-mono font-bold"
+                      />
+                    </div>
+
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleAddExtraLauncherItem}
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs cursor-pointer shadow-sm"
+                      >
+                        Añadir
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddExtraItem(false)}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Table Rows */}
+                <div className="max-h-60 overflow-y-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-200/60 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold sticky top-0 backdrop-blur-sm">
+                        <th className="py-2 px-3">Insumo / Materia Prima</th>
+                        <th className="py-2 px-2 text-center">U.M.</th>
+                        <th className="py-2 px-2.5 text-right">Planif.</th>
+                        <th className="py-2 px-2.5 text-right bg-blue-500/10 text-blue-700 dark:text-blue-300">
+                          Cant. Requerida (Editable)
+                        </th>
+                        <th className="py-2 px-2.5 text-right bg-amber-500/10 text-amber-800 dark:text-amber-200">
+                          Costo Unit. (Editable)
+                        </th>
+                        <th className="py-2 px-3 text-right">Stock en Bodega</th>
+                        <th className="py-2 px-3 text-right">Subtotal ($)</th>
+                        <th className="py-2 px-2 text-center"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                      {customOrderItems.map((item, idx) => {
+                        const matchingStock = inventory.filter(
+                          (inv) => inv.productId === item.productId && inv.warehouseId === rawWhId
+                        );
+                        const stockAvailable = matchingStock.reduce((sum, inv) => sum + inv.quantity, 0);
+                        const isDeficit = item.requiredQty > stockAvailable;
+                        const subtotal = item.requiredQty * item.unitCost;
+                        const isEmpaque = item.category?.toLowerCase().includes('empaque') ||
+                                          item.category?.toLowerCase().includes('etiqueta') ||
+                                          item.unitOfMeasure === 'UND';
+
+                        return (
+                          <tr key={item.id} className="hover:bg-slate-100/50 dark:hover:bg-slate-800/40">
+                            <td className="py-1.5 px-3">
+                              <div className="flex items-center gap-1.5">
+                                {isEmpaque ? (
+                                  <Package className="w-3 h-3 text-blue-500 shrink-0" />
+                                ) : (
+                                  <FlaskConical className="w-3 h-3 text-amber-500 shrink-0" />
+                                )}
+                                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                  {item.name}
+                                </span>
+                                {item.isCustom && (
+                                  <span className="text-[9px] px-1 rounded bg-blue-500/20 text-blue-600 font-bold">
+                                    Extra
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-1.5 px-2 text-center text-[10px] text-slate-400 font-mono">
+                              {item.unitOfMeasure}
+                            </td>
+                            <td className="py-1.5 px-2.5 text-right font-mono text-slate-500">
+                              {item.plannedQty.toLocaleString('es-CO', { maximumFractionDigits: 1 })}
+                            </td>
+                            <td className="py-1.5 px-2.5 text-right bg-blue-500/5">
+                              <input
+                                type="number"
+                                step="any"
+                                value={item.requiredQty}
+                                onChange={(e) => handleUpdateItemQty(idx, parseFloat(e.target.value) || 0)}
+                                className="w-20 text-right bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-blue-900 dark:text-blue-200"
+                              />
+                            </td>
+                            <td className="py-1.5 px-2.5 text-right bg-amber-500/5">
+                              <input
+                                type="number"
+                                step="any"
+                                value={item.unitCost}
+                                onChange={(e) => handleUpdateItemCost(idx, parseFloat(e.target.value) || 0)}
+                                className="w-20 text-right bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-amber-900 dark:text-amber-200"
+                              />
+                            </td>
+                            <td className="py-1.5 px-3 text-right font-mono">
+                              <span className={`text-[11px] font-bold ${isDeficit ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                {stockAvailable.toLocaleString('es-CO', { maximumFractionDigits: 1 })} {item.unitOfMeasure}
+                              </span>
+                              {isDeficit && (
+                                <span className="block text-[9px] text-rose-500 font-bold">
+                                  Déficit: {(item.requiredQty - stockAvailable).toFixed(1)}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                              {formatCOP(subtotal)}
+                            </td>
+                            <td className="py-1.5 px-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveLauncherItem(idx)}
+                                className="text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                                title="Quitar de este lote"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {customOrderItems.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="py-4 text-center text-xs text-slate-400">
+                            No hay insumos cargados. Seleccione una receta o añada un insumo manual.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Subtotals & Launch Button Bar */}
+                <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
+                    <div className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800">
+                      <span className="text-[10px] text-slate-400 uppercase block font-sans">Costo Insumos</span>
+                      <strong className="text-slate-800 dark:text-slate-100 font-bold">
+                        {formatCOP(estimatedMaterialsCost)}
+                      </strong>
+                    </div>
+
+                    {(estimatedLaborCost > 0 || estimatedOverheadCost > 0) && (
+                      <div className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800">
+                        <span className="text-[10px] text-slate-400 uppercase block font-sans">M.O. + CIF</span>
+                        <strong className="text-slate-800 dark:text-slate-100 font-bold">
+                          {formatCOP(estimatedLaborCost + estimatedOverheadCost)}
+                        </strong>
+                      </div>
+                    )}
+
+                    <div className="px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 uppercase block font-sans font-bold">
+                        Costo Total Lote
+                      </span>
+                      <strong className="text-blue-600 dark:text-blue-400 font-black text-sm">
+                        {formatCOP(totalEstimatedCost)}
+                      </strong>
+                    </div>
+
+                    <div className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase block font-sans font-bold">
+                        Costo Unit. Estimado
+                      </span>
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-black text-sm">
+                        {formatCOP(unitEstimatedCost)}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={launchOrder}
+                    className="px-5 py-2.5 text-center bg-blue-600 hover:bg-blue-500 font-semibold text-xs text-white shadow-md transition-all rounded-xl uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer ml-auto"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>Lanzar Orden de Fabricación</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Manufacturing Active Orders Register Table */}

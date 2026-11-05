@@ -1253,7 +1253,11 @@ export default function App() {
   );
 
   const activeWarehouses = React.useMemo(() => 
-    state.warehouses.filter(w => w.companyId === activeCompany.id || (!w.companyId && activeCompany.id === firstCompanyId)),
+    state.warehouses.filter(w => 
+      w.companyId === activeCompany.id || 
+      (!w.companyId && activeCompany.id === firstCompanyId) ||
+      (activeCompany.enableProduction && (w.id === 'wh-1' || w.id === 'wh-2'))
+    ),
     [state.warehouses, activeCompany.id, firstCompanyId]
   );
 

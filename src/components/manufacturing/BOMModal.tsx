@@ -50,20 +50,33 @@ export const BOMModal: React.FC<BOMModalProps> = ({
   const [quickProdUom, setQuickProdUom] = useState('L');
   const [quickProdPrice, setQuickProdPrice] = useState<number | string>(12000);
 
-  // Items in recipe
+  // Quick raw material creation toggle
+  const [showQuickCreateRaw, setShowQuickCreateRaw] = useState(false);
+  const [quickRawName, setQuickRawName] = useState('');
+  const [quickRawSku, setQuickRawSku] = useState('');
+  const [quickRawUom, setQuickRawUom] = useState('g');
+  const [quickRawCategory, setQuickRawCategory] = useState('Materia Prima');
+  const [quickRawCost, setQuickRawCost] = useState<number | string>(5000);
+
+  // Items in recipe with editable cost
   const [items, setItems] = useState<Array<{
     productId: string;
     quantity: number | string;
+    customCost?: number | string;
   }>>(() => {
     if (existingBOM && existingBOM.items.length > 0) {
-      return existingBOM.items.map((it) => ({
-        productId: it.productId,
-        quantity: it.quantity
-      }));
+      return existingBOM.items.map((it) => {
+        const prod = products.find(p => p.id === it.productId);
+        return {
+          productId: it.productId,
+          quantity: it.quantity,
+          customCost: prod ? prod.cost : undefined
+        };
+      });
     }
     // Default with first available raw material or empty
     return rawMaterials.length > 0
-      ? [{ productId: rawMaterials[0].id, quantity: 1 }]
+      ? [{ productId: rawMaterials[0].id, quantity: 1, customCost: rawMaterials[0].cost }]
       : [];
   });
 
@@ -77,7 +90,7 @@ export const BOMModal: React.FC<BOMModalProps> = ({
     const nextProd = rawMaterials.find(rm => !items.some(it => it.productId === rm.id)) || rawMaterials[0];
     setItems(prev => [
       ...prev,
-      { productId: nextProd ? nextProd.id : '', quantity: 1 }
+      { productId: nextProd ? nextProd.id : '', quantity: 1, customCost: nextProd ? nextProd.cost : 0 }
     ]);
   };
 
@@ -85,12 +98,57 @@ export const BOMModal: React.FC<BOMModalProps> = ({
     setItems(prev => prev.filter((_, idx) => idx !== index));
   };
 
-  const handleUpdateItem = (index: number, field: 'productId' | 'quantity', val: any) => {
+  const handleUpdateItem = (index: number, field: 'productId' | 'quantity' | 'customCost', val: any) => {
     setItems(prev => {
       const copy = [...prev];
-      copy[index] = { ...copy[index], [field]: val };
+      if (field === 'productId') {
+        const p = products.find(prod => prod.id === val);
+        copy[index] = { ...copy[index], productId: val, customCost: p ? p.cost : 0 };
+      } else {
+        copy[index] = { ...copy[index], [field]: val };
+      }
       return copy;
     });
+  };
+
+  // Quick create raw material (chemical, essence, container, label, etc.)
+  const handleQuickCreateRawMaterial = () => {
+    if (!quickRawName.trim()) {
+      toast.warning("Por favor ingrese el nombre del insumo o materia prima.", "Nombre Requerido");
+      return;
+    }
+    if (!addProduct) {
+      toast.error("Función para crear productos no disponible.");
+      return;
+    }
+
+    const skuToUse = quickRawSku.trim() || `MP-${quickRawName.substring(0, 3).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const parsedCost = parseDecimal(quickRawCost);
+    const newId = `mp-${Date.now()}`;
+
+    addProduct({
+      name: quickRawName.trim(),
+      sku: skuToUse,
+      type: 'materia_prima',
+      cost: parsedCost,
+      price: 0,
+      tax: 0,
+      lotTracking: false,
+      unitOfMeasure: quickRawUom,
+      category: quickRawCategory,
+      minStock: 10,
+      companyId: currentCompanyId
+    });
+
+    setItems(prev => [
+      ...prev,
+      { productId: newId, quantity: 1, customCost: parsedCost }
+    ]);
+
+    toast.success(`Insumo "${quickRawName}" creado y añadido a la receta.`, "Insumo Creado");
+    setShowQuickCreateRaw(false);
+    setQuickRawName('');
+    setQuickRawSku('');
   };
 
   // Quick create finished product if not yet in catalog
@@ -126,11 +184,11 @@ export const BOMModal: React.FC<BOMModalProps> = ({
     setQuickProdName('');
   };
 
-  // Calculate total materials cost
+  // Calculate total materials cost using customCost if provided
   const totalDirectCost = items.reduce((acc, it) => {
     const prod = products.find(p => p.id === it.productId);
     const qty = parseDecimal(it.quantity);
-    const unitCost = prod ? prod.cost : 0;
+    const unitCost = it.customCost !== undefined ? parseDecimal(it.customCost) : (prod ? prod.cost : 0);
     return acc + (qty * unitCost);
   }, 0);
 
@@ -368,18 +426,100 @@ export const BOMModal: React.FC<BOMModalProps> = ({
                   2. Insumos y Materias Primas Requeridas (Para Elaborar 1 Unidad)
                 </span>
                 <p className="text-[11px] text-slate-500">
-                  Agrega aquí las etiquetas adhesivas, envases plásticos y componentes químicos que consume 1 unidad.
+                  Agrega y edita aquí las materias primas (químicos, aceites, esencias, solventes), envases y etiquetas adhesivas. Puedes modificar cantidades y costos de cada insumo.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleAddItem}
-                className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer self-start sm:self-auto"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Agregar Insumo</span>
-              </button>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                {addProduct && (
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickCreateRaw(prev => !prev)}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                  >
+                    <PackagePlus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>{showQuickCreateRaw ? 'Ocultar Creador' : '+ Nuevo Insumo / Materia Prima'}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Agregar Fila</span>
+                </button>
+              </div>
             </div>
+
+            {/* Quick Create Raw Material Sub-Panel */}
+            {showQuickCreateRaw && (
+              <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 space-y-3 animate-fade-in">
+                <p className="text-xs font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                  <FlaskConical className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  Registrar Nuevo Insumo o Materia Prima para cualquier producto:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase">Nombre del Insumo *</label>
+                    <input
+                      type="text"
+                      placeholder="ej. Ácido Cítrico, Fragancia Limón, Envase 500ml"
+                      value={quickRawName}
+                      onChange={(e) => setQuickRawName(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase">Categoría</label>
+                    <input
+                      type="text"
+                      placeholder="Materia Prima, Aditivo, Empaque"
+                      value={quickRawCategory}
+                      onChange={(e) => setQuickRawCategory(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase">Unidad de Medida</label>
+                    <select
+                      value={quickRawUom}
+                      onChange={(e) => setQuickRawUom(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono"
+                    >
+                      <option value="g">g (Gramos)</option>
+                      <option value="KG">KG (Kilogramos)</option>
+                      <option value="L">L (Litros)</option>
+                      <option value="ml">ml (Mililitros)</option>
+                      <option value="UND">UND (Unidades)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase">Costo Unitario ($)</label>
+                    <DecimalInput
+                      value={quickRawCost}
+                      onChange={(_num, raw) => setQuickRawCost(raw)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickCreateRaw(false)}
+                    className="px-3 py-1 rounded-lg text-slate-500 hover:text-slate-700 text-xs font-semibold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleQuickCreateRawMaterial}
+                    className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer shadow-sm"
+                  >
+                    + Guardar Insumo y Añadir a Receta
+                  </button>
+                </div>
+              </div>
+            )}
 
             {items.length === 0 ? (
               <div className="p-8 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 space-y-2">
@@ -388,7 +528,7 @@ export const BOMModal: React.FC<BOMModalProps> = ({
                   No hay insumos añadidos a esta receta
                 </p>
                 <p className="text-[11px] text-slate-400">
-                  Haz clic en "Agregar Insumo" para seleccionar las materias primas como la etiqueta adhesiva o químicos.
+                  Haz clic en "Agregar Fila" o "+ Nuevo Insumo" para armar la formulación.
                 </p>
                 <button
                   type="button"
@@ -406,7 +546,7 @@ export const BOMModal: React.FC<BOMModalProps> = ({
                       <th className="py-2.5 px-3">Insumo / Materia Prima</th>
                       <th className="py-2.5 px-3 text-center w-36">Cant. x 1 Unidad</th>
                       <th className="py-2.5 px-3 text-center w-24">U. Medida</th>
-                      <th className="py-2.5 px-3 text-right w-28">Costo Ref.</th>
+                      <th className="py-2.5 px-3 text-right w-36">Costo Unitario ($)</th>
                       <th className="py-2.5 px-3 text-right w-28">Subtotal</th>
                       <th className="py-2.5 px-2 text-center w-12"></th>
                     </tr>
@@ -415,7 +555,7 @@ export const BOMModal: React.FC<BOMModalProps> = ({
                     {items.map((item, idx) => {
                       const matProd = products.find(p => p.id === item.productId);
                       const qtyVal = parseDecimal(item.quantity);
-                      const unitCost = matProd ? matProd.cost : 0;
+                      const unitCost = item.customCost !== undefined ? parseDecimal(item.customCost) : (matProd ? matProd.cost : 0);
                       const lineCost = qtyVal * unitCost;
 
                       return (
@@ -436,12 +576,12 @@ export const BOMModal: React.FC<BOMModalProps> = ({
                             </select>
                             {matProd && (
                               <span className="text-[10px] text-slate-400 block pt-0.5">
-                                Tipo: {matProd.type === 'materia_prima' ? 'Materia Prima / Insumo' : matProd.type} · Stock: {matProd.minStock ? `Mín ${matProd.minStock}` : 'General'}
+                                Categoría: {matProd.category || 'Materia Prima'} · Tipo: {matProd.type === 'materia_prima' ? 'Insumo' : matProd.type}
                               </span>
                             )}
                           </td>
 
-                          {/* Quantity per 1 unit */}
+                          {/* Quantity per 1 unit (Editable) */}
                           <td className="py-2 px-3">
                             <DecimalInput
                               min={0.0001}
@@ -453,13 +593,18 @@ export const BOMModal: React.FC<BOMModalProps> = ({
                           </td>
 
                           {/* UOM */}
-                          <td className="py-2 px-3 text-center font-mono text-[11px] text-slate-500">
+                          <td className="py-2 px-3 text-center font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300">
                             {matProd?.unitOfMeasure || 'UND'}
                           </td>
 
-                          {/* Unit cost */}
-                          <td className="py-2 px-3 text-right font-mono text-[11px] text-slate-500">
-                            {formatCOP(unitCost)}
+                          {/* Unit cost (Editable!) */}
+                          <td className="py-2 px-3 text-right">
+                            <DecimalInput
+                              min={0}
+                              value={item.customCost !== undefined ? item.customCost : unitCost}
+                              onChange={(_num, raw) => handleUpdateItem(idx, 'customCost', raw)}
+                              className="w-full text-right text-xs font-mono rounded-lg px-2 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
+                            />
                           </td>
 
                           {/* Subtotal */}
@@ -486,7 +631,7 @@ export const BOMModal: React.FC<BOMModalProps> = ({
                   <tfoot className="bg-slate-50 dark:bg-slate-800/50 font-bold border-t border-slate-200 dark:border-slate-800">
                     <tr>
                       <td colSpan={4} className="py-2.5 px-3 text-right uppercase tracking-wider text-[10px] text-slate-500">
-                        Costo Directo Total de Insumos (Por 1 Unidad Terminada):
+                        Costo Directo Total de Insumos (Por 1 Unidad):
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono text-sm text-emerald-600 dark:text-emerald-400">
                         {formatCOP(totalDirectCost)}
