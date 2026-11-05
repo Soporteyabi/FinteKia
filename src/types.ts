@@ -411,6 +411,9 @@ export interface BOM {
   id: string;
   finishedProductId: string;
   version: string;
+  name?: string;
+  description?: string;
+  companyId?: string;
   items: BOMItem[];
   standards?: {
     param: string;

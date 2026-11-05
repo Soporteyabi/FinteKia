@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from "./context/ToastContext";
 import { getInitialState, saveStateToLocalStorage } from './store';
-import { AppState, Company, Voucher, ProductionOrder, QualityInspection, Product, InventoryItem, Tercero, Warehouse, Asset, BankAccount, BankTransaction, Budget, PayrollLog, UserProfile, TechServiceOrder, CardPaymentDetails } from './types';
+import { AppState, Company, BOM, Voucher, ProductionOrder, QualityInspection, Product, InventoryItem, Tercero, Warehouse, Asset, BankAccount, BankTransaction, Budget, PayrollLog, UserProfile, TechServiceOrder, CardPaymentDetails } from './types';
 import { useAuth } from './context/AuthContext.tsx';
 
 // Importing sub components
@@ -712,6 +712,37 @@ export default function App() {
     });
   };
 
+  // Add BOM (Ficha Técnica / Receta)
+  const handleAddBOM = (bomData: Omit<BOM, 'id'>) => {
+    setState((prev) => {
+      const newBOM: BOM = {
+        ...bomData,
+        id: `bom-${Date.now()}`,
+        companyId: bomData.companyId || activeCompany.id
+      };
+      return {
+        ...prev,
+        boms: [...prev.boms, newBOM]
+      };
+    });
+  };
+
+  // Update BOM
+  const handleUpdateBOM = (updatedBOM: BOM) => {
+    setState((prev) => ({
+      ...prev,
+      boms: prev.boms.map((b) => (b.id === updatedBOM.id ? updatedBOM : b))
+    }));
+  };
+
+  // Delete BOM
+  const handleDeleteBOM = (id: string) => {
+    setState((prev) => ({
+      ...prev,
+      boms: prev.boms.filter((b) => b.id !== id)
+    }));
+  };
+
   // Update Production Order status
   const handleUpdateOrderStatus = (id: string, newStatus: ProductionOrder['status']) => {
     setState((prev) => {
@@ -1242,8 +1273,11 @@ export default function App() {
   );
 
   const activeBoms = React.useMemo(() => 
-    state.boms.filter(b => activeProducts.some(p => p.id === b.finishedProductId)),
-    [state.boms, activeProducts]
+    state.boms.filter(b => 
+      (b.companyId && b.companyId === activeCompany.id) ||
+      activeProducts.some(p => p.id === b.finishedProductId)
+    ),
+    [state.boms, activeProducts, activeCompany.id]
   );
 
   // Active company metrics calculations (Purely isolated to the current company)
@@ -2172,6 +2206,11 @@ export default function App() {
                     updateOrderStatus={handleUpdateOrderStatus}
                     addQualityInspection={handleAddQualityInspection}
                     onOpenKiosk={() => setState(prev => ({ ...prev, kioskMode: true }))}
+                    addBOM={handleAddBOM}
+                    updateBOM={handleUpdateBOM}
+                    deleteBOM={handleDeleteBOM}
+                    addProduct={handleAddProduct}
+                    currentCompanyId={activeCompany.id}
                   />
                 )
               )}
