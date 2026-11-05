@@ -248,7 +248,208 @@ export const INITIAL_PRODUCTS: Product[] = [
   { id: 'p-5', name: 'Cajas de Cartón Galletas (Unidades)', sku: 'MP-CAJ-01', barcode: '7701001000056', cost: 450, price: 0, tax: 19, type: 'materia_prima', lotTracking: false, minStock: 200, category: 'Empaques', unitOfMeasure: 'UND', companyId: 'co-2' },
   // Productos Terminados (Alimentos del Norte co-2)
   { id: 'p-6', name: 'Caja Galletas de Vainilla x 12', sku: 'PT-GAL-VAI', barcode: '7702001000062', cost: 6500, price: 16500, tax: 19, type: 'terminado', lotTracking: true, shelfLifeDays: 90, minStock: 30, category: 'Productos Terminados', unitOfMeasure: 'CAJA', companyId: 'co-2' },
-  { id: 'p-7', name: 'Pan de Avena Familiar 500g', sku: 'PT-PAN-AVE', barcode: '7702001000079', cost: 3200, price: 7800, tax: 5, type: 'terminado', lotTracking: true, shelfLifeDays: 12, minStock: 15, category: 'Productos Terminados', unitOfMeasure: 'UND', companyId: 'co-2' }
+  { id: 'p-7', name: 'Pan de Avena Familiar 500g', sku: 'PT-PAN-AVE', barcode: '7702001000079', cost: 3200, price: 7800, tax: 5, type: 'terminado', lotTracking: true, shelfLifeDays: 12, minStock: 15, category: 'Productos Terminados', unitOfMeasure: 'UND', companyId: 'co-2' },
+  // Jabón Líquido Potásico - Fórmula Maestra 30 L (DIGITAL YA'BI co-1781210729382)
+  {
+    id: 'prod-jabon-potasico-1l',
+    name: 'Jabón Líquido Potásico (Ropa y Pisos) 1L',
+    sku: 'PT-JAB-POT-1L',
+    barcode: '7709998000101',
+    cost: 4396.51,
+    price: 14000,
+    tax: 19,
+    type: 'terminado',
+    lotTracking: true,
+    shelfLifeDays: 365,
+    minStock: 20,
+    category: 'Aseo & Limpieza',
+    unitOfMeasure: 'L',
+    companyId: 'co-1781210729382'
+  },
+  // Insumos y Materias Primas de Formulación (g)
+  {
+    id: 'mp-aceite-girasol',
+    name: 'Aceite de Girasol (g)',
+    sku: 'MP-ACE-GIR',
+    cost: 6.63333,
+    price: 0,
+    tax: 0,
+    type: 'materia_prima',
+    lotTracking: false,
+    unitOfMeasure: 'g',
+    category: 'Aceites & Grasas',
+    minStock: 5000,
+    companyId: 'co-1781210729382'
+  },
+  {
+    id: 'mp-koh-comercial',
+    name: 'KOH Comercial (Potasa Cáustica 90%)',
+    sku: 'MP-KOH-90',
+    cost: 20.0,
+    price: 0,
+    tax: 19,
+    type: 'materia_prima',
+    lotTracking: false,
+    unitOfMeasure: 'g',
+    category: 'Químicos Base',
+    minStock: 2000,
+    companyId: 'co-1781210729382'
+  },
+  {
+    id: 'mp-agua-destilada',
+    name: 'Agua Destilada (Lejía)',
+    sku: 'MP-AGU-DES',
+    cost: 0.00485,
+    price: 0,
+    tax: 0,
+    type: 'materia_prima',
+    lotTracking: false,
+    unitOfMeasure: 'g',
+    category: 'Solventes',
+    minStock: 5000,
+    companyId: 'co-1781210729382'
+  },
+  {
+    id: 'mp-alcohol-etanol-96',
+    name: 'Alcohol Etanol 96%',
+    sku: 'MP-ALC-96',
+    cost: 10.66667,
+    price: 0,
+    tax: 19,
+    type: 'materia_prima',
+    lotTracking: false,
+    unitOfMeasure: 'g',
+    category: 'Solventes',
+    minStock: 2000,
+    companyId: 'co-1781210729382'
+  },
+  {
+    id: 'mp-agua-dilucion',
+    name: 'Agua de Dilución Inicial',
+    sku: 'MP-AGU-DIL',
+    cost: 0.00485,
+    price: 0,
+    tax: 0,
+    type: 'materia_prima',
+    lotTracking: false,
+    unitOfMeasure: 'g',
+    category: 'Solventes',
+    minStock: 10000,
+    companyId: 'co-1781210729382'
+  },
+  {
+    id: 'mp-agua-adicional',
+    name: 'Agua Adicional (Calculada)',
+    sku: 'MP-AGU-ADI',
+    cost: 0.00485,
+    price: 0,
+    tax: 0,
+    type: 'materia_prima',
+    lotTracking: false,
+    unitOfMeasure: 'g',
+    category: 'Solventes',
+    minStock: 15000,
+    companyId: 'co-1781210729382'
+  },
+  {
+    id: 'mp-bicarbonato',
+    name: 'Bicarbonato de Sodio',
+    sku: 'MP-BIC-SOD',
+    cost: 5.0,
+    price: 0,
+    tax: 19,
+    type: 'materia_prima',
+    lotTracking: false,
+    unitOfMeasure: 'g',
+    category: 'Aditivos',
+    minStock: 500,
+    companyId: 'co-1781210729382'
+  },
+  {
+    id: 'mp-sal',
+    name: 'Sal Común',
+    sku: 'MP-SAL-COM',
+    cost: 2.99,
+    price: 0,
+    tax: 0,
+    type: 'materia_prima',
+    lotTracking: false,
+    unitOfMeasure: 'g',
+    category: 'Aditivos',
+    minStock: 500,
+    companyId: 'co-1781210729382'
+  },
+  {
+    id: 'mp-fragancia',
+    name: 'Fragancia para Jabón Líquido',
+    sku: 'MP-FRA-JAB',
+    cost: 72.0,
+    price: 0,
+    tax: 19,
+    type: 'materia_prima',
+    lotTracking: false,
+    unitOfMeasure: 'g',
+    category: 'Aditivos & Fragancias',
+    minStock: 500,
+    companyId: 'co-1781210729382'
+  },
+  {
+    id: 'mp-color',
+    name: 'Colorante para Jabón',
+    sku: 'MP-COL-JAB',
+    cost: 20.0,
+    price: 0,
+    tax: 19,
+    type: 'materia_prima',
+    lotTracking: false,
+    unitOfMeasure: 'g',
+    category: 'Aditivos & Fragancias',
+    minStock: 500,
+    companyId: 'co-1781210729382'
+  },
+  // Insumos de Empaque
+  {
+    id: 'emp-envase-1l',
+    name: 'Envase Plástico PET 1L Transparente',
+    sku: 'EMP-ENV-1L',
+    cost: 800.0,
+    price: 0,
+    tax: 19,
+    type: 'materia_prima',
+    lotTracking: false,
+    unitOfMeasure: 'UND',
+    category: 'Empaques & Envases',
+    minStock: 50,
+    companyId: 'co-1781210729382'
+  },
+  {
+    id: 'emp-tapa-1l',
+    name: 'Tapa Dosificadora / Roscada 1L',
+    sku: 'EMP-TAP-1L',
+    cost: 150.0,
+    price: 0,
+    tax: 19,
+    type: 'materia_prima',
+    lotTracking: false,
+    unitOfMeasure: 'UND',
+    category: 'Empaques & Envases',
+    minStock: 50,
+    companyId: 'co-1781210729382'
+  },
+  {
+    id: 'emp-etiqueta-potasico',
+    name: 'Etiqueta Adhesiva 10x15cm Det liquido Potasico 1L',
+    sku: 'TECH-ETI-5566',
+    cost: 916.67,
+    price: 0,
+    tax: 0,
+    type: 'materia_prima',
+    lotTracking: false,
+    unitOfMeasure: 'UND',
+    category: 'Etiquetas & Adhesivos',
+    minStock: 50,
+    companyId: 'co-1781210729382'
+  }
 ];
 
 export const INITIAL_TECH_ORDERS: TechServiceOrder[] = [
@@ -389,6 +590,34 @@ export const INITIAL_BOMS: BOM[] = [
       { id: 'bi-8', productId: 'p-3', quantity: 0.04 }
     ],
     standards: { param: 'Temperatura interna de miga', target: 92, tolerance: 2 }
+  },
+  {
+    id: 'bom-jabon-potasico-30l',
+    finishedProductId: 'prod-jabon-potasico-1l',
+    version: 'v7 lote base 30 L',
+    name: 'Fórmula Maestra – Jabón Líquido Potásico (Ropa y Pisos) – Lote Base 30 L',
+    description: 'Lote base 30 L (30.000 g masa final). Escala automáticamente según los litros a producir. Saponificación KOH 90%, sobreengrasado 2%, dilución y aditivos.',
+    companyId: 'co-1781210729382',
+    standards: {
+      param: 'pH / Concentración',
+      target: 9.5,
+      tolerance: 0.5
+    },
+    items: [
+      { id: 'bi-jp-1', productId: 'mp-aceite-girasol', quantity: 168.733 },   // 5.062 g / 30 L
+      { id: 'bi-jp-2', productId: 'mp-koh-comercial', quantity: 34.733 },     // 1.042 g / 30 L
+      { id: 'bi-jp-3', productId: 'mp-agua-destilada', quantity: 81.033 },    // 2.431 g / 30 L
+      { id: 'bi-jp-4', productId: 'mp-alcohol-etanol-96', quantity: 33.733 }, // 1.012 g / 30 L
+      { id: 'bi-jp-5', productId: 'mp-agua-dilucion', quantity: 309.367 },    // 9.281 g / 30 L
+      { id: 'bi-jp-6', productId: 'mp-agua-adicional', quantity: 406.133 },   // 12.184 g / 30 L
+      { id: 'bi-jp-7', productId: 'mp-bicarbonato', quantity: 3.8 },          // 114 g / 30 L
+      { id: 'bi-jp-8', productId: 'mp-sal', quantity: 5.8 },                  // 174 g / 30 L
+      { id: 'bi-jp-9', productId: 'mp-fragancia', quantity: 3.0 },            // 90 g / 30 L
+      { id: 'bi-jp-10', productId: 'mp-color', quantity: 5.0 },               // 150 g / 30 L
+      { id: 'bi-jp-11', productId: 'emp-envase-1l', quantity: 1.0 },          // 1 envase / L
+      { id: 'bi-jp-12', productId: 'emp-tapa-1l', quantity: 1.0 },            // 1 tapa / L
+      { id: 'bi-jp-13', productId: 'emp-etiqueta-potasico', quantity: 1.0 }    // 1 etiqueta / L
+    ]
   }
 ];
 
@@ -396,7 +625,9 @@ export const INITIAL_WAREHOUSES: Warehouse[] = [
   { id: 'wh-1', name: 'Bodega de Materia Prima', address: 'Almacén 1, Planta Central Bogotá', companyId: 'co-2' },
   { id: 'wh-2', name: 'Bodega de Despachos y Terminados', address: 'Dique de Despachos, Planta Bogotá', companyId: 'co-2' },
   { id: 'wh-3', name: 'Bodega Principal de Hardware & Equipos', address: 'Sede Principal Norte, Bogotá D.C.', companyId: 'co-1' },
-  { id: 'wh-4', name: 'Bodega de Repuestos & Taller TI', address: 'Laboratorio de Soporte, Bogotá D.C.', companyId: 'co-1' }
+  { id: 'wh-4', name: 'Bodega de Repuestos & Taller TI', address: 'Laboratorio de Soporte, Bogotá D.C.', companyId: 'co-1' },
+  { id: 'wh-dy-1', name: 'Bodega de Insumos y Químicos (DIGITAL YA\'BI)', address: 'Planta Principal DY, Bogotá D.C.', companyId: 'co-1781210729382' },
+  { id: 'wh-dy-2', name: 'Bodega de Despachos y Terminados (DIGITAL YA\'BI)', address: 'Dique de Despachos DY, Bogotá D.C.', companyId: 'co-1781210729382' }
 ];
 
 export const INITIAL_INVENTORY: InventoryItem[] = [
@@ -413,7 +644,21 @@ export const INITIAL_INVENTORY: InventoryItem[] = [
   { id: 'inv-item-4', productId: 'p-4', lotNumber: undefined, expirationDate: undefined, warehouseId: 'wh-1', quantity: 25, avgCost: 15000, companyId: 'co-2' },
   { id: 'inv-item-5', productId: 'p-5', lotNumber: undefined, expirationDate: undefined, warehouseId: 'wh-1', quantity: 1000, avgCost: 450, companyId: 'co-2' },
   { id: 'inv-item-6', productId: 'p-6', lotNumber: 'L-GVAL-001', expirationDate: '2026-09-09', warehouseId: 'wh-2', quantity: 150, avgCost: 6500, companyId: 'co-2' },
-  { id: 'inv-item-7', productId: 'p-7', lotNumber: 'L-PAVE-044', expirationDate: '2026-06-21', warehouseId: 'wh-2', quantity: 40, avgCost: 3200, companyId: 'co-2' }
+  { id: 'inv-item-7', productId: 'p-7', lotNumber: 'L-PAVE-044', expirationDate: '2026-06-21', warehouseId: 'wh-2', quantity: 40, avgCost: 3200, companyId: 'co-2' },
+  // Stock Inicial para Jabón Líquido Potásico (DIGITAL YA'BI co-1781210729382)
+  { id: 'inv-jp-1', productId: 'mp-aceite-girasol', quantity: 25000, avgCost: 6.63333, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-2', productId: 'mp-koh-comercial', quantity: 8000, avgCost: 20.0, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-3', productId: 'mp-agua-destilada', quantity: 30000, avgCost: 0.00485, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-4', productId: 'mp-alcohol-etanol-96', quantity: 10000, avgCost: 10.66667, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-5', productId: 'mp-agua-dilucion', quantity: 50000, avgCost: 0.00485, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-6', productId: 'mp-agua-adicional', quantity: 50000, avgCost: 0.00485, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-7', productId: 'mp-bicarbonato', quantity: 3000, avgCost: 5.0, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-8', productId: 'mp-sal', quantity: 5000, avgCost: 2.99, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-9', productId: 'mp-fragancia', quantity: 2000, avgCost: 72.0, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-10', productId: 'mp-color', quantity: 1000, avgCost: 20.0, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-11', productId: 'emp-envase-1l', quantity: 150, avgCost: 800.0, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-12', productId: 'emp-tapa-1l', quantity: 150, avgCost: 150.0, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-13', productId: 'emp-etiqueta-potasico', quantity: 150, avgCost: 916.67, warehouseId: 'wh-dy-1', companyId: 'co-1781210729382' }
 ];
 
 export const INITIAL_ASSETS: Asset[] = [
@@ -520,6 +765,38 @@ export const INITIAL_PRODUCTION_ORDERS: ProductionOrder[] = [
     costEstimates: { materials: 140000, labor: 450000, overhead: 20000 },
     generatedLot: 'LOT-2606-B2',
     companyId: 'co-2'
+  },
+  {
+    id: 'po-dy-0001',
+    orderNumber: 'N°0001',
+    bomId: 'bom-jabon-potasico-30l',
+    quantity: 20, // 20 Litros a producir (Factor de escala = 20 / 30 = 0.667)
+    startDate: '2026-10-31',
+    dueDate: '2026-10-31',
+    status: 'proceso',
+    generatedLot: 'L-202610-01',
+    rawWarehouseId: 'wh-dy-1',
+    finishedWarehouseId: 'wh-dy-2',
+    productionHours: 2,
+    laborHourlyRate: 0,
+    overheadHourlyRate: 0,
+    costEstimates: {
+      materials: 7539.37, // Calculado exactamente de la formulación escalada
+      labor: 0,
+      overhead: 0
+    },
+    costsReal: {
+      materials: 7539.37,
+      labor: 0,
+      overhead: 0
+    },
+    actualProducedQuantity: 3.0,
+    yieldPercentage: 15.0,
+    wasteLiters: 17.0,
+    responsible: 'WASHINGTON',
+    scaleFactor: 0.667,
+    baseBatchLiters: 30.0,
+    companyId: 'co-1781210729382'
   }
 ];
 
@@ -667,6 +944,40 @@ export const getInitialState = (): AppState => {
             parsed.productionOrders.forEach((po: any) => {
               if (!po.companyId) po.companyId = 'co-2';
             });
+          }
+
+          // Ensure Potassium Soap items and recipe exist in parsed state (DIGITAL YA'BI co-1781210729382)
+          if (!parsed.products?.some((p: any) => p.id === 'prod-jabon-potasico-1l')) {
+            const potProducts = INITIAL_PRODUCTS.filter(p => p.companyId === 'co-1781210729382');
+            parsed.products = [...(parsed.products || []), ...potProducts];
+          }
+
+          if (!parsed.boms) {
+            parsed.boms = INITIAL_BOMS;
+          } else if (!parsed.boms.some((b: any) => b.id === 'bom-jabon-potasico-30l')) {
+            const potBOM = INITIAL_BOMS.find(b => b.id === 'bom-jabon-potasico-30l');
+            if (potBOM) parsed.boms.push(potBOM);
+          }
+
+          if (!parsed.warehouses?.some((w: any) => w.id === 'wh-dy-1')) {
+            const potWhs = INITIAL_WAREHOUSES.filter(w => w.companyId === 'co-1781210729382');
+            parsed.warehouses = [...(parsed.warehouses || []), ...potWhs];
+          }
+
+          if (!parsed.inventory?.some((i: any) => i.id === 'inv-jp-1')) {
+            const potInv = INITIAL_INVENTORY.filter(i => i.companyId === 'co-1781210729382');
+            parsed.inventory = [...(parsed.inventory || []), ...potInv];
+          }
+
+          if (!parsed.productionOrders?.some((po: any) => po.id === 'po-dy-0001')) {
+            const potOrder = INITIAL_PRODUCTION_ORDERS.find(po => po.id === 'po-dy-0001');
+            if (potOrder) parsed.productionOrders = [...(parsed.productionOrders || []), potOrder];
+          }
+
+          // Ensure DIGITAL YA'BI has enableProduction: true
+          const dyCompany = parsed.companies?.find((c: any) => c.id === 'co-1781210729382');
+          if (dyCompany) {
+            dyCompany.enableProduction = true;
           }
 
           if (!parsed.users) {

@@ -447,6 +447,12 @@ export interface ProductionOrder {
   productionHours?: number;
   laborHourlyRate?: number;
   overheadHourlyRate?: number;
+  actualProducedQuantity?: number;
+  yieldPercentage?: number;
+  wasteLiters?: number;
+  responsible?: string;
+  baseBatchLiters?: number;
+  scaleFactor?: number;
   companyId?: string;
 }
 

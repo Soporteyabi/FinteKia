@@ -21,12 +21,16 @@ import {
   Plus,
   Package,
   BookOpen,
-  ArrowRight
+  ArrowRight,
+  Eye,
+  Scale,
+  FileText
 } from 'lucide-react';
 import { exportManufacturingToExcel } from '../utils/excelExport';
 import { formatCOP, parseDecimal, formatQuantity } from '../utils/currencyUtils';
 import { DecimalInput } from './common/DecimalInput';
 import { BOMModal } from './manufacturing/BOMModal';
+import { ProductionOrderDetailModal } from './manufacturing/ProductionOrderDetailModal';
 
 interface ManufacturingViewProps {
   boms: BOM[];
@@ -36,6 +40,7 @@ interface ManufacturingViewProps {
   warehouses: Warehouse[];
   addProductionOrder: (po: Omit<ProductionOrder, 'id' | 'orderNumber'>) => void;
   updateOrderStatus: (id: string, newStatus: ProductionOrder['status']) => void;
+  updateProductionOrder?: (updated: ProductionOrder) => void;
   addQualityInspection: (qi: Omit<QualityInspection, 'id'>) => void;
   onOpenKiosk?: () => void;
   addBOM?: (bomData: Omit<BOM, 'id'>) => void;
@@ -53,6 +58,7 @@ export default function ManufacturingView({
   warehouses,
   addProductionOrder,
   updateOrderStatus,
+  updateProductionOrder,
   addQualityInspection,
   onOpenKiosk,
   addBOM,
@@ -62,16 +68,25 @@ export default function ManufacturingView({
   currentCompanyId = 'co-1'
 }: ManufacturingViewProps) {
   const [activeTab, setActiveTab] = useState<'orders' | 'recipes'>('orders');
-  const [selectedBOMId, setSelectedBOMId] = useState('');
-  const [prodQty, setProdQty] = useState<number>(10);
+  
+  // Intelligent defaults for DIGITAL YA'BI
+  const isDigitalYabi = currentCompanyId === 'co-1781210729382';
+  const defaultRawWh = isDigitalYabi && warehouses.some(w => w.id === 'wh-dy-1') ? 'wh-dy-1' : (warehouses[0]?.id || 'wh-1');
+  const defaultFinWh = isDigitalYabi && warehouses.some(w => w.id === 'wh-dy-2') ? 'wh-dy-2' : (warehouses[1]?.id || warehouses[0]?.id || 'wh-2');
+  const defaultBOM = boms.find(b => b.id === 'bom-jabon-potasico-30l')?.id || boms[0]?.id || '';
+
+  const [selectedBOMId, setSelectedBOMId] = useState(defaultBOM);
+  const [prodQty, setProdQty] = useState<number>(defaultBOM === 'bom-jabon-potasico-30l' ? 20 : 10);
   const [dueDate, setDueDate] = useState('');
+  const [customLot, setCustomLot] = useState<string>('L-202610-01');
+  const [responsiblePerson, setResponsiblePerson] = useState<string>('WASHINGTON');
 
   // Routing and Cost configurations
-  const [rawWhId, setRawWhId] = useState(warehouses[0]?.id || 'wh-1');
-  const [finWhId, setFinWhId] = useState(warehouses[1]?.id || warehouses[0]?.id || 'wh-2');
+  const [rawWhId, setRawWhId] = useState(defaultRawWh);
+  const [finWhId, setFinWhId] = useState(defaultFinWh);
   const [productionHours, setProductionHours] = useState(2);
-  const [laborHourlyRate, setLaborHourlyRate] = useState(15000);
-  const [overheadHourlyRate, setOverheadHourlyRate] = useState(8000);
+  const [laborHourlyRate, setLaborHourlyRate] = useState(isDigitalYabi ? 0 : 15000);
+  const [overheadHourlyRate, setOverheadHourlyRate] = useState(isDigitalYabi ? 0 : 8000);
 
   // QC logs state
   const [qcTargetOrderId, setQcTargetOrderId] = useState('');
@@ -79,16 +94,26 @@ export default function ManufacturingView({
   const [qcResult, setQcResult] = useState<'Aprobado' | 'Rechazado'>('Aprobado');
   const [qcNotes, setQcNotes] = useState('');
 
-  // BOM Modal State
+  // BOM Modal State & Order Detail Modal State
   const [isBOMModalOpen, setIsBOMModalOpen] = useState(false);
   const [editingBOM, setEditingBOM] = useState<BOM | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<ProductionOrder | null>(null);
 
   // Auto-select first BOM if none selected and boms exist
   useEffect(() => {
     if ((!selectedBOMId || !boms.some(b => b.id === selectedBOMId)) && boms.length > 0) {
-      setSelectedBOMId(boms[0].id);
+      const potBom = boms.find(b => b.id === 'bom-jabon-potasico-30l');
+      setSelectedBOMId(potBom ? potBom.id : boms[0].id);
     }
   }, [boms, selectedBOMId]);
+
+  // Keep warehouses in sync if company switches
+  useEffect(() => {
+    if (isDigitalYabi) {
+      if (warehouses.some(w => w.id === 'wh-dy-1')) setRawWhId('wh-dy-1');
+      if (warehouses.some(w => w.id === 'wh-dy-2')) setFinWhId('wh-dy-2');
+    }
+  }, [isDigitalYabi, warehouses]);
 
   // Pagination for manufacturing orders (15 per page)
   const [prodOrdersPage, setProdOrdersPage] = useState(1);
@@ -207,18 +232,33 @@ export default function ManufacturingView({
       return;
     }
 
+    const is30L = targetBOM.id === 'bom-jabon-potasico-30l' || targetBOM.version?.toLowerCase().includes('30 l') || targetBOM.version?.toLowerCase().includes('30l');
+    const calculatedScaleFactor = is30L ? Number(((prodQty || 0) / 30).toFixed(3)) : 1;
+
     // Trigger state changes
     addProductionOrder({
       bomId: selectedBOMId,
       quantity: prodQty,
       startDate: new Date().toISOString().substring(0, 10),
       dueDate: dueDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10),
-      status: 'pendiente',
+      status: 'proceso',
       costEstimates: { 
-        materials: Math.round(estimatedMaterialsCost), 
+        materials: Number(estimatedMaterialsCost.toFixed(2)), 
         labor: estimatedLaborCost, 
         overhead: estimatedOverheadCost 
       },
+      costsReal: {
+        materials: Number(estimatedMaterialsCost.toFixed(2)), 
+        labor: estimatedLaborCost, 
+        overhead: estimatedOverheadCost 
+      },
+      generatedLot: customLot || `L-${new Date().toISOString().substring(0, 7).replace('-', '')}-01`,
+      responsible: responsiblePerson || 'WASHINGTON',
+      scaleFactor: calculatedScaleFactor,
+      baseBatchLiters: is30L ? 30 : 1,
+      actualProducedQuantity: prodQty,
+      yieldPercentage: 100,
+      wasteLiters: 0,
       rawWarehouseId: rawWhId,
       finishedWarehouseId: finWhId,
       productionHours,
@@ -585,6 +625,42 @@ export default function ManufacturingView({
                 </div>
               )}
 
+              {/* Dynamic Formula Maestra 30 L Banner */}
+              {activeBOM && (activeBOM.id === 'bom-jabon-potasico-30l' || activeBOM.version?.toLowerCase().includes('30 l') || activeBOM.version?.toLowerCase().includes('30l')) && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-blue-500/15 border border-emerald-500/30 text-slate-800 dark:text-slate-100 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                        <FlaskConical className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-2">
+                          Fórmula Maestra – Jabón Líquido Potásico (Lote Base 30 L)
+                          <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 font-bold">
+                            Aceite Base: Aceite de Girasol
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-300">
+                          Escribe los <strong>Litros a Producir</strong> (ej. 20 L ó 3 L): insumos químicos y empaques se recalculan automáticamente.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-500/40 text-center font-mono">
+                        <span className="block text-[9px] uppercase text-slate-400 font-bold">Factor de Escala</span>
+                        <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
+                          {((prodQty || 0) / 30).toFixed(3)}
+                        </span>
+                      </div>
+                      <div className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-black/5 dark:border-white/5 text-center font-mono">
+                        <span className="block text-[9px] uppercase text-slate-400 font-bold">Lote Base</span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">30,0 L</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* BOM Selector */}
                 <div className="space-y-1.5" id="form-bom-field">
@@ -618,13 +694,13 @@ export default function ManufacturingView({
                 {/* Target Quantity */}
                 <div className="space-y-1.5" id="form-qty-field">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-semibold">
-                    Cantidad a Producir (Unds/Litros) *
+                    Litros / Unidades a Producir *
                   </label>
                   <DecimalInput
                     min={0.01}
                     value={prodQty}
                     onChange={(val) => setProdQty(val)}
-                    placeholder="10"
+                    placeholder="20"
                     className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2.5 py-2 font-mono font-bold"
                   />
                 </div>
@@ -641,11 +717,40 @@ export default function ManufacturingView({
                 </div>
               </div>
 
+              {/* Lote & Responsible Person */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-black/5 dark:border-white/5 pt-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Lote de Producción (Código Trazabilidad)
+                  </label>
+                  <input
+                    type="text"
+                    value={customLot}
+                    onChange={(e) => setCustomLot(e.target.value)}
+                    placeholder="L-202610-01"
+                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2.5 py-2 font-mono font-bold"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Responsable de Elaboración
+                  </label>
+                  <input
+                    type="text"
+                    value={responsiblePerson}
+                    onChange={(e) => setResponsiblePerson(e.target.value)}
+                    placeholder="WASHINGTON"
+                    className="w-full text-xs bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-lg px-2.5 py-2 font-bold uppercase"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-black/5 dark:border-white/5 pt-4">
                 {/* Raw Warehouse Selector */}
                 <div className="space-y-1.5" id="form-wh-raw-field">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <WhIcon className="w-3.5 h-3.5 text-blue-500" /> Bodega de Insumos (Materia Prima)
+                    <WhIcon className="w-3.5 h-3.5 text-blue-500" /> Bodega Origen (Insumos & Químicos)
                   </label>
                   <select
                     value={rawWhId}
@@ -706,7 +811,7 @@ export default function ManufacturingView({
                 {/* Overhead rate */}
                 <div className="space-y-1.5" id="form-overhead-field">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Settings className="w-3.5 h-3.5 text-slate-400" /> Costos Fijos Planta / Hr
+                    <Settings className="w-3.5 h-3.5 text-slate-400" /> Costos Fijos Planta (CIF) / Hr
                   </label>
                   <DecimalInput
                     min={0}
@@ -736,24 +841,28 @@ export default function ManufacturingView({
                     <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider mb-1">
                       Insumos Requeridos para este Lote ({warehouses.find(w => w.id === rawWhId)?.name}):
                     </span>
-                    <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                    <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
                       {bomIngredientsDetails.map(({ material, qtyRequired, unitCost, subtotal, stockAvailable }, idx) => {
                         const isDeficit = qtyRequired > stockAvailable;
+                        const isEmpaque = material.category?.toLowerCase().includes('empaque') || 
+                                          material.category?.toLowerCase().includes('etiqueta') ||
+                                          material.unitOfMeasure === 'UND';
                         return (
                           <div key={idx} className="flex justify-between items-center bg-white dark:bg-slate-900 px-3 py-2 rounded-xl border border-black/5 dark:border-white/5">
                             <div className="space-y-0.5">
-                              <span className="font-semibold text-slate-800 dark:text-slate-200">
+                              <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                {isEmpaque ? <Package className="w-3 h-3 text-blue-500" /> : <FlaskConical className="w-3 h-3 text-amber-500" />}
                                 {material.name}
                               </span>
                               <span className="block text-[9.5px] text-slate-400 font-mono">
-                                Demanda Lote: <strong className="text-slate-600 dark:text-slate-300">{qtyRequired.toFixed(2)} {material.unitOfMeasure || 'UND'}</strong> | Disponible en Bodega: <strong className={isDeficit ? 'text-rose-500' : 'text-emerald-500'}>{stockAvailable.toFixed(1)} {material.unitOfMeasure || 'UND'}</strong>
+                                Demanda Lote: <strong className="text-slate-600 dark:text-slate-300">{qtyRequired.toLocaleString('es-CO', { maximumFractionDigits: 1 })} {material.unitOfMeasure || 'UND'}</strong> | Disponible en Bodega: <strong className={isDeficit ? 'text-rose-500' : 'text-emerald-500'}>{stockAvailable.toLocaleString('es-CO', { maximumFractionDigits: 1 })} {material.unitOfMeasure || 'UND'}</strong>
                               </span>
                             </div>
                             <div className="text-right font-mono font-semibold">
                               <span className={`${isDeficit ? 'text-rose-500 font-black' : 'text-slate-700 dark:text-slate-300'}`}>
                                 {formatCOP(subtotal)}
                               </span>
-                              <span className="block text-[9px] text-slate-400">@ {formatCOP(unitCost)}/u</span>
+                              <span className="block text-[9px] text-slate-400">@ {formatCOP(unitCost)}/{material.unitOfMeasure === 'g' ? 'g' : 'u'}</span>
                               {isDeficit && (
                                 <span className="inline-block text-[9px] text-rose-500 bg-rose-500/10 px-1 rounded">
                                   Déficit: {(qtyRequired - stockAvailable).toFixed(1)}
@@ -830,12 +939,13 @@ export default function ManufacturingView({
                       <th className="py-2.5 px-3 text-center">Estado</th>
                       <th className="py-2.5 px-3 text-right">Costo Unitario</th>
                       <th className="py-2.5 px-3 text-right">Total Costos</th>
+                      <th className="py-2.5 px-3 text-center">Ficha / Cierre OP</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/5 dark:divide-white/5 text-slate-700">
                     {paginatedProdOrders.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center py-8 text-slate-400 text-xs">
+                        <td colSpan={8} className="text-center py-8 text-slate-400 text-xs">
                           No hay órdenes de producción registradas aún.
                         </td>
                       </tr>
@@ -888,6 +998,17 @@ export default function ManufacturingView({
                             </td>
                             <td className="py-3 px-3 text-right font-mono font-bold text-slate-800 dark:text-white">
                               {formatCOP(po.status === 'completada' ? totalReal : totalEst)}
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => setViewingOrder(po)}
+                                className="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 text-[10px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-all flex items-center gap-1.5 mx-auto cursor-pointer shadow-sm"
+                                title="Abrir ficha técnica, proporciones escaladas y cierre de OP"
+                              >
+                                <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span>Ficha Técnica</span>
+                              </button>
                             </td>
                           </tr>
                         );
@@ -1076,6 +1197,24 @@ export default function ManufacturingView({
           products={products}
           currentCompanyId={currentCompanyId}
           addProduct={addProduct}
+        />
+      )}
+
+      {/* PRODUCTION ORDER DETAIL & CLOSE MODAL (Excel Formulation Replica) */}
+      {viewingOrder && (
+        <ProductionOrderDetailModal
+          order={viewingOrder}
+          bom={boms.find(b => b.id === viewingOrder.bomId)}
+          products={products}
+          warehouses={warehouses}
+          onClose={() => setViewingOrder(null)}
+          onUpdateOrder={(updated) => {
+            if (updateProductionOrder) {
+              updateProductionOrder(updated);
+            }
+            setViewingOrder(null);
+          }}
+          onUpdateStatus={updateOrderStatus}
         />
       )}
 

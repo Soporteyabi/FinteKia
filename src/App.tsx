@@ -929,6 +929,16 @@ export default function App() {
     });
   };
 
+  // Update Production Order (closing, actual quantity, lot, responsible)
+  const handleUpdateProductionOrder = (updatedOrder: ProductionOrder) => {
+    setState((prev) => ({
+      ...prev,
+      productionOrders: prev.productionOrders.map((o) =>
+        o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o
+      )
+    }));
+  };
+
   // Add Quality Inspection
   const handleAddQualityInspection = (qi: Omit<QualityInspection, 'id'>) => {
     const newInspect: QualityInspection = {
@@ -2210,6 +2220,7 @@ export default function App() {
                     updateBOM={handleUpdateBOM}
                     deleteBOM={handleDeleteBOM}
                     addProduct={handleAddProduct}
+                    updateProductionOrder={handleUpdateProductionOrder}
                     currentCompanyId={activeCompany.id}
                   />
                 )
