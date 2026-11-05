@@ -16,6 +16,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { exportManufacturingToExcel } from '../utils/excelExport';
+import { formatCOP, parseDecimal, formatQuantity } from '../utils/currencyUtils';
 
 interface ManufacturingViewProps {
   boms: BOM[];
@@ -71,13 +72,6 @@ export default function ManufacturingView({
     safeProdOrdersPage * PROD_ORDERS_PER_PAGE
   );
 
-  const formatCOP = (val: number) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      maximumFractionDigits: 0
-    }).format(val);
-  };
 
   // Live BOM ingredients and cost calculations
   const bomIngredientsDetails: Array<{

@@ -5,6 +5,8 @@ import { ConfirmModal } from './ConfirmModal';
 import Pagination from './Pagination';
 import { exportProductsToExcel } from '../utils/excelExport';
 import { toast } from '../context/ToastContext';
+import { formatCOP, parseDecimal } from '../utils/currencyUtils';
+import { DecimalInput } from './common/DecimalInput';
 
 interface ProductsViewProps {
   products: Product[];
@@ -53,15 +55,6 @@ export default function ProductsView({
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
-
-  // Format utility
-  const formatCOP = (val: number) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      maximumFractionDigits: 0
-    }).format(val);
-  };
 
   // Stock mapping per product across all warehouses
   const productStocksMap = useMemo(() => {
@@ -214,9 +207,9 @@ export default function ProductsView({
     }
 
     const skuToUse = formSku.trim() || suggestSku(formName, formType);
-    const parsedCost = typeof formCost === 'string' ? parseFloat(formCost.replace(',', '.')) : formCost;
-    const parsedPrice = typeof formPrice === 'string' ? parseFloat(formPrice.replace(',', '.')) : formPrice;
-    const parsedMinStock = typeof formMinStock === 'string' ? parseFloat(formMinStock.replace(',', '.')) : formMinStock;
+    const parsedCost = parseDecimal(formCost);
+    const parsedPrice = formType === 'materia_prima' && (formPrice === '' || formPrice === 0 || formPrice === '0') ? 0 : parseDecimal(formPrice);
+    const parsedMinStock = parseDecimal(formMinStock);
     const parsedShelfLife = typeof formShelfLifeDays === 'string' ? parseInt(formShelfLifeDays) : formShelfLifeDays;
 
     const payload = {
@@ -960,14 +953,12 @@ export default function ProductsView({
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Costo de Adquisición ($)</label>
                     <span className="text-[9px] text-slate-400 font-mono">Acepta decimales (ej. 0.916)</span>
                   </div>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
+                  <DecimalInput
+                    min={0}
                     disabled={formType === 'servicio'}
                     placeholder="0.00"
                     value={formCost}
-                    onChange={(e) => setFormCost(e.target.value)}
+                    onChange={(_num, raw) => setFormCost(raw)}
                     className={`w-full text-xs font-mono font-bold rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-blue-500 border disabled:opacity-50 ${
                       isDark ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                     }`}
@@ -984,14 +975,12 @@ export default function ProductsView({
                       {formType === 'materia_prima' ? 'Uso interno' : 'Acepta decimales'}
                     </span>
                   </div>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
+                  <DecimalInput
+                    min={0}
                     required={formType !== 'materia_prima'}
                     placeholder={formType === 'materia_prima' ? '0 (Insumo para transformación)' : '0.00'}
                     value={formType === 'materia_prima' && (formPrice === '' || formPrice === 0) ? '0' : formPrice}
-                    onChange={(e) => setFormPrice(e.target.value)}
+                    onChange={(_num, raw) => setFormPrice(raw)}
                     className={`w-full text-xs font-mono font-bold rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-blue-500 border ${
                       isDark ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                     }`}
@@ -1006,13 +995,11 @@ export default function ProductsView({
                 {/* Min Stock */}
                 <div className="space-y-1 block">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stock Mínimo (Alerta)</label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
+                  <DecimalInput
+                    min={0}
                     placeholder="5"
                     value={formMinStock}
-                    onChange={(e) => setFormMinStock(e.target.value)}
+                    onChange={(_num, raw) => setFormMinStock(raw)}
                     className={`w-full text-xs font-mono font-bold rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-blue-500 border ${
                       isDark ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                     }`}

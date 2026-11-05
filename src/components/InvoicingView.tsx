@@ -6,6 +6,8 @@ import Pagination from './Pagination';
 import { calculateDIANDV, formatNITWithDV, buildWhatsAppInvoiceShareText } from '../lib/dianUtils';
 import { exportInvoicesToExcel } from '../utils/excelExport';
 import { toast } from '../context/ToastContext';
+import { formatCOP, parseDecimal, formatQuantity } from '../utils/currencyUtils';
+import { DecimalInput } from './common/DecimalInput';
 import WompiCheckoutModal from './WompiCheckoutModal';
 import {
   BillingConfigModal,
@@ -425,14 +427,6 @@ export default function InvoicingView({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const formatCOP = (val: number) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      maximumFractionDigits: 0
-    }).format(val);
-  };
 
   // Filter clients and finished products
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
@@ -1937,12 +1931,12 @@ export default function InvoicingView({
                                     >
                                       -
                                     </button>
-                                    <input
-                                      type="number"
-                                      min="1"
+                                    <DecimalInput
+                                      min={0.001}
+                                      placeholder="1"
                                       value={line.qty}
-                                      onChange={(e) => updateLine(idx, 'qty', Math.max(1, parseInt(e.target.value) || 1))}
-                                      className={`w-10 text-center text-xs font-mono font-semibold bg-transparent focus:outline-none ${
+                                      onChange={(val) => updateLine(idx, 'qty', Math.max(0.001, val))}
+                                      className={`w-12 text-center text-xs font-mono font-semibold bg-transparent focus:outline-none ${
                                         isNavy ? 'text-white' : 'text-slate-900'
                                       }`}
                                     />
@@ -1963,12 +1957,11 @@ export default function InvoicingView({
                                 <td className="py-2.5 px-3 text-right">
                                   <div className="flex items-center justify-end gap-1">
                                     <span className="text-[10px] text-slate-400 font-mono">$</span>
-                                    <input
-                                      type="number"
-                                      step="any"
-                                      min="0"
+                                    <DecimalInput
+                                      min={0}
+                                      placeholder="0.00"
                                       value={line.unitPrice}
-                                      onChange={(e) => updateLine(idx, 'unitPrice', Math.max(0, parseFloat(e.target.value) || 0))}
+                                      onChange={(val) => updateLine(idx, 'unitPrice', Math.max(0, val))}
                                       className={`w-24 text-right text-xs font-mono font-medium border rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors ${inputBg}`}
                                     />
                                   </div>
@@ -2009,7 +2002,7 @@ export default function InvoicingView({
                             isNavy ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-600'
                           }`}>
                             <td colSpan={3} className="py-2.5 px-3 font-medium">
-                              Total ítems: <strong className={isNavy ? 'text-white' : 'text-slate-900'}>{invoiceLines.length}</strong> · Unidades: <strong className={isNavy ? 'text-blue-400' : 'text-blue-600'}>{invoiceLines.reduce((s, l) => s + l.qty, 0)}</strong>
+                              Total ítems: <strong className={isNavy ? 'text-white' : 'text-slate-900'}>{invoiceLines.length}</strong> · Unidades: <strong className={isNavy ? 'text-blue-400' : 'text-blue-600'}>{formatQuantity(invoiceLines.reduce((s, l) => s + l.qty, 0))}</strong>
                             </td>
                             <td colSpan={3} className="py-2.5 px-3 text-right uppercase tracking-wider text-[10px] font-semibold text-slate-400">
                               Subtotal Factura:
