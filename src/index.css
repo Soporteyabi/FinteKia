@@ -157,3 +157,73 @@ body {
     border: none !important;
   }
 }
+
+/* ==========================================================================
+   ALTO CONTRASTE Y LEGIBILIDAD PARA EL TEMA GRIS CLARO (html.light / :not(.dark))
+   Garantiza que ningún texto, etiqueta o subtítulo se desvanezca o quede invisible
+   ========================================================================== */
+html.light,
+html:not(.dark) {
+  color-scheme: light;
+}
+
+html.light body,
+html:not(.dark) body {
+  color: #0f172a !important;
+  background-color: #f1f5f9 !important;
+}
+
+/* Resuelve subtítulos y textos tenues en gris claro para que sean perfectamente legibles */
+html.light .text-slate-400,
+html:not(.dark) .text-slate-400 {
+  color: #475569 !important; /* Slate 600 en vez de Slate 400 */
+}
+
+html.light .text-slate-500,
+html:not(.dark) .text-slate-500 {
+  color: #334155 !important; /* Slate 700 */
+}
+
+html.light .text-slate-650,
+html.light .text-slate-550,
+html:not(.dark) .text-slate-650,
+html:not(.dark) .text-slate-550 {
+  color: #1e293b !important;
+}
+
+/* Evita que texto con dark:text-white o dark:text-slate-* se aplique en tema claro */
+html.light h1, html.light h2, html.light h3, html.light h4, html.light h5, html.light h6 {
+  color: #0f172a;
+}
+
+/* Corrige títulos dentro de tarjetas y encabezados de módulos */
+html.light .bg-slate-50 h4,
+html.light .bg-white h4,
+html.light .bg-slate-50 h3,
+html.light .bg-white h3 {
+  color: #0f172a !important;
+}
+
+/* Asegura que los badges y etiquetas no queden invisibles */
+html.light .bg-slate-800:not(button):not([role="button"]) {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html.light .border-slate-800 {
+  border-color: #cbd5e1 !important;
+}
+
+html.light .border-slate-700 {
+  border-color: #cbd5e1 !important;
+}
+
+html.light .bg-slate-900\/60,
+html.light .bg-slate-900\/80,
+html.light .bg-slate-950\/40,
+html.light .bg-slate-950\/20 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+

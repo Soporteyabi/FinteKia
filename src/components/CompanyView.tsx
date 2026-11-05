@@ -398,22 +398,22 @@ export default function CompanyView({
           <div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-[9px] font-extrabold text-emerald-555 dark:text-emerald-400 uppercase tracking-wider">Operación Activa</span>
+              <span className="text-[9px] font-extrabold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Operación Activa</span>
             </div>
-            <h4 className="font-extrabold text-xs text-slate-800 dark:text-slate-200 uppercase leading-normal mt-0.5 truncate max-w-[170px]">{currentCompany.name}</h4>
-            <p className="text-[9.5px] text-slate-400 dark:text-slate-500 font-mono">NIT {currentCompany.nit}</p>
+            <h4 className="font-extrabold text-xs text-slate-900 dark:text-slate-100 uppercase leading-normal mt-0.5 truncate max-w-[170px]">{currentCompany.name}</h4>
+            <p className="text-[9.5px] text-slate-600 dark:text-slate-400 font-mono font-medium">NIT {currentCompany.nit}</p>
           </div>
         </div>
       </div>
 
       {/* Tabs navigation */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-4">
+      <div className="flex border-b border-slate-200 dark:border-slate-800 gap-4 overflow-x-auto">
         <button
           onClick={() => setActiveTab('directory')}
-          className={`pb-3 text-xs font-bold uppercase transition-all border-b-2 flex items-center gap-2 px-1 cursor-pointer ${
+          className={`pb-3 text-xs font-bold uppercase transition-all border-b-2 flex items-center gap-2 px-1 cursor-pointer shrink-0 ${
             activeTab === 'directory' 
               ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
-              : 'border-transparent text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
           <Building className="w-4 h-4" />
@@ -424,10 +424,10 @@ export default function CompanyView({
             setEditingCompanyId(currentCompany.id);
             setActiveTab('form');
           }}
-          className={`pb-3 text-xs font-bold uppercase transition-all border-b-2 flex items-center gap-2 px-1 cursor-pointer ${
+          className={`pb-3 text-xs font-bold uppercase transition-all border-b-2 flex items-center gap-2 px-1 cursor-pointer shrink-0 ${
             activeTab === 'form' 
               ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
-              : 'border-transparent text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
           <FileText className="w-4 h-4" />
@@ -438,10 +438,10 @@ export default function CompanyView({
             setEditingCompanyId(currentCompany.id);
             setActiveTab('invoice_design');
           }}
-          className={`pb-3 text-xs font-bold uppercase transition-all border-b-2 flex items-center gap-2 px-1 cursor-pointer ${
+          className={`pb-3 text-xs font-bold uppercase transition-all border-b-2 flex items-center gap-2 px-1 cursor-pointer shrink-0 ${
             activeTab === 'invoice_design' 
               ? 'border-purple-500 text-purple-600 dark:text-purple-400' 
-              : 'border-transparent text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
           <Palette className="w-4 h-4" />
@@ -452,10 +452,10 @@ export default function CompanyView({
             setEditingCompanyId(currentCompany.id);
             setActiveTab('wompi_payments');
           }}
-          className={`pb-3 text-xs font-bold uppercase transition-all border-b-2 flex items-center gap-2 px-1 cursor-pointer ${
+          className={`pb-3 text-xs font-bold uppercase transition-all border-b-2 flex items-center gap-2 px-1 cursor-pointer shrink-0 ${
             activeTab === 'wompi_payments' 
               ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' 
-              : 'border-transparent text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
           <CreditCard className="w-4 h-4 text-emerald-500" />
@@ -2260,27 +2260,27 @@ export default function CompanyView({
           <div className="space-y-6 animate-fade-in text-xs">
             {/* Context Header */}
             <div className={`p-4 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-3 ${
-              isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'
+              isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-300 shadow-xs'
             }`}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-500 flex items-center justify-center text-xl shrink-0">
-                  <CreditCard className="w-5 h-5 text-blue-500" />
+                <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-600 flex items-center justify-center text-xl shrink-0">
+                  <CreditCard className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
                   <h4 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Pasarela Wompi Bancolombia & Datáfonos Físicos</span>
+                    <span className={isDark ? 'text-white' : 'text-slate-900'}>Pasarela Wompi Bancolombia & Datáfonos Físicos</span>
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase ${
                       wompiEnabled
                         ? wompiEnv === 'sandbox'
-                          ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
-                          : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
-                        : 'bg-slate-500/15 text-slate-400 border border-slate-500/30'
+                          ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                          : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                        : 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30'
                     }`}>
                       {wompiEnabled ? (wompiEnv === 'sandbox' ? 'Sandbox (Pruebas)' : 'Producción Activa') : 'Deshabilitado'}
                     </span>
                   </h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Organización activa: <span className="font-bold text-slate-700 dark:text-slate-200">{targetCo.name}</span> (NIT: {targetCo.nit})
+                  <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>
+                    Organización activa: <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>{targetCo.name}</span> (NIT: {targetCo.nit})
                   </p>
                 </div>
               </div>
@@ -2288,7 +2288,7 @@ export default function CompanyView({
               <button
                 type="button"
                 onClick={handleLoadSandboxCredentials}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400 border border-amber-500/40 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
                 title="Cargar credenciales públicas de prueba para ensayar transacciones sin dinero real"
               >
                 <i className="ri-flask-line text-sm"></i>
@@ -2332,12 +2332,12 @@ export default function CompanyView({
                         onClick={() => setWompiEnv('sandbox')}
                         className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                           wompiEnv === 'sandbox'
-                            ? 'bg-amber-500/10 border-amber-500 text-amber-500 font-bold ring-1 ring-amber-500/30'
-                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-400 text-slate-500'
+                            ? 'bg-amber-500/10 border-amber-500 text-amber-700 dark:text-amber-400 font-bold ring-1 ring-amber-500/30'
+                            : 'border-slate-300 dark:border-slate-800 hover:border-slate-400 text-slate-700 dark:text-slate-400 bg-white dark:bg-transparent'
                         }`}
                       >
-                        <p className="font-extrabold text-xs">🧪 Modo Pruebas (Sandbox)</p>
-                        <p className="text-[10px] opacity-80 mt-0.5">Usa tarjetas ficticias de prueba oficiales de Wompi sin cargos bancarios reales.</p>
+                        <p className="font-extrabold text-xs text-amber-800 dark:text-amber-400">🧪 Modo Pruebas (Sandbox)</p>
+                        <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5 font-medium">Usa tarjetas ficticias de prueba oficiales de Wompi sin cargos bancarios reales.</p>
                       </button>
 
                       <button
@@ -2345,12 +2345,12 @@ export default function CompanyView({
                         onClick={() => setWompiEnv('production')}
                         className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                           wompiEnv === 'production'
-                            ? 'bg-blue-600/15 border-blue-500 text-blue-500 font-bold ring-1 ring-blue-500/30'
-                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-400 text-slate-500'
+                            ? 'bg-blue-600/15 border-blue-500 text-blue-800 dark:text-blue-300 font-bold ring-1 ring-blue-500/30'
+                            : 'border-slate-300 dark:border-slate-800 hover:border-slate-400 text-slate-700 dark:text-slate-400 bg-white dark:bg-transparent'
                         }`}
                       >
-                        <p className="font-extrabold text-xs">🚀 Modo Producción (En Vivo)</p>
-                        <p className="text-[10px] opacity-80 mt-0.5">Cobra dinero real a tarjetas de crédito, débito, PSE, Nequi y Botón Bancolombia.</p>
+                        <p className="font-extrabold text-xs text-blue-800 dark:text-blue-400">🚀 Modo Producción (En Vivo)</p>
+                        <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5 font-medium">Cobra dinero real a tarjetas de crédito, débito, PSE, Nequi y Botón Bancolombia.</p>
                       </button>
                     </div>
                   </div>
@@ -2419,12 +2419,14 @@ export default function CompanyView({
                   </div>
 
                   {/* Accounting Accounts */}
-                  <div className="p-3.5 rounded-xl bg-slate-800/40 border border-slate-800 md:col-span-2 flex flex-wrap items-center justify-between gap-3">
+                  <div className={`p-3.5 rounded-xl border md:col-span-2 flex flex-wrap items-center justify-between gap-3 ${
+                    isDark ? 'bg-slate-800/40 border-slate-800' : 'bg-slate-50 border-slate-300'
+                  }`}>
                     <div>
-                      <p className="font-bold text-slate-200 text-xs">Cuentas Contables Asignadas (PUC Colombia):</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        • Cuenta Ingreso Pasarela: <span className="font-mono text-cyan-400 font-bold">111005 (Bancos / Wompi)</span><br />
-                        • Cuenta Gasto Comisión: <span className="font-mono text-cyan-400 font-bold">530515 (Comisiones Financieras)</span>
+                      <p className={`font-bold text-xs ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>Cuentas Contables Asignadas (PUC Colombia):</p>
+                      <p className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-700 font-medium'}`}>
+                        • Cuenta Ingreso Pasarela: <span className="font-mono text-blue-600 dark:text-cyan-400 font-bold">111005 (Bancos / Wompi)</span><br />
+                        • Cuenta Gasto Comisión: <span className="font-mono text-blue-600 dark:text-cyan-400 font-bold">530515 (Comisiones Financieras)</span>
                       </p>
                     </div>
                     <label className="flex items-center gap-2 cursor-pointer text-xs">
@@ -2434,7 +2436,7 @@ export default function CompanyView({
                         onChange={(e) => setWompiAutoReceipt(e.target.checked)}
                         className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                       />
-                      <span className="font-semibold text-slate-300">Generar Recibo de Caja (RC) automático al aprobarse el pago</span>
+                      <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>Generar Recibo de Caja (RC) automático al aprobarse el pago</span>
                     </label>
                   </div>
                 </div>
@@ -2497,12 +2499,14 @@ export default function CompanyView({
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-slate-300">
-                  <p className="font-bold text-emerald-400 flex items-center gap-1.5">
+                <div className={`p-3 rounded-xl border text-xs ${
+                  isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-slate-300' : 'bg-emerald-50 border-emerald-200 text-slate-800'
+                }`}>
+                  <p className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                     <i className="ri-information-line"></i> ¿Cómo cobra el cajero con datáfono físico?
                   </p>
-                  <p className="mt-1 leading-relaxed text-[11px] text-slate-400">
-                    Al emitir la factura en el módulo de Facturación o POS, se selecciona <strong className="text-white">Tarjeta Débito (Código DIAN 49)</strong> o <strong className="text-white">Tarjeta Crédito (Código DIAN 48)</strong>. El cajero ingresa el <strong className="text-white">Número de Aprobación/Voucher</strong> impreso por el datáfono para que quede indexado en el comprobante y en la auditoría contable.
+                  <p className={`mt-1 leading-relaxed text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>
+                    Al emitir la factura en el módulo de Facturación o POS, se selecciona <strong className={isDark ? 'text-white' : 'text-slate-900'}>Tarjeta Débito (Código DIAN 49)</strong> o <strong className={isDark ? 'text-white' : 'text-slate-900'}>Tarjeta Crédito (Código DIAN 48)</strong>. El cajero ingresa el <strong className={isDark ? 'text-white' : 'text-slate-900'}>Número de Aprobación/Voucher</strong> impreso por el datáfono para que quede indexado en el comprobante y en la auditoría contable.
                   </p>
                 </div>
               </div>
