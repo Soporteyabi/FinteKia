@@ -577,13 +577,25 @@ export default function CompanyView({
                       
                       {/* Business Model Tag */}
                       <span className={`px-2 py-0.5 rounded font-bold flex items-center gap-1 ${
-                        co.businessType === 'produccion'
+                        co.businessType === 'mixto' || (co.enableProduction && co.enableTechServices)
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                          : co.businessType === 'produccion'
                           ? 'bg-amber-500/15 text-amber-500 dark:text-amber-400 border border-amber-500/30'
                           : 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30'
                       }`}>
-                        {co.businessType === 'produccion' ? <Cpu className="w-3 h-3" /> : <Laptop className="w-3 h-3" />}
+                        {co.businessType === 'mixto' || (co.enableProduction && co.enableTechServices) ? (
+                          <Layers className="w-3 h-3" />
+                        ) : co.businessType === 'produccion' ? (
+                          <Cpu className="w-3 h-3" />
+                        ) : (
+                          <Laptop className="w-3 h-3" />
+                        )}
                         <span>
-                          {co.businessType === 'produccion' ? 'Manufactura Industrial' : 'Tecnología & Servicios TI'}
+                          {co.businessType === 'mixto' || (co.enableProduction && co.enableTechServices)
+                            ? 'Empresa Mixta (Producción + Ventas)'
+                            : co.businessType === 'produccion'
+                            ? 'Manufactura Industrial'
+                            : 'Tecnología & Servicios TI'}
                         </span>
                       </span>
 
@@ -1316,8 +1328,11 @@ export default function CompanyView({
 
                 {/* Business Type Selector */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Modelo de Actividad Principal:</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block">Modelo de Actividad Principal:</label>
+                    <span className="text-[9.5px] text-indigo-500 font-semibold">¡Puedes activar ambos al mismo tiempo!</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <button
                       type="button"
                       onClick={() => {
@@ -1335,9 +1350,9 @@ export default function CompanyView({
                         <Laptop className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="font-bold text-xs text-slate-800 dark:text-white">Tecnología & Servicios TI</p>
+                        <p className="font-bold text-xs text-slate-800 dark:text-white">Solo Tecnología / Servicios</p>
                         <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          Venta de computadores, periféricos, redes y servicios técnicos.
+                          Venta de equipos, periféricos y soporte técnico.
                         </p>
                       </div>
                     </button>
@@ -1347,6 +1362,7 @@ export default function CompanyView({
                       onClick={() => {
                         setBusinessType('produccion');
                         setEnableProduction(true);
+                        setEnableTechServices(false);
                       }}
                       className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
                         businessType === 'produccion'
@@ -1358,9 +1374,33 @@ export default function CompanyView({
                         <Cpu className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="font-bold text-xs text-slate-800 dark:text-white">Manufactura & Producción MRP</p>
+                        <p className="font-bold text-xs text-slate-800 dark:text-white">Solo Manufactura & MRP</p>
                         <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          Fórmulas BOM, órdenes de fabricación, insumos y mermas.
+                          Transformación de materias primas y fórmulas BOM.
+                        </p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBusinessType('mixto');
+                        setEnableProduction(true);
+                        setEnableTechServices(true);
+                      }}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+                        businessType === 'mixto' || (enableProduction && enableTechServices)
+                          ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/30'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white/40 dark:bg-slate-900/30'
+                      }`}
+                    >
+                      <div className="p-2 rounded-lg bg-emerald-500/15 text-emerald-500 shrink-0">
+                        <Layers className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-xs text-slate-800 dark:text-white">Empresa Mixta (Ambas)</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Producción / Insumos + Tecnología y Ventas directas.
                         </p>
                       </div>
                     </button>

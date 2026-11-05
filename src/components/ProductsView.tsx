@@ -977,21 +977,30 @@ export default function ProductsView({
                 {/* Price */}
                 <div className="space-y-1 block">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Precio de Venta ($) *</label>
-                    <span className="text-[9px] text-slate-400 font-mono">Acepta decimales</span>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Precio de Venta ($) {formType === 'materia_prima' ? '(No aplica / Insumo)' : '*'}
+                    </label>
+                    <span className="text-[9px] text-slate-400 font-mono">
+                      {formType === 'materia_prima' ? 'Uso interno' : 'Acepta decimales'}
+                    </span>
                   </div>
                   <input
                     type="number"
                     step="any"
                     min="0"
-                    required
-                    placeholder="0.00"
-                    value={formPrice}
+                    required={formType !== 'materia_prima'}
+                    placeholder={formType === 'materia_prima' ? '0 (Insumo para transformación)' : '0.00'}
+                    value={formType === 'materia_prima' && (formPrice === '' || formPrice === 0) ? '0' : formPrice}
                     onChange={(e) => setFormPrice(e.target.value)}
                     className={`w-full text-xs font-mono font-bold rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-blue-500 border ${
                       isDark ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                     }`}
                   />
+                  {formType === 'materia_prima' && (
+                    <p className="text-[9.5px] text-amber-500/90 font-medium">
+                      ✓ Insumo de transformación: no requiere precio de venta para ser registrado.
+                    </p>
+                  )}
                 </div>
 
                 {/* Min Stock */}
