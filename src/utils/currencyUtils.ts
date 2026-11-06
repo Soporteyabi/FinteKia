@@ -28,17 +28,9 @@ export function formatCOP(val: number | string | undefined | null, forcedDecimal
     // Detectar si el número tiene parte decimal no nula
     const absRemainder = Math.abs(num % 1);
     if (absRemainder > 0.00001) {
-      // Tiene decimales: determinar cuántos dígitos significativos tiene (hasta 4)
-      const str = num.toString();
-      const dotIndex = str.indexOf('.');
-      if (dotIndex >= 0) {
-        const decimalsCount = str.length - dotIndex - 1;
-        maxDecimals = Math.min(4, Math.max(2, decimalsCount));
-        minDecimals = Math.min(2, maxDecimals);
-      } else {
-        minDecimals = 2;
-        maxDecimals = 2;
-      }
+      // Tiene decimales: máximo 2 decimales para mantener formato limpio y exacto
+      minDecimals = 2;
+      maxDecimals = 2;
     } else {
       minDecimals = 0;
       maxDecimals = 0;

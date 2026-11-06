@@ -184,12 +184,14 @@ export const BOMModal: React.FC<BOMModalProps> = ({
     setQuickProdName('');
   };
 
-  // Calculate total materials cost using customCost if provided
+  // Calculate total materials cost using customCost if provided (handling g vs kg)
   const totalDirectCost = items.reduce((acc, it) => {
     const prod = products.find(p => p.id === it.productId);
     const qty = parseDecimal(it.quantity);
     const unitCost = it.customCost !== undefined ? parseDecimal(it.customCost) : (prod ? prod.cost : 0);
-    return acc + (qty * unitCost);
+    const isGrams = prod?.unitOfMeasure === 'g' || prod?.unitOfMeasure === 'gr';
+    const lineCost = isGrams ? (qty / 1000) * unitCost : (qty * unitCost);
+    return acc + lineCost;
   }, 0);
 
   const selectedFinishedProduct = products.find(p => p.id === finishedProductId);
@@ -546,7 +548,7 @@ export const BOMModal: React.FC<BOMModalProps> = ({
                       <th className="py-2.5 px-3">Insumo / Materia Prima</th>
                       <th className="py-2.5 px-3 text-center w-36">Cant. x 1 Unidad</th>
                       <th className="py-2.5 px-3 text-center w-24">U. Medida</th>
-                      <th className="py-2.5 px-3 text-right w-36">Costo Unitario ($)</th>
+                      <th className="py-2.5 px-3 text-right w-36">Costo Unit. ($/kg o $/u)</th>
                       <th className="py-2.5 px-3 text-right w-28">Subtotal</th>
                       <th className="py-2.5 px-2 text-center w-12"></th>
                     </tr>
@@ -556,7 +558,8 @@ export const BOMModal: React.FC<BOMModalProps> = ({
                       const matProd = products.find(p => p.id === item.productId);
                       const qtyVal = parseDecimal(item.quantity);
                       const unitCost = item.customCost !== undefined ? parseDecimal(item.customCost) : (matProd ? matProd.cost : 0);
-                      const lineCost = qtyVal * unitCost;
+                      const isGrams = matProd?.unitOfMeasure === 'g' || matProd?.unitOfMeasure === 'gr';
+                      const lineCost = isGrams ? (qtyVal / 1000) * unitCost : (qtyVal * unitCost);
 
                       return (
                         <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">

@@ -89,6 +89,18 @@ export default function ManufacturingView({
   const [laborHourlyRate, setLaborHourlyRate] = useState(0);
   const [overheadHourlyRate, setOverheadHourlyRate] = useState(0);
 
+  // Lógica matemática para cálculo de subtotal de insumos:
+  // Si la U.M. es gramos ('g', 'gr'), el costo unitario ingresado está expresado en $/kg.
+  // Regla: Subtotal ($) = (Cantidad en gramos ÷ 1000) × Costo Unitario por Kilo.
+  // Para unidades ('UND', 'u', frascos, tapas, etiquetas) o litros ('L'): Subtotal ($) = Cantidad × Costo Unitario.
+  const calculateMaterialSubtotal = (qty: number, unitCost: number, unitOfMeasure?: string): number => {
+    const uom = (unitOfMeasure || '').trim().toLowerCase();
+    if (uom === 'g' || uom === 'gr' || uom === 'gramos' || uom === 'gramo') {
+      return Number(((qty / 1000) * unitCost).toFixed(2));
+    }
+    return Number((qty * unitCost).toFixed(2));
+  };
+
   // Editable batch ingredients state for this specific order
   interface OrderLauncherItem {
     id: string;
@@ -97,7 +109,7 @@ export default function ManufacturingView({
     unitOfMeasure: string;
     plannedQty: number;
     requiredQty: number; // Editable per batch!
-    unitCost: number;     // Editable per batch!
+    unitCost: number;     // Editable per batch ($/kg para químicos o $/u para empaques)!
     isCustom?: boolean;
     category?: string;
   }
@@ -272,9 +284,9 @@ export default function ManufacturingView({
   // Active BOM
   const activeBOM = boms.find((b) => b.id === selectedBOMId);
 
-  // Calculate live costs based on user's editable materials
+  // Calculate live costs based on user's editable materials (handling g vs kg properly)
   const estimatedMaterialsCost = customOrderItems.reduce((sum, item) => {
-    return sum + (item.requiredQty * item.unitCost);
+    return sum + calculateMaterialSubtotal(item.requiredQty, item.unitCost, item.unitOfMeasure);
   }, 0);
   const estimatedLaborCost = productionHours * laborHourlyRate;
   const estimatedOverheadCost = productionHours * overheadHourlyRate;
@@ -1046,7 +1058,7 @@ export default function ManufacturingView({
                           Cant. Requerida (Editable)
                         </th>
                         <th className="py-2 px-2.5 text-right bg-amber-500/10 text-amber-800 dark:text-amber-200">
-                          Costo Unit. (Editable)
+                          Costo Unit. ($/kg o $/u)
                         </th>
                         <th className="py-2 px-3 text-right">Stock en Bodega</th>
                         <th className="py-2 px-3 text-right">Subtotal ($)</th>
@@ -1060,7 +1072,7 @@ export default function ManufacturingView({
                         );
                         const stockAvailable = matchingStock.reduce((sum, inv) => sum + inv.quantity, 0);
                         const isDeficit = item.requiredQty > stockAvailable;
-                        const subtotal = item.requiredQty * item.unitCost;
+                        const subtotal = calculateMaterialSubtotal(item.requiredQty, item.unitCost, item.unitOfMeasure);
                         const isEmpaque = item.category?.toLowerCase().includes('empaque') ||
                                           item.category?.toLowerCase().includes('etiqueta') ||
                                           item.unitOfMeasure === 'UND';
@@ -1107,6 +1119,9 @@ export default function ManufacturingView({
                                 onChange={(e) => handleUpdateItemCost(idx, parseFloat(e.target.value) || 0)}
                                 className="w-20 text-right bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-amber-900 dark:text-amber-200"
                               />
+                              <span className="block text-[8.5px] text-slate-400 font-mono text-right">
+                                {item.unitOfMeasure === 'g' ? '$/kg' : '$/u'}
+                              </span>
                             </td>
                             <td className="py-1.5 px-3 text-right font-mono">
                               <span className={`text-[11px] font-bold ${isDeficit ? 'text-rose-500' : 'text-emerald-500'}`}>

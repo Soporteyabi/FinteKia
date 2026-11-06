@@ -269,9 +269,9 @@ export const INITIAL_PRODUCTS: Product[] = [
   // Insumos y Materias Primas de Formulación (g)
   {
     id: 'mp-aceite-girasol',
-    name: 'Aceite de Girasol (g)',
+    name: 'Aceite de Girasol',
     sku: 'MP-ACE-GIR',
-    cost: 6.63333,
+    cost: 6633.33,
     price: 0,
     tax: 0,
     type: 'materia_prima',
@@ -285,7 +285,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'mp-koh-comercial',
     name: 'KOH Comercial (Potasa Cáustica 90%)',
     sku: 'MP-KOH-90',
-    cost: 20.0,
+    cost: 20000.0,
     price: 0,
     tax: 19,
     type: 'materia_prima',
@@ -299,7 +299,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'mp-agua-destilada',
     name: 'Agua Destilada (Lejía)',
     sku: 'MP-AGU-DES',
-    cost: 0.00485,
+    cost: 4.85,
     price: 0,
     tax: 0,
     type: 'materia_prima',
@@ -313,7 +313,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'mp-alcohol-etanol-96',
     name: 'Alcohol Etanol 96%',
     sku: 'MP-ALC-96',
-    cost: 10.66667,
+    cost: 10666.67,
     price: 0,
     tax: 19,
     type: 'materia_prima',
@@ -327,7 +327,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'mp-agua-dilucion',
     name: 'Agua de Dilución Inicial',
     sku: 'MP-AGU-DIL',
-    cost: 0.00485,
+    cost: 4.85,
     price: 0,
     tax: 0,
     type: 'materia_prima',
@@ -341,7 +341,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'mp-agua-adicional',
     name: 'Agua Adicional (Calculada)',
     sku: 'MP-AGU-ADI',
-    cost: 0.00485,
+    cost: 4.85,
     price: 0,
     tax: 0,
     type: 'materia_prima',
@@ -355,7 +355,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'mp-bicarbonato',
     name: 'Bicarbonato de Sodio',
     sku: 'MP-BIC-SOD',
-    cost: 5.0,
+    cost: 5000.0,
     price: 0,
     tax: 19,
     type: 'materia_prima',
@@ -369,7 +369,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'mp-sal',
     name: 'Sal Común',
     sku: 'MP-SAL-COM',
-    cost: 2.99,
+    cost: 2990.0,
     price: 0,
     tax: 0,
     type: 'materia_prima',
@@ -383,7 +383,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'mp-fragancia',
     name: 'Fragancia para Jabón Líquido',
     sku: 'MP-FRA-JAB',
-    cost: 72.0,
+    cost: 72000.0,
     price: 0,
     tax: 19,
     type: 'materia_prima',
@@ -397,7 +397,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'mp-color',
     name: 'Colorante para Jabón',
     sku: 'MP-COL-JAB',
-    cost: 20.0,
+    cost: 20000.0,
     price: 0,
     tax: 19,
     type: 'materia_prima',
@@ -426,7 +426,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     id: 'emp-tapa-1l',
     name: 'Tapa Dosificadora / Roscada 1L',
     sku: 'EMP-TAP-1L',
-    cost: 150.0,
+    cost: 0.0,
     price: 0,
     tax: 19,
     type: 'materia_prima',
@@ -644,18 +644,18 @@ export const INITIAL_INVENTORY: InventoryItem[] = [
   { id: 'inv-item-6', productId: 'p-6', lotNumber: 'L-GVAL-001', expirationDate: '2026-09-09', warehouseId: 'wh-2', quantity: 150, avgCost: 6500, companyId: 'co-2' },
   { id: 'inv-item-7', productId: 'p-7', lotNumber: 'L-PAVE-044', expirationDate: '2026-06-21', warehouseId: 'wh-2', quantity: 40, avgCost: 3200, companyId: 'co-2' },
   // Stock Inicial para Jabón Líquido Potásico (Bodega de Materia Prima wh-1)
-  { id: 'inv-jp-1', productId: 'mp-aceite-girasol', quantity: 25000, avgCost: 6.63333, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-2', productId: 'mp-koh-comercial', quantity: 8000, avgCost: 20.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-3', productId: 'mp-agua-destilada', quantity: 30000, avgCost: 0.00485, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-4', productId: 'mp-alcohol-etanol-96', quantity: 10000, avgCost: 10.66667, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-5', productId: 'mp-agua-dilucion', quantity: 50000, avgCost: 0.00485, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-6', productId: 'mp-agua-adicional', quantity: 50000, avgCost: 0.00485, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-7', productId: 'mp-bicarbonato', quantity: 3000, avgCost: 5.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-8', productId: 'mp-sal', quantity: 5000, avgCost: 2.99, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-9', productId: 'mp-fragancia', quantity: 2000, avgCost: 72.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-10', productId: 'mp-color', quantity: 1000, avgCost: 20.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-1', productId: 'mp-aceite-girasol', quantity: 25000, avgCost: 6633.33, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-2', productId: 'mp-koh-comercial', quantity: 8000, avgCost: 20000.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-3', productId: 'mp-agua-destilada', quantity: 30000, avgCost: 4.85, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-4', productId: 'mp-alcohol-etanol-96', quantity: 10000, avgCost: 10666.67, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-5', productId: 'mp-agua-dilucion', quantity: 50000, avgCost: 4.85, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-6', productId: 'mp-agua-adicional', quantity: 50000, avgCost: 4.85, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-7', productId: 'mp-bicarbonato', quantity: 3000, avgCost: 5000.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-8', productId: 'mp-sal', quantity: 5000, avgCost: 2990.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-9', productId: 'mp-fragancia', quantity: 2000, avgCost: 72000.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-10', productId: 'mp-color', quantity: 1000, avgCost: 20000.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
   { id: 'inv-jp-11', productId: 'emp-envase-1l', quantity: 150, avgCost: 800.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
-  { id: 'inv-jp-12', productId: 'emp-tapa-1l', quantity: 150, avgCost: 150.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
+  { id: 'inv-jp-12', productId: 'emp-tapa-1l', quantity: 150, avgCost: 0.0, warehouseId: 'wh-1', companyId: 'co-1781210729382' },
   { id: 'inv-jp-13', productId: 'emp-etiqueta-potasico', quantity: 150, avgCost: 916.67, warehouseId: 'wh-1', companyId: 'co-1781210729382' }
 ];
 
@@ -980,10 +980,37 @@ export const getInitialState = (): AppState => {
               if (i.warehouseId === 'wh-dy-1') i.warehouseId = 'wh-1';
               if (i.warehouseId === 'wh-dy-2') i.warehouseId = 'wh-2';
             });
-            if (!parsed.inventory.some((i: any) => i.id === 'inv-jp-1')) {
-              const potInv = INITIAL_INVENTORY.filter(i => i.companyId === 'co-1781210729382');
-              parsed.inventory = [...parsed.inventory, ...potInv];
+            // Synchronize accurate $/kg and $/u raw material costs
+            const chemicalKiloCosts: Record<string, number> = {
+              'mp-aceite-girasol': 6633.33,
+              'mp-koh-comercial': 20000.0,
+              'mp-agua-destilada': 4.85,
+              'mp-alcohol-etanol-96': 10666.67,
+              'mp-agua-dilucion': 4.85,
+              'mp-agua-adicional': 4.85,
+              'mp-bicarbonato': 5000.0,
+              'mp-sal': 2990.0,
+              'mp-fragancia': 72000.0,
+              'mp-color': 20000.0,
+              'emp-envase-1l': 800.0,
+              'emp-tapa-1l': 0.0,
+              'emp-etiqueta-potasico': 916.67
+            };
+
+            if (parsed.products) {
+              parsed.products.forEach((p: any) => {
+                if (chemicalKiloCosts[p.id] !== undefined) {
+                  p.cost = chemicalKiloCosts[p.id];
+                  if (p.id === 'mp-aceite-girasol') p.name = 'Aceite de Girasol';
+                }
+              });
             }
+
+            parsed.inventory.forEach((i: any) => {
+              if (chemicalKiloCosts[i.productId] !== undefined) {
+                i.avgCost = chemicalKiloCosts[i.productId];
+              }
+            });
           }
 
           if (parsed.productionOrders) {

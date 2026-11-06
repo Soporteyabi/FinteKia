@@ -120,11 +120,11 @@ export const ProductionOrderDetailModal: React.FC<ProductionOrderDetailModalProp
           subtotalCost: subtotal
         });
       } else {
-        // Chemical formulation: unit is 'g'. Product cost in store is $/g.
-        // Cost per kg is cost * 1000
-        const costPerKg = prod.cost * 1000;
-        // In the Excel, subtotal cost = (plannedQty in g / 1000) * costPerKg, which equals plannedQty * prod.cost
-        const subtotal = plannedQty * prod.cost;
+        // Chemical formulation: unit is 'g'. Product cost in store is $/kg.
+        const costPerKg = prod.cost;
+        // In the Excel, subtotal cost = (quantity in g / 1000) * costPerKg
+        const qtyToCharge = realQty > 0 ? realQty : plannedQty;
+        const subtotal = Number(((qtyToCharge / 1000) * costPerKg).toFixed(2));
         totalChemicalCost += subtotal;
 
         let observations = '';
