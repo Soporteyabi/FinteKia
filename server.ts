@@ -830,9 +830,10 @@ ${
 
   // API endpoint for Smart AI ERP Advisory
   app.post("/api/gemini/advisor", async (req, res) => {
-    const { companyName, totals, productsCount, stockList, deficitsList, payrollSummary, userApiKey } = req.body;
+    const { companyName, totals, productsCount, stockList, deficitsList, payrollSummary } = req.body;
 
-    const apiKey = userApiKey || process.env.GEMINI_API_KEY;
+    // Seguridad: La API Key se lee exclusivamente del entorno del servidor (process.env)
+    const apiKey = process.env.GEMINI_API_KEY;
     const isApiKeyValidFormat = Boolean(apiKey && (apiKey.startsWith("AIzaSy") || apiKey.length > 30));
 
     // If key is available, attempt real Gemini call

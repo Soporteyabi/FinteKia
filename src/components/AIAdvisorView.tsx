@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Company, Voucher, InventoryItem, Product } from '../types';
 
 interface AIAdvisorViewProps {
@@ -23,23 +23,10 @@ export default function AIAdvisorView({
   const [reportSource, setReportSource] = useState<string | null>(null);
   const [errorMsg, setErrorMessage] = useState<string | null>(null);
 
-  // Optional Custom Gemini API Key configuration
-  const [showKeyModal, setShowKeyModal] = useState(false);
-  const [customKey, setCustomKey] = useState<string>(() => {
-    return localStorage.getItem('fintekia_custom_gemini_key') || '';
-  });
-  const [tempKeyInput, setTempKeyInput] = useState<string>('');
-
-  const handleSaveKey = () => {
-    const trimmed = tempKeyInput.trim();
-    setCustomKey(trimmed);
-    if (trimmed) {
-      localStorage.setItem('fintekia_custom_gemini_key', trimmed);
-    } else {
-      localStorage.removeItem('fintekia_custom_gemini_key');
-    }
-    setShowKeyModal(false);
-  };
+  // Limpieza de seguridad: eliminar cualquier clave residual de localStorage
+  useEffect(() => {
+    localStorage.removeItem('fintekia_custom_gemini_key');
+  }, []);
 
   const requestAnalysis = async () => {
     setLoading(true);
@@ -78,8 +65,7 @@ export default function AIAdvisorView({
         productsCount: products.length,
         stockList: stockList.slice(0, 10),
         deficitsList: deficitsList,
-        payrollSummary: [],
-        userApiKey: customKey || undefined
+        payrollSummary: []
       };
 
       const response = await fetch('/api/gemini/advisor', {
@@ -175,23 +161,10 @@ export default function AIAdvisorView({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              setTempKeyInput(customKey);
-              setShowKeyModal(true);
-            }}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              customKey
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                : isLight 
-                  ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800' 
-                  : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
-            }`}
-            title="Configurar clave Gemini API"
-          >
-            <i className={`ri-key-2-line ${customKey ? 'text-emerald-500' : ''}`}></i>
-            <span>{customKey ? 'API Key Configurada' : 'Configurar Gemini API'}</span>
-          </button>
+          <div className="px-3 py-1.5 rounded-xl border text-xs font-semibold bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 shadow-xs">
+            <i className="ri-shield-check-fill text-sm text-emerald-500"></i>
+            <span>Proxy Seguro Backend (API Key en Servidor)</span>
+          </div>
         </div>
       </div>
 
@@ -278,7 +251,7 @@ export default function AIAdvisorView({
                 </p>
                 <p className="text-xs leading-relaxed">{errorMsg}</p>
                 <p className="text-[11px] text-slate-400">
-                  Puedes configurar tu clave en el botón superior <strong>"Configurar Gemini API"</strong> o continuar con el motor contable determinístico.
+                  La auditoría financiera continuará ejecutándose con el motor contable determinístico certificado de FinteKia.
                 </p>
               </div>
             ) : (
@@ -303,86 +276,6 @@ export default function AIAdvisorView({
         </div>
 
       </div>
-
-      {/* GEMINI API KEY MODAL */}
-      {showKeyModal && (
-        <div className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className={`w-full max-w-md rounded-3xl border shadow-2xl overflow-hidden ${
-            isLight ? 'bg-white border-slate-300 text-slate-900' : 'bg-[#0d1424] border-slate-800 text-white'
-          }`}>
-            <div className="p-5 border-b flex items-center justify-between bg-blue-500/10">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-600 dark:text-cyan-400 flex items-center justify-center">
-                  <i className="ri-key-2-line text-lg"></i>
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-sm">Clave de API Google Gemini</h3>
-                  <p className="text-[10px] text-slate-500">Conexión con Inteligencia Artificial</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowKeyModal(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <i className="ri-close-line text-lg"></i>
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4 text-xs">
-              <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11.5px]">
-                Puedes ingresar tu clave de <strong>Google AI Studio</strong> para que los informes de auditoría sean procesados con <strong>Gemini 3.8 Flash</strong>.
-              </p>
-
-              <div className="space-y-1.5">
-                <label className="text-[10.5px] font-black uppercase text-slate-700 dark:text-slate-300">
-                  GEMINI_API_KEY (Ej: AIzaSy...):
-                </label>
-                <input
-                  type="password"
-                  value={tempKeyInput}
-                  onChange={(e) => setTempKeyInput(e.target.value)}
-                  placeholder="AIzaSy..."
-                  className={`w-full border rounded-xl p-2.5 font-mono text-xs outline-none focus:border-blue-500 ${
-                    isLight ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-slate-900 border-slate-700 text-white'
-                  }`}
-                />
-              </div>
-
-              <div className={`p-3 rounded-xl border text-[10.5px] space-y-1.5 ${
-                isLight ? 'bg-slate-50 border-slate-200 text-slate-700' : 'bg-slate-900 border-slate-800 text-slate-400'
-              }`}>
-                <strong className="block font-bold text-slate-900 dark:text-white">¿Cómo obtenerla gratis?</strong>
-                <ol className="list-decimal pl-4 space-y-0.5">
-                  <li>Entra a <strong>aistudio.google.com/app/apikey</strong></li>
-                  <li>Inicia sesión con tu cuenta de Google</li>
-                  <li>Haz clic en <strong>'Create API Key'</strong> y pégala aquí</li>
-                </ol>
-                <p className="pt-1 text-[10px] text-slate-500 italic">
-                  * En Render también puedes añadirla como Variable de Entorno con el nombre <strong>GEMINI_API_KEY</strong>.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-4 border-t flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setShowKeyModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveKey}
-                className="px-5 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-500 text-white cursor-pointer shadow-sm"
-              >
-                Guardar Clave
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
