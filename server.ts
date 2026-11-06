@@ -665,6 +665,99 @@ async function startServer() {
     }
   });
 
+  // --- MOTOR DE CÁLCULO DE COSTOS DE MANUFACTURA (MRP / RECETAS) ---
+  /**
+   * Calcula el subtotal exacto de un insumo según su Unidad de Medida.
+   * Regla técnica:
+   * Si la Cantidad Requerida se almacena en gramos ('g', 'gr', 'gramos'), el Costo Unitario
+   * que ingresa el usuario (que viene por Kilo, $/kg) se divide automáticamente entre 1,000
+   * antes de calcular el Subtotal:
+   *   Subtotal = (Cantidad en gramos / 1000) * CostoUnitarioPorKilo
+   * Para unidades de empaque ('u', 'und', piezas) o litros ('L'):
+   *   Subtotal = Cantidad * CostoUnitario
+   */
+  function calculateManufacturingItemCost(item: {
+    quantity: number;
+    unitCost: number;
+    unitOfMeasure?: string;
+    name?: string;
+    productId?: string;
+  }) {
+    const qty = Number(item.quantity) || 0;
+    const cost = Number(item.unitCost) || 0;
+    const uom = String(item.unitOfMeasure || '').trim().toLowerCase();
+    const isGrams = uom === 'g' || uom === 'gr' || uom === 'gramos' || uom === 'gramo';
+
+    // Subtotal = (Cantidad / 1000) * CostoUnitarioPorKilo
+    const rawSubtotal = isGrams ? (qty / 1000) * cost : qty * cost;
+    const subtotal = Number(rawSubtotal.toFixed(2));
+
+    return {
+      productId: item.productId,
+      name: item.name,
+      quantity: qty,
+      unitCost: cost,
+      unitOfMeasure: item.unitOfMeasure || (isGrams ? 'g' : 'u'),
+      isGrams,
+      unitCostEffectivePerUnit: isGrams ? Number((cost / 1000).toFixed(6)) : cost,
+      subtotal
+    };
+  }
+
+  function calculateManufacturingBatchCosts(params: {
+    items: Array<{ quantity: number; unitCost: number; unitOfMeasure?: string; name?: string; productId?: string }>;
+    productionHours?: number;
+    laborHourlyRate?: number;
+    overheadHourlyRate?: number;
+  }) {
+    const calculatedItems = (params.items || []).map(calculateManufacturingItemCost);
+    const totalMaterialsCost = Number(
+      calculatedItems.reduce((acc, curr) => acc + curr.subtotal, 0).toFixed(2)
+    );
+
+    const hours = Number(params.productionHours) || 0;
+    const laborRate = Number(params.laborHourlyRate) || 0;
+    const overheadRate = Number(params.overheadHourlyRate) || 0;
+
+    const totalLaborCost = Number((hours * laborRate).toFixed(2));
+    const totalOverheadCost = Number((hours * overheadRate).toFixed(2));
+    const totalProductionCost = Number((totalMaterialsCost + totalLaborCost + totalOverheadCost).toFixed(2));
+
+    return {
+      items: calculatedItems,
+      totalMaterialsCost,
+      totalLaborCost,
+      totalOverheadCost,
+      totalProductionCost,
+      formula: "Subtotal = (Cantidad / 1000) * CostoUnitarioPorKilo (para gramos 'g')",
+    };
+  }
+
+  // API endpoint para cálculo de costos de producción en el Backend
+  app.post("/api/manufacturing/calculate-cost", (req, res) => {
+    try {
+      const { items, productionHours, laborHourlyRate, overheadHourlyRate } = req.body;
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ error: "El cuerpo de la solicitud debe incluir un array de 'items'." });
+      }
+
+      const calculation = calculateManufacturingBatchCosts({
+        items,
+        productionHours,
+        laborHourlyRate,
+        overheadHourlyRate
+      });
+
+      res.json({
+        success: true,
+        ...calculation
+      });
+    } catch (err: any) {
+      console.error("Error en /api/manufacturing/calculate-cost:", err);
+      res.status(500).json({ error: err.message || "Error al calcular costos de manufactura" });
+    }
+  });
+
   // Helper: Deterministic Financial & MRP Diagnostic Engine for Colombia
   function generateDeterministicAudit(params: {
     companyName: string;
