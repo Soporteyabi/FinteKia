@@ -3,7 +3,8 @@ import { BOM, BOMItem, Product } from '../../types';
 import { formatCOP, parseDecimal } from '../../utils/currencyUtils';
 import { DecimalInput } from '../common/DecimalInput';
 import { toast } from '../../context/ToastContext';
-import { Plus, Trash2, Layers, AlertCircle, CheckCircle2, FlaskConical, PackagePlus } from 'lucide-react';
+import { Plus, Trash2, Layers, AlertCircle, CheckCircle2, FlaskConical, PackagePlus, Scale } from 'lucide-react';
+import { UnitCostFloatingTag } from '../common/UnitCostFloatingTag';
 
 interface BOMModalProps {
   isOpen: boolean;
@@ -57,6 +58,8 @@ export const BOMModal: React.FC<BOMModalProps> = ({
   const [quickRawUom, setQuickRawUom] = useState('g');
   const [quickRawCategory, setQuickRawCategory] = useState('Materia Prima');
   const [quickRawCost, setQuickRawCost] = useState<number | string>(5000);
+  const [focusedItemIdx, setFocusedItemIdx] = useState<number | null>(null);
+  const [isQuickRawCostFocused, setIsQuickRawCostFocused] = useState<boolean>(false);
 
   // Items in recipe with editable cost
   const [items, setItems] = useState<Array<{
@@ -495,12 +498,27 @@ export const BOMModal: React.FC<BOMModalProps> = ({
                       <option value="UND">UND (Unidades)</option>
                     </select>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase">Costo Unitario ($)</label>
+                  <div className="space-y-1 relative">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase">
+                        Costo Unitario ($)
+                      </label>
+                      <span className="text-[9px] font-bold font-mono text-amber-600 dark:text-amber-400">
+                        {quickRawUom === 'g' ? '$/kg' : '$/u'}
+                      </span>
+                    </div>
                     <DecimalInput
                       value={quickRawCost}
                       onChange={(_num, raw) => setQuickRawCost(raw)}
+                      onFocus={() => setIsQuickRawCostFocused(true)}
+                      onBlur={() => setIsQuickRawCostFocused(false)}
                       className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono"
+                    />
+                    <UnitCostFloatingTag
+                      unitOfMeasure={quickRawUom}
+                      unitCost={parseDecimal(quickRawCost)}
+                      show={isQuickRawCostFocused}
+                      position="top"
                     />
                   </div>
                 </div>
@@ -541,74 +559,107 @@ export const BOMModal: React.FC<BOMModalProps> = ({
                 </button>
               </div>
             ) : (
-              <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-100 dark:bg-slate-800/80 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                    <tr>
-                      <th className="py-2.5 px-3">Insumo / Materia Prima</th>
-                      <th className="py-2.5 px-3 text-center w-36">Cant. x 1 Unidad</th>
-                      <th className="py-2.5 px-3 text-center w-24">U. Medida</th>
-                      <th className="py-2.5 px-3 text-right w-36">Costo Unit. ($/kg o $/u)</th>
-                      <th className="py-2.5 px-3 text-right w-28">Subtotal</th>
-                      <th className="py-2.5 px-2 text-center w-12"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                    {items.map((item, idx) => {
-                      const matProd = products.find(p => p.id === item.productId);
-                      const qtyVal = parseDecimal(item.quantity);
-                      const unitCost = item.customCost !== undefined ? parseDecimal(item.customCost) : (matProd ? matProd.cost : 0);
-                      const isGrams = matProd?.unitOfMeasure === 'g' || matProd?.unitOfMeasure === 'gr';
-                      const lineCost = isGrams ? (qtyVal / 1000) * unitCost : (qtyVal * unitCost);
+              <div className="space-y-2">
+                {/* Banner de Validación de Unidades de Costo en Receta */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/50 text-[11px] text-amber-900 dark:text-amber-200">
+                  <div className="flex items-center gap-1.5">
+                    <Scale className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>
+                      <strong>Control de Unidades:</strong> Para insumos en gramos (<code className="font-mono bg-amber-100 dark:bg-amber-900/60 px-1 rounded text-amber-900 dark:text-amber-100 font-bold">g</code>), ingresa el costo por KILO (<strong className="text-amber-800 dark:text-amber-300">$/kg</strong>). El software divide automáticamente entre 1.000.
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-300 shrink-0">
+                    Subtotal = (g ÷ 1.000) × $/kg
+                  </span>
+                </div>
 
-                      return (
-                        <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                          {/* Raw material select */}
-                          <td className="py-2 px-3">
-                            <select
-                              value={item.productId}
-                              onChange={(e) => handleUpdateItem(idx, 'productId', e.target.value)}
-                              className="w-full text-xs font-medium rounded-lg px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value="">Seleccione insumo...</option>
-                              {rawMaterials.map((rm) => (
-                                <option key={rm.id} value={rm.id}>
-                                  {rm.name} ({rm.sku}) — {formatCOP(rm.cost)}
-                                </option>
-                              ))}
-                            </select>
-                            {matProd && (
-                              <span className="text-[10px] text-slate-400 block pt-0.5">
-                                Categoría: {matProd.category || 'Materia Prima'} · Tipo: {matProd.type === 'materia_prima' ? 'Insumo' : matProd.type}
-                              </span>
-                            )}
-                          </td>
+                <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-visible shadow-xs pb-10">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 dark:bg-slate-800/80 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                      <tr>
+                        <th className="py-2.5 px-3">Insumo / Materia Prima</th>
+                        <th className="py-2.5 px-3 text-center w-36">Cant. x 1 Unidad</th>
+                        <th className="py-2.5 px-3 text-center w-24">U. Medida</th>
+                        <th className="py-2.5 px-3 text-right w-36">Costo Unit. ($/kg o $/u)</th>
+                        <th className="py-2.5 px-3 text-right w-28">Subtotal</th>
+                        <th className="py-2.5 px-2 text-center w-12"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {items.map((item, idx) => {
+                        const matProd = products.find(p => p.id === item.productId);
+                        const qtyVal = parseDecimal(item.quantity);
+                        const unitCost = item.customCost !== undefined ? parseDecimal(item.customCost) : (matProd ? matProd.cost : 0);
+                        const isGrams = matProd?.unitOfMeasure === 'g' || matProd?.unitOfMeasure === 'gr';
+                        const lineCost = isGrams ? (qtyVal / 1000) * unitCost : (qtyVal * unitCost);
 
-                          {/* Quantity per 1 unit (Editable) */}
-                          <td className="py-2 px-3">
-                            <DecimalInput
-                              min={0.0001}
-                              placeholder="1"
-                              value={item.quantity}
-                              onChange={(_num, raw) => handleUpdateItem(idx, 'quantity', raw)}
-                              className="w-full text-center text-xs font-mono font-bold rounded-lg px-2 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
-                            />
-                          </td>
+                        return (
+                          <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                            {/* Raw material select */}
+                            <td className="py-2 px-3">
+                              <select
+                                value={item.productId}
+                                onChange={(e) => handleUpdateItem(idx, 'productId', e.target.value)}
+                                className="w-full text-xs font-medium rounded-lg px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
+                              >
+                                <option value="">Seleccione insumo...</option>
+                                {rawMaterials.map((rm) => (
+                                  <option key={rm.id} value={rm.id}>
+                                    {rm.name} ({rm.sku}) — {formatCOP(rm.cost)}
+                                  </option>
+                                ))}
+                              </select>
+                              {matProd && (
+                                <span className="text-[10px] text-slate-400 block pt-0.5">
+                                  Categoría: {matProd.category || 'Materia Prima'} · Tipo: {matProd.type === 'materia_prima' ? 'Insumo' : matProd.type}
+                                </span>
+                              )}
+                            </td>
 
-                          {/* UOM */}
-                          <td className="py-2 px-3 text-center font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300">
-                            {matProd?.unitOfMeasure || 'UND'}
-                          </td>
+                            {/* Quantity per 1 unit (Editable) */}
+                            <td className="py-2 px-3">
+                              <DecimalInput
+                                min={0.0001}
+                                placeholder="1"
+                                value={item.quantity}
+                                onChange={(_num, raw) => handleUpdateItem(idx, 'quantity', raw)}
+                                className="w-full text-center text-xs font-mono font-bold rounded-lg px-2 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
+                              />
+                            </td>
 
-                          {/* Unit cost (Editable!) */}
-                          <td className="py-2 px-3 text-right">
-                            <DecimalInput
-                              min={0}
-                              value={item.customCost !== undefined ? item.customCost : unitCost}
-                              onChange={(_num, raw) => handleUpdateItem(idx, 'customCost', raw)}
-                              className="w-full text-right text-xs font-mono rounded-lg px-2 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
-                            />
-                          </td>
+                            {/* UOM */}
+                            <td className="py-2 px-3 text-center font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                              {matProd?.unitOfMeasure || 'UND'}
+                            </td>
+
+                            {/* Unit cost (Editable!) */}
+                            <td className="py-2 px-3 text-right relative">
+                              <div className="relative inline-flex items-center w-full">
+                                <DecimalInput
+                                  min={0}
+                                  value={item.customCost !== undefined ? item.customCost : unitCost}
+                                  onChange={(_num, raw) => handleUpdateItem(idx, 'customCost', raw)}
+                                  onFocus={() => setFocusedItemIdx(idx)}
+                                  onBlur={() => setFocusedItemIdx(null)}
+                                  className="w-full text-right text-xs font-mono rounded-lg px-2 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white pr-9 focus:ring-1 focus:ring-amber-500"
+                                />
+                                <span className={`absolute right-1.5 text-[8.5px] font-bold font-mono px-1 py-0.5 rounded pointer-events-none ${
+                                  isGrams 
+                                    ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300/40' 
+                                    : 'bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border border-blue-300/40'
+                                }`}>
+                                  {isGrams ? '$/kg' : (matProd?.unitOfMeasure === 'L' ? '$/L' : '$/u')}
+                                </span>
+                              </div>
+
+                              <UnitCostFloatingTag
+                                unitOfMeasure={matProd?.unitOfMeasure || 'g'}
+                                unitCost={unitCost}
+                                quantity={qtyVal}
+                                show={focusedItemIdx === idx}
+                                position="top"
+                              />
+                            </td>
 
                           {/* Subtotal */}
                           <td className="py-2 px-3 text-right font-mono font-bold text-xs text-blue-600 dark:text-blue-400">
@@ -644,8 +695,9 @@ export const BOMModal: React.FC<BOMModalProps> = ({
                   </tfoot>
                 </table>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
 
           {/* Section 3: Optional Quality Standards */}
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 space-y-3">

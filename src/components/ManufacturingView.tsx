@@ -33,6 +33,7 @@ import { formatCOP, parseDecimal, formatQuantity } from '../utils/currencyUtils'
 import { DecimalInput } from './common/DecimalInput';
 import { BOMModal } from './manufacturing/BOMModal';
 import { ProductionOrderDetailModal } from './manufacturing/ProductionOrderDetailModal';
+import { UnitCostFloatingTag } from './common/UnitCostFloatingTag';
 
 interface ManufacturingViewProps {
   boms: BOM[];
@@ -120,6 +121,8 @@ export default function ManufacturingView({
   const [extraItemProductId, setExtraItemProductId] = useState<string>('');
   const [extraItemQty, setExtraItemQty] = useState<number>(1);
   const [extraItemCost, setExtraItemCost] = useState<number>(0);
+  const [focusedCostItemId, setFocusedCostItemId] = useState<string | null>(null);
+  const [isExtraCostFocused, setIsExtraCostFocused] = useState<boolean>(false);
 
   // QC logs state
   const [qcTargetOrderId, setQcTargetOrderId] = useState('');
@@ -1014,16 +1017,30 @@ export default function ManufacturingView({
                       />
                     </div>
 
-                    <div className="w-28">
-                      <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase block mb-1">
-                        Costo Unit ($):
-                      </label>
+                    <div className="w-32 relative">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase">
+                          Costo Unit ($):
+                        </label>
+                        <span className="text-[9px] font-bold font-mono text-amber-600 dark:text-amber-400">
+                          {products.find(p => p.id === extraItemProductId)?.unitOfMeasure === 'g' ? '$/kg' : '$/u'}
+                        </span>
+                      </div>
                       <input
                         type="number"
                         step="any"
                         value={extraItemCost}
                         onChange={(e) => setExtraItemCost(parseFloat(e.target.value) || 0)}
+                        onFocus={() => setIsExtraCostFocused(true)}
+                        onBlur={() => setIsExtraCostFocused(false)}
                         className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 font-mono font-bold"
+                      />
+                      <UnitCostFloatingTag
+                        unitOfMeasure={products.find(p => p.id === extraItemProductId)?.unitOfMeasure || 'g'}
+                        unitCost={extraItemCost}
+                        quantity={extraItemQty}
+                        show={isExtraCostFocused}
+                        position="top"
                       />
                     </div>
 
@@ -1046,11 +1063,24 @@ export default function ManufacturingView({
                   </div>
                 )}
 
+                {/* Banner de Validación de Unidades de Costo */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/50 text-[11px] text-amber-900 dark:text-amber-200 mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Scale className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>
+                      <strong>Control de Unidades:</strong> Químicos/Líquidos en gramos (<code className="font-mono bg-amber-100 dark:bg-amber-900/60 px-1 rounded text-amber-900 dark:text-amber-100 font-bold">g</code>) requieren costo por KILO (<strong className="text-amber-800 dark:text-amber-300">$/kg</strong>). El sistema divide automáticamente entre 1.000.
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-300 shrink-0">
+                    Subtotal = (g ÷ 1.000) × $/kg
+                  </span>
+                </div>
+
                 {/* Table Rows */}
-                <div className="max-h-60 overflow-y-auto">
+                <div className="max-h-80 overflow-y-auto overflow-x-visible pb-12">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr className="bg-slate-200/60 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold sticky top-0 backdrop-blur-sm">
+                      <tr className="bg-slate-200/60 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold sticky top-0 backdrop-blur-sm z-10">
                         <th className="py-2 px-3">Insumo / Materia Prima</th>
                         <th className="py-2 px-2 text-center">U.M.</th>
                         <th className="py-2 px-2.5 text-right">Planif.</th>
@@ -1111,17 +1141,33 @@ export default function ManufacturingView({
                                 className="w-20 text-right bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-blue-900 dark:text-blue-200"
                               />
                             </td>
-                            <td className="py-1.5 px-2.5 text-right bg-amber-500/5">
-                              <input
-                                type="number"
-                                step="any"
-                                value={item.unitCost}
-                                onChange={(e) => handleUpdateItemCost(idx, parseFloat(e.target.value) || 0)}
-                                className="w-20 text-right bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-amber-900 dark:text-amber-200"
+                            <td className="py-1.5 px-2.5 text-right bg-amber-500/5 relative">
+                              <div className="relative inline-flex items-center">
+                                <input
+                                  type="number"
+                                  step="any"
+                                  value={item.unitCost}
+                                  onChange={(e) => handleUpdateItemCost(idx, parseFloat(e.target.value) || 0)}
+                                  onFocus={() => setFocusedCostItemId(item.id)}
+                                  onBlur={() => setFocusedCostItemId(null)}
+                                  className="w-24 text-right bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded px-1.5 py-0.5 text-xs font-mono font-bold text-amber-900 dark:text-amber-200 focus:ring-2 focus:ring-amber-500 pr-9"
+                                />
+                                <span className={`absolute right-1 text-[8.5px] font-bold font-mono px-1 py-0.5 rounded pointer-events-none ${
+                                  item.unitOfMeasure === 'g' 
+                                    ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300/40' 
+                                    : 'bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border border-blue-300/40'
+                                }`}>
+                                  {item.unitOfMeasure === 'g' ? '$/kg' : '$/u'}
+                                </span>
+                              </div>
+
+                              <UnitCostFloatingTag
+                                unitOfMeasure={item.unitOfMeasure}
+                                unitCost={item.unitCost}
+                                quantity={item.requiredQty}
+                                show={focusedCostItemId === item.id}
+                                position="top"
                               />
-                              <span className="block text-[8.5px] text-slate-400 font-mono text-right">
-                                {item.unitOfMeasure === 'g' ? '$/kg' : '$/u'}
-                              </span>
                             </td>
                             <td className="py-1.5 px-3 text-right font-mono">
                               <span className={`text-[11px] font-bold ${isDeficit ? 'text-rose-500' : 'text-emerald-500'}`}>

@@ -7,6 +7,7 @@ import { exportProductsToExcel } from '../utils/excelExport';
 import { toast } from '../context/ToastContext';
 import { formatCOP, parseDecimal } from '../utils/currencyUtils';
 import { DecimalInput } from './common/DecimalInput';
+import { UnitCostFloatingTag } from './common/UnitCostFloatingTag';
 
 interface ProductsViewProps {
   products: Product[];
@@ -53,6 +54,7 @@ export default function ProductsView({
   const [formUnitOfMeasure, setFormUnitOfMeasure] = useState<string>('UND');
   const [skuSeed, setSkuSeed] = useState<number>(1000);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [isCostFieldFocused, setIsCostFieldFocused] = useState<boolean>(false);
 
   const activeTheme = THEMES_MAP[theme] || THEMES_MAP.slate_gray;
 
@@ -933,10 +935,12 @@ export default function ProductsView({
                     }`}
                   >
                     <option value="UND">UND (Unidades)</option>
-                    <option value="SRV">SRV (Servicios)</option>
+                    <option value="g">g (Gramos)</option>
                     <option value="KG">KG (Kilogramos)</option>
-                    <option value="MTS">MTS (Metros)</option>
                     <option value="L">L (Litros)</option>
+                    <option value="ml">ml (Mililitros)</option>
+                    <option value="SRV">SRV (Servicios)</option>
+                    <option value="MTS">MTS (Metros)</option>
                     <option value="CAJA">CAJA (Cajas)</option>
                     <option value="PQTE">PQTE (Paquete)</option>
                     <option value="ROLLO">ROLLO (Rollo)</option>
@@ -948,10 +952,14 @@ export default function ProductsView({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
                 {/* Cost */}
-                <div className="space-y-1 block">
+                <div className="space-y-1 block relative">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Costo de Adquisición ($)</label>
-                    <span className="text-[9px] text-slate-400 font-mono">Acepta decimales (ej. 0.916)</span>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Costo de Adquisición ($)
+                    </label>
+                    <span className="text-[9px] text-amber-500 font-mono font-bold">
+                      {formUnitOfMeasure === 'g' ? '$/kg (Por Kilo)' : 'Acepta decimales'}
+                    </span>
                   </div>
                   <DecimalInput
                     min={0}
@@ -959,9 +967,17 @@ export default function ProductsView({
                     placeholder="0.00"
                     value={formCost}
                     onChange={(_num, raw) => setFormCost(raw)}
+                    onFocus={() => setIsCostFieldFocused(true)}
+                    onBlur={() => setIsCostFieldFocused(false)}
                     className={`w-full text-xs font-mono font-bold rounded-xl px-3 py-2.5 outline-none focus:ring-1 focus:ring-blue-500 border disabled:opacity-50 ${
                       isDark ? 'bg-zinc-950 border-zinc-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                     }`}
+                  />
+                  <UnitCostFloatingTag
+                    unitOfMeasure={formUnitOfMeasure}
+                    unitCost={parseDecimal(formCost)}
+                    show={isCostFieldFocused && formType === 'materia_prima'}
+                    position="top"
                   />
                 </div>
 
