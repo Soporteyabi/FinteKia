@@ -430,7 +430,7 @@ export interface ProductionOrder {
   startDate: string;
   dueDate: string;
   completedDate?: string;
-  status: 'pendiente' | 'proceso' | 'calidad' | 'empaque' | 'completada' | 'rechazada';
+  status: 'pendiente' | 'proceso' | 'calidad' | 'empaque' | 'completada' | 'rechazada' | 'cancelada';
   costEstimates: {
     materials: number;
     labor: number;

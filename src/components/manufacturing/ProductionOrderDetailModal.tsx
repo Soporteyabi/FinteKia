@@ -15,7 +15,9 @@ import {
   AlertCircle,
   TrendingUp,
   DollarSign,
-  Percent
+  Percent,
+  Trash2,
+  Ban
 } from 'lucide-react';
 import { calculatePricingAndProfitability } from '../../utils/pricingEngine';
 
@@ -27,6 +29,7 @@ interface ProductionOrderDetailModalProps {
   onClose: () => void;
   onUpdateOrder: (updated: ProductionOrder) => void;
   onUpdateStatus: (id: string, status: ProductionOrder['status']) => void;
+  onDeleteOrder?: (id: string) => void;
 }
 
 export const ProductionOrderDetailModal: React.FC<ProductionOrderDetailModalProps> = ({
@@ -37,6 +40,7 @@ export const ProductionOrderDetailModal: React.FC<ProductionOrderDetailModalProp
   onClose,
   onUpdateOrder,
   onUpdateStatus,
+  onDeleteOrder,
 }) => {
   const finProd = products.find(p => p.id === bom?.finishedProductId);
   const rawWh = warehouses.find(w => w.id === order.rawWarehouseId);
@@ -328,6 +332,8 @@ export const ProductionOrderDetailModal: React.FC<ProductionOrderDetailModalProp
                   <option value="proceso">En Proceso</option>
                   <option value="calidad">Control Calidad</option>
                   <option value="completada">Completada / Cerrada</option>
+                  <option value="cancelada">🚫 Cancelada (No va)</option>
+                  <option value="rechazada">Rechazada</option>
                 </select>
               </div>
             </div>
@@ -741,9 +747,43 @@ export const ProductionOrderDetailModal: React.FC<ProductionOrderDetailModalProp
         </div>
 
         {/* Footer Actions */}
-        <div className="bg-slate-50 dark:bg-slate-800/60 px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
-          <div className="text-xs text-slate-500">
-            Estado actual: <strong className="uppercase text-slate-800 dark:text-white">{status}</strong>
+        <div className="bg-slate-50 dark:bg-slate-800/60 px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-500 mr-1">
+              Estado: <strong className="uppercase text-slate-800 dark:text-white">{status}</strong>
+            </span>
+            {status !== 'cancelada' && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`¿Deseas marcar la orden ${order.orderNumber} como CANCELADA (no va)?`)) {
+                    setStatus('cancelada');
+                    onUpdateStatus(order.id, 'cancelada');
+                    toast.warning(`Orden ${order.orderNumber} marcada como cancelada.`, "Orden Cancelada");
+                  }
+                }}
+                className="px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs font-bold hover:bg-amber-100 dark:hover:bg-amber-900/40 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                title="Cancelar orden de producción"
+              >
+                <Ban className="w-3.5 h-3.5" />
+                <span>Cancelar Orden (No va)</span>
+              </button>
+            )}
+            {onDeleteOrder && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`¿Estás seguro de ELIMINAR permanentemente la orden ${order.orderNumber}? Esta acción retirará la orden del sistema.`)) {
+                    onDeleteOrder(order.id);
+                  }
+                }}
+                className="px-3 py-1.5 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs font-bold hover:bg-red-100 dark:hover:bg-red-900/40 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                title="Eliminar orden por completo"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Eliminar Orden</span>
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -751,7 +791,7 @@ export const ProductionOrderDetailModal: React.FC<ProductionOrderDetailModalProp
               onClick={onClose}
               className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
             >
-              Cancelar
+              Cerrar
             </button>
             <button
               type="button"

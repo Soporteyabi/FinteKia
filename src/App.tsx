@@ -939,6 +939,15 @@ export default function App() {
     }));
   };
 
+  // Delete Production Order (if cancelled or unwanted)
+  const handleDeleteProductionOrder = (id: string) => {
+    setState((prev) => ({
+      ...prev,
+      productionOrders: prev.productionOrders.filter((o) => o.id !== id)
+    }));
+    toast.success("Orden de producción eliminada correctamente.", "Orden Eliminada");
+  };
+
   // Add Quality Inspection
   const handleAddQualityInspection = (qi: Omit<QualityInspection, 'id'>) => {
     const newInspect: QualityInspection = {
@@ -2225,6 +2234,7 @@ export default function App() {
                     deleteBOM={handleDeleteBOM}
                     addProduct={handleAddProduct}
                     updateProductionOrder={handleUpdateProductionOrder}
+                    deleteProductionOrder={handleDeleteProductionOrder}
                     currentCompanyId={activeCompany.id}
                   />
                 )

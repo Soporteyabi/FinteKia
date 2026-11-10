@@ -26,7 +26,8 @@ import {
   Scale,
   FileText,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Ban
 } from 'lucide-react';
 import { exportManufacturingToExcel } from '../utils/excelExport';
 import { formatCOP, parseDecimal, formatQuantity } from '../utils/currencyUtils';
@@ -46,6 +47,7 @@ interface ManufacturingViewProps {
   addProductionOrder: (po: Omit<ProductionOrder, 'id' | 'orderNumber'>) => void;
   updateOrderStatus: (id: string, newStatus: ProductionOrder['status']) => void;
   updateProductionOrder?: (updated: ProductionOrder) => void;
+  deleteProductionOrder?: (id: string) => void;
   addQualityInspection: (qi: Omit<QualityInspection, 'id'>) => void;
   onOpenKiosk?: () => void;
   addBOM?: (bomData: Omit<BOM, 'id'>) => void;
@@ -64,6 +66,7 @@ export default function ManufacturingView({
   addProductionOrder,
   updateOrderStatus,
   updateProductionOrder,
+  deleteProductionOrder,
   addQualityInspection,
   onOpenKiosk,
   addBOM,
@@ -136,6 +139,30 @@ export default function ManufacturingView({
   const [isBOMModalOpen, setIsBOMModalOpen] = useState(false);
   const [editingBOM, setEditingBOM] = useState<BOM | null>(null);
   const [viewingOrder, setViewingOrder] = useState<ProductionOrder | null>(null);
+
+  // Cancel order handler
+  const handleCancelOrder = (order: ProductionOrder) => {
+    if (order.status === 'cancelada') {
+      toast.info(`La orden ${order.orderNumber} ya se encuentra cancelada.`, "Orden Cancelada");
+      return;
+    }
+    if (window.confirm(`¿Estás seguro de cancelar la orden ${order.orderNumber}? Su estado pasará a "CANCELADA" y no consumirá materiales.`)) {
+      updateOrderStatus(order.id, 'cancelada');
+      toast.warning(`Orden ${order.orderNumber} cancelada correctamente.`, "Orden Cancelada");
+    }
+  };
+
+  // Delete order handler
+  const handleDeleteOrder = (order: ProductionOrder) => {
+    if (window.confirm(`¿Estás seguro de ELIMINAR permanentemente la orden ${order.orderNumber}? Esta acción no se puede deshacer.`)) {
+      if (deleteProductionOrder) {
+        deleteProductionOrder(order.id);
+      } else {
+        updateOrderStatus(order.id, 'cancelada');
+        toast.warning(`Orden ${order.orderNumber} cancelada.`, "Orden Cancelada");
+      }
+    }
+  };
 
   // Auto-select first BOM if none selected and boms exist
   useEffect(() => {
@@ -1360,7 +1387,7 @@ export default function ManufacturingView({
                       <th className="py-2.5 px-3 text-center">Estado</th>
                       <th className="py-2.5 px-3 text-right">Costo Unitario</th>
                       <th className="py-2.5 px-3 text-right">Total Costos</th>
-                      <th className="py-2.5 px-3 text-center">Ficha / Cierre OP</th>
+                      <th className="py-2.5 px-3 text-center">Acciones / Cierre OP</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/5 dark:divide-white/5 text-slate-700">
@@ -1406,6 +1433,7 @@ export default function ManufacturingView({
                                 po.status === 'pendiente' ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400' :
                                 po.status === 'proceso' ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400' :
                                 po.status === 'completada' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400' :
+                                po.status === 'cancelada' ? 'bg-slate-100 text-slate-500 border border-slate-300 dark:bg-slate-800 dark:text-slate-400 line-through' :
                                 'bg-rose-50 text-rose-700 border border-rose-200'
                               }`}>
                                 {po.status}
@@ -1421,15 +1449,38 @@ export default function ManufacturingView({
                               {formatCOP(po.status === 'completada' ? totalReal : totalEst)}
                             </td>
                             <td className="py-3 px-3 text-center">
-                              <button
-                                type="button"
-                                onClick={() => setViewingOrder(po)}
-                                className="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 text-[10px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-all flex items-center gap-1.5 mx-auto cursor-pointer shadow-sm"
-                                title="Abrir ficha técnica, proporciones escaladas y cierre de OP"
-                              >
-                                <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                                <span>Ficha Técnica</span>
-                              </button>
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingOrder(po)}
+                                  className="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 text-[10px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                                  title="Abrir ficha técnica, proporciones escaladas y cierre de OP"
+                                >
+                                  <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                  <span>Ficha</span>
+                                </button>
+
+                                {po.status !== 'cancelada' && po.status !== 'completada' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCancelOrder(po)}
+                                    className="px-2 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 text-[10px] font-bold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+                                    title="Cancelar orden si no se va a producir"
+                                  >
+                                    <Ban className="w-3 h-3 text-amber-600" />
+                                    <span className="hidden sm:inline">Cancelar</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteOrder(po)}
+                                  className="p-1.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 border border-transparent hover:border-red-200 dark:hover:border-red-900 transition-all cursor-pointer"
+                                  title="Eliminar permanentemente esta orden"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1636,6 +1687,14 @@ export default function ManufacturingView({
             setViewingOrder(null);
           }}
           onUpdateStatus={updateOrderStatus}
+          onDeleteOrder={(orderId) => {
+            if (deleteProductionOrder) {
+              deleteProductionOrder(orderId);
+            } else {
+              updateOrderStatus(orderId, 'cancelada');
+            }
+            setViewingOrder(null);
+          }}
         />
       )}
 
