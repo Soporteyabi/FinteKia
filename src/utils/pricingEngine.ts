@@ -157,3 +157,8 @@ export function calculatePricingAndProfitability(input: PricingInput): PricingOu
     }
   };
 }
+
+/**
+ * Alias explícito solicitado: calculatePricingLogic
+ */
+export const calculatePricingLogic = calculatePricingAndProfitability;

@@ -34,6 +34,7 @@ import { DecimalInput } from './common/DecimalInput';
 import { BOMModal } from './manufacturing/BOMModal';
 import { ProductionOrderDetailModal } from './manufacturing/ProductionOrderDetailModal';
 import { UnitCostFloatingTag } from './common/UnitCostFloatingTag';
+import { PricingCalculator } from './pricing/PricingCalculator';
 
 interface ManufacturingViewProps {
   boms: BOM[];
@@ -70,7 +71,7 @@ export default function ManufacturingView({
   addProduct,
   currentCompanyId = 'co-1'
 }: ManufacturingViewProps) {
-  const [activeTab, setActiveTab] = useState<'orders' | 'recipes'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'recipes' | 'pricing'>('orders');
   
   // Clean default warehouses (Bodega de Materia Prima / Bodega de Despachos)
   const defaultRawWh = warehouses.find(w => w.id === 'wh-1')?.id || warehouses[0]?.id || 'wh-1';
@@ -488,6 +489,22 @@ export default function ManufacturingView({
               {boms.length}
             </span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('pricing')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'pricing'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <span>Fijación de Precios & Utilidades</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 font-bold">
+              Excel
+            </span>
+          </button>
         </div>
 
         {/* Global Action Buttons */}
@@ -691,6 +708,15 @@ export default function ManufacturingView({
             )}
           </div>
 
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* TAB 3: MÓDULO DE FIJACIÓN DE PRECIOS Y UTILIDADES        */}
+      {/* ======================================================== */}
+      {activeTab === 'pricing' && (
+        <div className="animate-fade-in">
+          <PricingCalculator />
         </div>
       )}
 
