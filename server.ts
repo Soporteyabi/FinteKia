@@ -8,6 +8,7 @@ import { requireAuth, AuthRequest } from "./src/middleware/auth.ts";
 import { getOrCreateUser, getUsers } from "./src/db/users.ts";
 import { getErpData, saveErpData, getDbInspectorData } from "./src/db/erp.ts";
 import { calculatePricingAndProfitability } from "./src/utils/pricingEngine.ts";
+import { calculateKohComercial } from "./src/utils/saponificationEngine.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -789,6 +790,41 @@ async function startServer() {
     } catch (err: any) {
       console.error("Error en /api/pricing/calculate:", err);
       res.status(500).json({ error: err.message || "Error al calcular fijación de precios y utilidades" });
+    }
+  });
+
+  // --- MÓDULO DE FORMULACIÓN QUÍMICA (CÁLCULO AUTOMÁTICO DE KOH COMERCIAL Y SUPERFAT) ---
+  app.post("/api/formulation/calculate-koh", (req, res) => {
+    try {
+      const {
+        cantidad_aceite_g,
+        indice_sap,
+        pureza_koh,
+        superfat_porcentaje,
+        categoria_producto
+      } = req.body;
+
+      if (cantidad_aceite_g === undefined || indice_sap === undefined) {
+        return res.status(400).json({
+          error: "Faltan variables requeridas: cantidad_aceite_g e indice_sap."
+        });
+      }
+
+      const result = calculateKohComercial({
+        cantidad_aceite_g: Number(cantidad_aceite_g),
+        indice_sap: Number(indice_sap),
+        pureza_koh: pureza_koh !== undefined ? Number(pureza_koh) : 0.90,
+        superfat_porcentaje: superfat_porcentaje !== undefined ? Number(superfat_porcentaje) : undefined,
+        categoria_producto
+      });
+
+      res.json({
+        success: true,
+        ...result
+      });
+    } catch (err: any) {
+      console.error("Error en /api/formulation/calculate-koh:", err);
+      res.status(500).json({ error: err.message || "Error al calcular formulación de KOH" });
     }
   });
 
