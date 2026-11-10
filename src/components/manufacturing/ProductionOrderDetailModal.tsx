@@ -300,6 +300,12 @@ export const ProductionOrderDetailModal: React.FC<ProductionOrderDetailModalProp
                   {scaleFactor.toFixed(3)}
                 </span>
               </div>
+              <div className="flex justify-between items-center pt-0.5">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Control Superfat:</span>
+                <span className="font-mono font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 text-[10.5px]">
+                  0.0% (Hogar / Lavaloza)
+                </span>
+              </div>
             </div>
 
             <div className="space-y-1.5">

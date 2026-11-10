@@ -35,6 +35,7 @@ import { BOMModal } from './manufacturing/BOMModal';
 import { ProductionOrderDetailModal } from './manufacturing/ProductionOrderDetailModal';
 import { UnitCostFloatingTag } from './common/UnitCostFloatingTag';
 import { PricingCalculator } from './pricing/PricingCalculator';
+import { ChemicalFormulationCalculator } from './manufacturing/ChemicalFormulationCalculator';
 
 interface ManufacturingViewProps {
   boms: BOM[];
@@ -71,7 +72,7 @@ export default function ManufacturingView({
   addProduct,
   currentCompanyId = 'co-1'
 }: ManufacturingViewProps) {
-  const [activeTab, setActiveTab] = useState<'orders' | 'recipes' | 'pricing'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'recipes' | 'formulation' | 'pricing'>('orders');
   
   // Clean default warehouses (Bodega de Materia Prima / Bodega de Despachos)
   const defaultRawWh = warehouses.find(w => w.id === 'wh-1')?.id || warehouses[0]?.id || 'wh-1';
@@ -492,6 +493,22 @@ export default function ManufacturingView({
 
           <button
             type="button"
+            onClick={() => setActiveTab('formulation')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'formulation'
+                ? 'bg-amber-600 text-white shadow-sm'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <FlaskConical className="w-4 h-4 text-amber-400" />
+            <span>Formulación Química (Superfat & KOH)</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold">
+              0.0% / 3.0%
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('pricing')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'pricing'
@@ -721,6 +738,15 @@ export default function ManufacturingView({
       )}
 
       {/* ======================================================== */}
+      {/* TAB 4: MÓDULO DE FORMULACIÓN QUÍMICA (SUPERFAT & KOH)     */}
+      {/* ======================================================== */}
+      {activeTab === 'formulation' && (
+        <div className="animate-fade-in">
+          <ChemicalFormulationCalculator />
+        </div>
+      )}
+
+      {/* ======================================================== */}
       {/* TAB 2: ÓRDENES DE FABRICACIÓN (LANZADOR + REGISTRO OP)   */}
       {/* ======================================================== */}
       {activeTab === 'orders' && (
@@ -812,6 +838,32 @@ export default function ManufacturingView({
                   </div>
                 </div>
               )}
+
+              {/* Superfat Chemical Control Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-xs">
+                <div className="flex items-center gap-2">
+                  <FlaskConical className="w-4 h-4 text-amber-500 shrink-0" />
+                  <div>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      Variable de Control Superfat:
+                    </span>
+                    <span className="text-slate-500 text-[11px] ml-1.5 font-medium">
+                      Hogar (0.0% s/ ropa/vajilla) · Cuidado Personal (3.0% humectante)
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('formulation')}
+                    className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all shadow-xs"
+                    title="Abrir la calculadora química estequiométrica de Superfat y KOH"
+                  >
+                    <span>Abrir Simulador de Superfat</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
 
               {/* Compact Form Grid: 2 Clean Rows */}
               <div className="space-y-2.5">
