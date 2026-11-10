@@ -12,8 +12,12 @@ import {
   Clock, 
   Scale, 
   FileSpreadsheet,
-  AlertCircle
+  AlertCircle,
+  TrendingUp,
+  DollarSign,
+  Percent
 } from 'lucide-react';
+import { calculatePricingAndProfitability } from '../../utils/pricingEngine';
 
 interface ProductionOrderDetailModalProps {
   order: ProductionOrder;
@@ -47,6 +51,8 @@ export const ProductionOrderDetailModal: React.FC<ProductionOrderDetailModalProp
   const [status, setStatus] = useState<ProductionOrder['status']>(order.status);
   const [responsible, setResponsible] = useState<string>(order.responsible || 'WASHINGTON');
   const [lotNumber, setLotNumber] = useState<string>(order.generatedLot || 'L-202610-01');
+  const [precioVentaComercial, setPrecioVentaComercial] = useState<number>(6450.0);
+  const [margenEsperadoPct, setMargenEsperadoPct] = useState<number>(46.0);
 
   // Real items overrides (e.g. if entered in real testing)
   const [realValues, setRealValues] = useState<Record<string, number>>(() => {
@@ -153,6 +159,17 @@ export const ProductionOrderDetailModal: React.FC<ProductionOrderDetailModalProp
   const yieldPercentage = estimatedLiters > 0 ? ((actualProducedQty / estimatedLiters) * 100) : 100;
   const wasteLiters = Math.max(0, estimatedLiters - actualProducedQty);
   const costPerLiter = actualProducedQty > 0 ? (totalLotCost / actualProducedQty) : (estimatedLiters > 0 ? (totalLotCost / estimatedLiters) : 0);
+
+  // Módulo de Fijación de Precios y Utilidades (Pricing & Margen Comercial del Lote)
+  const batchUnitsCount = actualProducedQty > 0 ? actualProducedQty : (estimatedLiters > 0 ? estimatedLiters : 15);
+  const unitProductionCost = costPerLiter > 0 ? costPerLiter : 4397.0;
+
+  const pricingResult = calculatePricingAndProfitability({
+    costo_unitario_produccion: unitProductionCost,
+    unidades_lote: batchUnitsCount,
+    precio_venta_comercial: precioVentaComercial,
+    margen_esperado_porcentaje: margenEsperadoPct
+  });
 
   const handleSave = () => {
     const updated: ProductionOrder = {
@@ -556,6 +573,162 @@ export const ProductionOrderDetailModal: React.FC<ProductionOrderDetailModalProp
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* Section 4: Módulo de Fijación de Precios y Utilidades (Pricing & Margen Comercial del Lote) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                4. Fijación de Precios y Utilidades (Pricing & Rentabilidad del Lote)
+              </span>
+              <span className="text-[11px] font-mono font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                <TrendingUp className="w-3.5 h-3.5" />
+                Fórmulas Validadas Excel
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50/50 to-indigo-50/40 dark:from-slate-900 dark:to-slate-950 border border-blue-200/80 dark:border-blue-900/50 space-y-4">
+              {/* Input row: Margen Esperado & Precio Comercial Real */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                    Precio Costo x Und
+                  </span>
+                  <div className="font-mono font-bold text-sm text-slate-800 dark:text-slate-100">
+                    {formatCOP(pricingResult.costo_unitario_produccion)}
+                  </div>
+                  <span className="text-[9.5px] text-slate-400">Costo unit. de producción</span>
+                </div>
+
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                    Unidades Totales del Lote
+                  </span>
+                  <div className="font-mono font-bold text-sm text-slate-800 dark:text-slate-100">
+                    {pricingResult.unidades_lote} unds
+                  </div>
+                  <span className="text-[9.5px] text-slate-400">Volumen del lote actual</span>
+                </div>
+
+                <div className="p-3 bg-blue-50/80 dark:bg-blue-950/40 rounded-xl border border-blue-300 dark:border-blue-800 shadow-xs">
+                  <label className="text-[10px] font-bold text-blue-800 dark:text-blue-300 uppercase block mb-1">
+                    Margen Esperado (%)
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      step="any"
+                      value={margenEsperadoPct}
+                      onChange={(e) => setMargenEsperadoPct(parseFloat(e.target.value) || 0)}
+                      className="w-full text-sm font-mono font-bold bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-700 rounded-lg px-2 py-1 text-blue-950 dark:text-blue-200"
+                    />
+                    <span className="font-bold text-blue-700 dark:text-blue-300 text-xs">%</span>
+                  </div>
+                  <span className="text-[9.5px] text-blue-600 dark:text-blue-400 block mt-1">
+                    Sugerido: {pricingResult.formato.precio_venta_sugerido}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-xl border border-emerald-300 dark:border-emerald-800 shadow-xs">
+                  <label className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase block mb-1">
+                    Precio Venta Comercial ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={precioVentaComercial}
+                    onChange={(e) => setPrecioVentaComercial(parseFloat(e.target.value) || 0)}
+                    className="w-full text-sm font-mono font-bold bg-white dark:bg-slate-900 border border-emerald-400 dark:border-emerald-700 rounded-lg px-2 py-1 text-emerald-950 dark:text-emerald-200"
+                  />
+                  <span className="text-[9.5px] text-emerald-600 dark:text-emerald-400 block mt-1">
+                    Precio real definido al cliente
+                  </span>
+                </div>
+              </div>
+
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold block">Costo Total Lote</span>
+                  <div className="text-xs font-mono font-bold text-slate-900 dark:text-white mt-0.5">
+                    {pricingResult.formato.costo_total_lote}
+                  </div>
+                  <span className="text-[9px] text-slate-400 font-mono">Costo Unit × Unds</span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold block">Utilidad Bruta Lote</span>
+                  <div className="text-xs font-mono font-bold text-slate-900 dark:text-white mt-0.5">
+                    {pricingResult.formato.utilidad_bruta_lote}
+                  </div>
+                  <span className="text-[9px] text-slate-400 font-mono">Precio Comercial × Unds</span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold block">Utilidad Neta x Und</span>
+                  <div className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    {pricingResult.formato.utilidad_neta_unitaria}
+                  </div>
+                  <span className="text-[9px] text-slate-400 font-mono">Precio Com. - Costo Unit</span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800">
+                  <span className="text-[10px] text-emerald-800 dark:text-emerald-300 uppercase font-bold block">Utilidad Neta del Lote</span>
+                  <div className="text-sm font-mono font-black text-emerald-700 dark:text-emerald-300 mt-0.5">
+                    {pricingResult.formato.utilidad_neta_lote}
+                  </div>
+                  <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-mono">Util. Bruta - Costo Total</span>
+                </div>
+              </div>
+
+              {/* Block of Percentage Commercial Indicators */}
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 p-3 space-y-2">
+                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                  Bloque de Indicadores Porcentuales Comerciales:
+                </span>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/50">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-slate-500">Margen Costo:</span>
+                      <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
+                        {pricingResult.formato.margen_costo_porcentaje}
+                      </span>
+                    </div>
+                    <span className="text-[8.5px] text-slate-400 block font-mono mt-0.5">(Costo / Precio Com.) × 100</span>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/50">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-slate-500">Base Comercial:</span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-white">
+                        {pricingResult.formato.porcentaje_precio_comercial_base}
+                      </span>
+                    </div>
+                    <span className="text-[8.5px] text-slate-400 block font-mono mt-0.5">Siempre 100.00%</span>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-800/40">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-blue-700 dark:text-blue-300">Margen Sugerido:</span>
+                      <span className="font-mono font-bold text-blue-800 dark:text-blue-200">
+                        {pricingResult.formato.margen_sugerido_porcentaje}
+                      </span>
+                    </div>
+                    <span className="text-[8.5px] text-blue-500 dark:text-blue-400 block font-mono mt-0.5">(Sugerido / Comercial) × 100</span>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold">Margen Real:</span>
+                      <span className="font-mono font-bold text-emerald-800 dark:text-emerald-200">
+                        {pricingResult.formato.margen_utilidad_real_porcentaje}
+                      </span>
+                    </div>
+                    <span className="text-[8.5px] text-emerald-600 dark:text-emerald-400 block font-mono mt-0.5">(Utilidad Neta / Comercial) × 100</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

@@ -7,6 +7,7 @@ import { GoogleGenAI } from "@google/genai";
 import { requireAuth, AuthRequest } from "./src/middleware/auth.ts";
 import { getOrCreateUser, getUsers } from "./src/db/users.ts";
 import { getErpData, saveErpData, getDbInspectorData } from "./src/db/erp.ts";
+import { calculatePricingAndProfitability } from "./src/utils/pricingEngine.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -755,6 +756,39 @@ async function startServer() {
     } catch (err: any) {
       console.error("Error en /api/manufacturing/calculate-cost:", err);
       res.status(500).json({ error: err.message || "Error al calcular costos de manufactura" });
+    }
+  });
+
+  // --- MÓDULO DE FIJACIÓN DE PRECIOS Y UTILIDADES (PRICING ENGINE) ---
+  app.post("/api/pricing/calculate", (req, res) => {
+    try {
+      const {
+        costo_unitario_produccion,
+        unidades_lote,
+        precio_venta_comercial,
+        margen_esperado_porcentaje
+      } = req.body;
+
+      if (costo_unitario_produccion === undefined || unidades_lote === undefined || precio_venta_comercial === undefined) {
+        return res.status(400).json({
+          error: "Faltan variables requeridas: costo_unitario_produccion, unidades_lote, precio_venta_comercial."
+        });
+      }
+
+      const result = calculatePricingAndProfitability({
+        costo_unitario_produccion: Number(costo_unitario_produccion),
+        unidades_lote: Number(unidades_lote),
+        precio_venta_comercial: Number(precio_venta_comercial),
+        margen_esperado_porcentaje: Number(margen_esperado_porcentaje ?? 46)
+      });
+
+      res.json({
+        success: true,
+        ...result
+      });
+    } catch (err: any) {
+      console.error("Error en /api/pricing/calculate:", err);
+      res.status(500).json({ error: err.message || "Error al calcular fijación de precios y utilidades" });
     }
   });
 
